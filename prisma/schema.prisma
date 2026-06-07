@@ -1,0 +1,461 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id             String             @id
+  name           String
+  email          String             @unique
+  password       String
+  role           String // 'customer' | 'employee' | 'manager' | 'director' | 'accountant' | 'cskh' | 'cashier' | 'stocker'
+  branch         String? // 'Chi nhánh Quận 1', 'Chi nhánh Thảo Điền'
+  avatar         String?
+  salary         Float? // Basic monthly salary in VND
+  totalSpent     Float              @default(0) // Lifetime spent in VND
+  phone          String?
+  commissionRate Float?             @default(0.0) // Custom sales commission rate (e.g. 0.03 for 3%)
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  
+  attendanceLogs  AttendanceLog[]
+  leaveRequests   LeaveRequest[]
+  salaryRequests  SalaryRequest[]
+  dailyReports    DailyReport[]
+  payrollRecords  PayrollRecord[]
+  shiftRequests   ShiftRequest[]
+  reservations    OfficeReservation[]
+  tasks           WorkspaceTask[]
+  shiftSwapsFrom  ShiftSwapRequest[] @relation("ShiftSwapFrom")
+  shiftSwapsTo    ShiftSwapRequest[] @relation("ShiftSwapTo")
+}
+
+model Branch {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  address   String?
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id          String           @id
+  name        String
+  slug        String           @unique
+  category    String
+  price       Float
+  oldPrice    Float?
+  description String
+  images      String // JSON serialized array: '["url1", "url2"]'
+  rating      Float            @default(0)
+  reviews     Int              @default(0)
+  has3D       Boolean          @default(false)
+  modelType   String? // 'bag' | 'glasses' | 'dress' | 'default'
+  badges      String? // comma-separated e.g. 'New,Sale'
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  
+  variants           ProductVariant[]
+  restockRecords     RestockRecord[]
+  inventoryTransfers InventoryTransfer[]
+  damagedGoods       DamagedGood[]
+}
+
+model ProductVariant {
+  id        String @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku       String @unique
+  colorName String
+  colorHex  String
+  size      String
+  
+  inventoryItems       InventoryItem[]
+  orderItems           OrderItem[]
+  inventoryTransactions InventoryTransaction[]
+}
+
+model InventoryItem {
+  id         String         @id @default(uuid())
+  variantId  String
+  variant    ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  branchName String // 'Chi nhánh Quận 1', 'Chi nhánh Thảo Điền'
+  quantity   Int            @default(0)
+
+  @@unique([variantId, branchName])
+}
+
+model InventoryTransaction {
+  id          String         @id @default(uuid())
+  variantId   String
+  variant     ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  branchName  String
+  quantity    Int // positive for restock/return, negative for sales/transfer out
+  type        String // 'sale' | 'restock' | 'transfer_in' | 'transfer_out' | 'return' | 'damaged' | 'adjustment'
+  reason      String?
+  createdById String? // User who did the transaction
+  createdAt   DateTime       @default(now())
+}
+
+model Order {
+  id              String   @id
+  customerName    String
+  customerPhone   String
+  customerEmail   String
+  customerAddress String
+  customerNotes   String?
+  subtotal        Float
+  discount        Float
+  shipping        Float
+  total           Float
+  paymentMethod   String // 'cod' | 'transfer' | 'card'
+  branchName      String // 'Chi nhánh Quận 1', 'Chi nhánh Thảo Điền'
+  status          String // 'pending' | 'shipping' | 'completed' | 'cancelled'
+  createdAt       DateTime @default(now())
+  
+  items   OrderItem[]
+  payment Payment?
+}
+
+model OrderItem {
+  id          String         @id @default(uuid())
+  orderId     String
+  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId   String
+  variant     ProductVariant @relation(fields: [variantId], references: [id])
+  productName String
+  price       Float
+  quantity    Int
+  colorName   String
+  colorHex    String
+  size        String
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  orderId       String   @unique
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount        Float
+  method        String // 'cod' | 'transfer' | 'card'
+  status        String // 'pending' | 'success' | 'failed'
+  transactionId String?
+  createdAt     DateTime @default(now())
+}
+
+model Promotion {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  discountType  String // 'percent' | 'fixed' | 'freeship'
+  value         Float
+  minOrderValue Float    @default(0)
+  isActive      Boolean  @default(true)
+  description   String?
+  createdAt     DateTime @default(now())
+}
+
+model AttendanceLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  role      String
+  branch    String
+  date      String // YYYY-MM-DD
+  timeIn    String // HH:MM:SS
+  timeOut   String? // HH:MM:SS
+  createdAt DateTime @default(now())
+}
+
+model LeaveRequest {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  role           String
+  branch         String
+  startDate      String // YYYY-MM-DD
+  endDate        String // YYYY-MM-DD
+  reason         String
+  status         String // 'pending' | 'approved' | 'rejected'
+  managerComment String?
+  createdAt      DateTime @default(now())
+}
+
+model SalaryRequest {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  role            String
+  branch          String
+  currentSalary   Float
+  proposedSalary  Float
+  reason          String
+  status          String // 'pending' | 'approved' | 'rejected'
+  directorComment String?
+  createdAt       DateTime @default(now())
+}
+
+model DailyReport {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  role       String
+  branch     String
+  reportDate String // YYYY-MM-DD
+  title      String
+  content    String
+  status     String // 'unread' | 'read'
+  readAt     String?
+  createdAt  DateTime @default(now())
+}
+
+model PayrollRecord {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  role        String
+  branch      String?
+  salary      Float
+  month       String // YYYY-MM
+  paymentDate String? // YYYY-MM-DD HH:MM:SS
+  status      String // 'paid' | 'pending'
+  createdAt   DateTime @default(now())
+}
+
+model ExpenseItem {
+  id         String   @id @default(uuid())
+  title      String
+  amount     Float
+  category   String // 'marketing' | 'operations' | 'equipment' | 'other'
+  date       String // YYYY-MM-DD
+  branchName String?
+  createdAt  DateTime @default(now())
+}
+
+model RestockRecord {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productName String
+  branch      String
+  amount      Int
+  cost        Float
+  status      String // 'pending' | 'approved' | 'rejected'
+  size        String?
+  color       String?
+  createdAt   DateTime @default(now())
+}
+
+model ShiftRequest {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  role           String
+  branch         String
+  date           String // YYYY-MM-DD
+  shiftType      String // 'morning' | 'afternoon' | 'evening'
+  status         String // 'pending' | 'approved' | 'rejected'
+  managerComment String?
+  createdAt      DateTime @default(now())
+}
+
+model Announcement {
+  id            String   @id @default(uuid())
+  title         String
+  content       String
+  recipientType String // 'all' | 'accountant' | 'branch_q1' | 'branch_td'
+  senderName    String
+  createdAt     DateTime @default(now())
+}
+
+model ShiftSwapRequest {
+  id             String   @id @default(uuid())
+  fromUserId     String
+  fromUser       User     @relation("ShiftSwapFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  fromUserName   String
+  fromShiftId    String
+  fromShiftDate  String
+  fromShiftType  String
+  toUserId       String
+  toUser         User     @relation("ShiftSwapTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  toUserName     String
+  toShiftId      String
+  toShiftDate    String
+  toShiftType    String
+  branch         String
+  status         String // 'pending' | 'approved' | 'rejected'
+  createdAt      DateTime @default(now())
+}
+
+model TaxRecord {
+  id             String   @id @default(uuid())
+  period         String // YYYY-MM
+  revenue        Float
+  cogs           Float
+  expenses       Float
+  salaries       Float
+  restockCost    Float
+  ebt            Float
+  citRate        Float
+  citAmount      Float
+  pitAmount      Float
+  netProfit      Float
+  settledAt      String
+  accountantName String
+  createdAt      DateTime @default(now())
+}
+
+model OfficeReservation {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userName   String
+  type       String // 'desk' | 'room_a' | 'room_b'
+  resourceId String
+  date       String // YYYY-MM-DD
+  slot       String // 'morning' | 'afternoon' | 'full'
+  createdAt  DateTime @default(now())
+}
+
+model WorkspaceTask {
+  id           String   @id @default(uuid())
+  title        String
+  description  String
+  column       String // 'todo' | 'in_progress' | 'review' | 'done'
+  priority     String // 'low' | 'medium' | 'high'
+  assigneeId   String
+  assignee     User     @relation(fields: [assigneeId], references: [id], onDelete: Cascade)
+  assigneeName String
+  dueDate      String
+  createdAt    DateTime @default(now())
+}
+
+model WorkspacePost {
+  id           String   @id @default(uuid())
+  authorName   String
+  authorAvatar String?
+  content      String
+  likes        Int      @default(0)
+  hearts       Int      @default(0)
+  likedBy      String   @default("[]") // JSON string of userIds
+  heartedBy    String   @default("[]") // JSON string of userIds
+  type         String // 'general' | 'birthday' | 'announcement'
+  createdAt    DateTime @default(now())
+  
+  comments WorkspaceComment[]
+}
+
+model WorkspaceComment {
+  id         String        @id @default(uuid())
+  postId     String
+  post       WorkspacePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorName String
+  content    String
+  createdAt  DateTime      @default(now())
+}
+
+model WikiDoc {
+  id          String   @id @default(uuid())
+  title       String
+  category    String // 'hr' | 'operations' | 'benefits'
+  content     String
+  lastUpdated String
+  createdAt   DateTime @default(now())
+}
+
+model CRMClient {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String
+  totalSpent Float    @default(0)
+  points    Int      @default(0)
+  tier      String // 'Regular' | 'Gold' | 'Platinum' | 'VVIP'
+  createdAt DateTime @default(now())
+}
+
+model CSKHTicket {
+  id          String   @id @default(uuid())
+  customerName String
+  category    String // 'Đổi size' | 'Trả hàng lỗi' | 'Khiếu nại dịch vụ'
+  description String
+  status      String // 'pending' | 'resolved' | 'closed'
+  createdAt   DateTime @default(now())
+}
+
+model InventoryTransfer {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productName String
+  size        String
+  color       String
+  fromBranch  String
+  toBranch    String
+  quantity    Int
+  status      String // 'shipping' | 'received'
+  createdAt   DateTime @default(now())
+}
+
+model DamagedGood {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productName String
+  size        String
+  color       String
+  branch      String
+  quantity    Int
+  issue       String
+  createdAt   DateTime @default(now())
+}
+
+model CashReconciliation {
+  id           String   @id @default(uuid())
+  date         String
+  branch       String
+  cashierName  String
+  expectedCash Float
+  actualCash   Float
+  discrepancy  Float
+  notes        String?
+  status       String // 'pending' | 'approved'
+  createdAt    DateTime @default(now())
+}
+
+model ChatSession {
+  id            String        @id @default(uuid())
+  customerName  String
+  customerEmail String        @unique
+  lastMessage   String?
+  status        String        @default("waiting") // 'waiting' | 'active' | 'closed'
+  cskhName      String?
+  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime      @default(now())
+  
+  messages ChatMessage[]
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender    String // 'customer' | 'staff'
+  content   String
+  createdAt DateTime    @default(now())
+}
+
+model AuditLog {
+  id              String   @id @default(uuid())
+  action          String
+  details         String
+  performedById   String?
+  performedByName String?
+  createdAt       DateTime @default(now())
+}
