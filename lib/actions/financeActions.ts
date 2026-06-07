@@ -8,7 +8,7 @@ export async function getPayrollRecordsAction() {
       orderBy: { month: 'desc' }
     });
     
-    return records.map(r => ({
+    return (records as any[]).map((r: any) => ({
       id: r.id,
       userId: r.userId,
       name: r.name,
@@ -110,7 +110,7 @@ export async function getExpensesListAction() {
       orderBy: { date: 'desc' }
     });
 
-    return list.map(e => ({
+    return (list as any[]).map((e: any) => ({
       id: e.id,
       title: e.title,
       amount: e.amount,

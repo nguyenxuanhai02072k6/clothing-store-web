@@ -104,7 +104,7 @@ export async function getRestockRecordsAction() {
       orderBy: { createdAt: 'desc' }
     });
     
-    return records.map(r => ({
+    return (records as any[]).map((r: any) => ({
       id: r.id,
       productId: r.productId,
       productName: r.productName,

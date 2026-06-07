@@ -309,9 +309,9 @@ export async function updateGlobalProductDetailsAction(
         include: { variants: true }
       });
       
-      const currentVariants = product?.variants || [];
-      const colorsList = colors || Array.from(new Map(currentVariants.map(v => [v.colorName, v.colorHex])).entries()).map(([name, hex]) => ({ name, hex }));
-      const sizesList = sizes || Array.from(new Set(currentVariants.map(v => v.size)));
+      const currentVariants = (product?.variants || []) as any[];
+      const colorsList = colors || Array.from(new Map(currentVariants.map((v: any) => [v.colorName, v.colorHex])).entries()).map(([name, hex]) => ({ name, hex }));
+      const sizesList = sizes || Array.from(new Set(currentVariants.map((v: any) => v.size)));
       
       // We will check which variants are missing and add them
       for (const color of colorsList) {

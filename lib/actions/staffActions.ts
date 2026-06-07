@@ -78,7 +78,7 @@ export async function getLeaveRequestsAction() {
     const list = await prisma.leaveRequest.findMany({
       orderBy: { createdAt: 'desc' }
     });
-    return list.map(r => ({
+    return (list as any[]).map((r: any) => ({
       ...r,
       createdAt: r.createdAt.toISOString()
     }));
@@ -158,7 +158,7 @@ export async function getSalaryRequestsAction() {
     const list = await prisma.salaryRequest.findMany({
       orderBy: { createdAt: 'desc' }
     });
-    return list.map(r => ({
+    return (list as any[]).map((r: any) => ({
       ...r,
       createdAt: r.createdAt.toISOString()
     }));
@@ -259,7 +259,7 @@ export async function getDailyReportsAction() {
     const list = await prisma.dailyReport.findMany({
       orderBy: { createdAt: 'desc' }
     });
-    return list.map(r => ({
+    return (list as any[]).map((r: any) => ({
       ...r,
       readAt: r.readAt || undefined,
       createdAt: r.createdAt.toISOString()
@@ -325,7 +325,7 @@ export async function getShiftRequestsAction() {
     const list = await prisma.shiftRequest.findMany({
       orderBy: { createdAt: 'desc' }
     });
-    return list.map(r => ({
+    return (list as any[]).map((r: any) => ({
       ...r,
       createdAt: r.createdAt.toISOString(),
       shiftType: r.shiftType as 'morning' | 'afternoon' | 'evening',
@@ -405,7 +405,7 @@ export async function getAnnouncementsAction() {
     const list = await prisma.announcement.findMany({
       orderBy: { createdAt: 'desc' }
     });
-    return list.map(a => ({
+    return (list as any[]).map((a: any) => ({
       ...a,
       createdAt: a.createdAt.toISOString()
     }));
@@ -441,7 +441,7 @@ export async function getShiftSwapsAction() {
     const list = await prisma.shiftSwapRequest.findMany({
       orderBy: { createdAt: 'desc' }
     });
-    return list.map(s => ({
+    return (list as any[]).map((s: any) => ({
       id: s.id,
       fromUserId: s.fromUserId,
       fromUserName: s.fromUserName,
@@ -553,7 +553,7 @@ export async function getReservationsAction() {
     const list = await prisma.officeReservation.findMany({
       orderBy: { createdAt: 'desc' }
     });
-    return list.map(r => ({
+    return (list as any[]).map((r: any) => ({
       ...r,
       createdAt: r.createdAt.toISOString(),
       slot: r.slot as 'morning' | 'afternoon' | 'full',
@@ -628,7 +628,7 @@ export async function getWorkspaceTasksAction() {
     const list = await prisma.workspaceTask.findMany({
       orderBy: { createdAt: 'desc' }
     });
-    return list.map(t => ({
+    return (list as any[]).map((t: any) => ({
       ...t,
       createdAt: t.createdAt.toISOString(),
       column: t.column as 'todo' | 'in_progress' | 'review' | 'done',
@@ -711,7 +711,7 @@ export async function getWorkspacePostsAction() {
       orderBy: { createdAt: 'desc' }
     });
 
-    return list.map(p => ({
+    return (list as any[]).map((p: any) => ({
       id: p.id,
       authorName: p.authorName,
       authorAvatar: p.authorAvatar || undefined,
@@ -722,7 +722,7 @@ export async function getWorkspacePostsAction() {
       heartedBy: JSON.parse(p.heartedBy),
       type: p.type as 'general' | 'birthday' | 'announcement',
       createdAt: p.createdAt.toISOString(),
-      comments: p.comments.map(c => ({
+      comments: (p.comments as any[]).map((c: any) => ({
         id: c.id,
         authorName: c.authorName,
         content: c.content,
@@ -901,7 +901,7 @@ export async function getAuditLogsAction() {
       take: 100 // Last 100 entries
     });
 
-    return logs.map(l => ({
+    return (logs as any[]).map((l: any) => ({
       id: l.id,
       action: l.action,
       details: l.details,
