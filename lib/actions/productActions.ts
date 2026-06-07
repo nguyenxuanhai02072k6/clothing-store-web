@@ -77,7 +77,7 @@ export async function getProductsAction() {
       }
     });
     
-    return dbProds.map(mapProduct);
+    return dbProds.map((p: any) => mapProduct(p));
   } catch (error) {
     console.error('getProductsAction error:', error);
     return [];
@@ -320,7 +320,7 @@ export async function updateGlobalProductDetailsAction(
           const cleanSize = size.toLowerCase();
           const sku = `${slug}-${cleanColorName}-${cleanSize}`;
           
-          const exists = currentVariants.some(v => v.sku === sku);
+          const exists = currentVariants.some((v: any) => v.sku === sku);
           if (!exists) {
             const variant = await prisma.productVariant.create({
               data: {

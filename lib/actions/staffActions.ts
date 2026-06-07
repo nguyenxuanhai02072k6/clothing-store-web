@@ -203,7 +203,7 @@ export async function approveSalaryRequestAction(requestId: string, directorComm
     const request = await prisma.salaryRequest.findUnique({ where: { id: requestId } });
     if (!request) return false;
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // Approve request
       await tx.salaryRequest.update({
         where: { id: requestId },

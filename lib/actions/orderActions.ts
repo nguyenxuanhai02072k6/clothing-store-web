@@ -115,7 +115,7 @@ export async function createOrderAction(rawInput: any) {
     const orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
     
     // Run the checkout process inside a database transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       let subtotal = 0;
       const orderItemsToCreate = [];
       const inventoryUpdates = [];
@@ -349,7 +349,7 @@ export async function cancelOrderAction(orderId: string, performedById?: string,
       return { success: false, message: 'Đơn hàng đã hoàn thành, không thể hủy' };
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // 1. Update Order Status
       await tx.order.update({
         where: { id: orderId },
@@ -436,7 +436,7 @@ export async function updateOrderStatusAction(
     });
     if (!order) return { success: false, message: 'Đơn hàng không tồn tại' };
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       await tx.order.update({
         where: { id: orderId },
         data: { status }
