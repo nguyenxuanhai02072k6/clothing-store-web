@@ -12,7 +12,7 @@ export async function getBranchStockAction() {
 
     const stockMap: Record<string, Record<string, number>> = {};
     
-    items.forEach(item => {
+    (items as any[]).forEach((item: any) => {
       const prodId = item.variant.productId;
       if (!stockMap[prodId]) {
         stockMap[prodId] = {
@@ -40,7 +40,7 @@ export async function getBranchSizeStockAction() {
 
     const sizeStockMap: Record<string, Record<string, Record<string, number>>> = {};
 
-    items.forEach(item => {
+    (items as any[]).forEach((item: any) => {
       const prodId = item.variant.productId;
       const branch = item.branchName;
       const size = item.variant.size;
@@ -74,7 +74,7 @@ export async function getBranchColorStockAction() {
 
     const colorStockMap: Record<string, Record<string, Record<string, number>>> = {};
 
-    items.forEach(item => {
+    (items as any[]).forEach((item: any) => {
       const prodId = item.variant.productId;
       const branch = item.branchName;
       const color = item.variant.colorName;
