@@ -13,7 +13,7 @@ export async function getChatSessionsAction() {
       orderBy: { updatedAt: 'desc' }
     });
     
-    return sessions.map(s => ({
+    return (sessions as any[]).map((s: any) => ({
       id: s.id,
       customerId: s.customerEmail, // Map email as customerId to match frontend
       customerName: s.customerName,
@@ -22,7 +22,7 @@ export async function getChatSessionsAction() {
       cskhName: s.cskhName || undefined,
       createdAt: s.createdAt.toISOString(),
       lastMessageAt: s.updatedAt.toISOString(),
-      messages: s.messages.map(m => ({
+      messages: (s.messages as any[]).map((m: any) => ({
         id: m.id,
         sender: (m.sender === 'staff' ? 'cskh' : 'customer') as 'customer' | 'cskh',
         text: m.content,
@@ -47,7 +47,7 @@ export async function getChatMessagesAction(sessionId: string) {
       where: { id: sessionId }
     });
 
-    return messages.map(m => ({
+    return (messages as any[]).map((m: any) => ({
       id: m.id,
       sender: (m.sender === 'staff' ? 'cskh' : 'customer') as 'customer' | 'cskh',
       text: m.content,
