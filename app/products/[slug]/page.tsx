@@ -9,12 +9,264 @@ import { MOCK_PRODUCTS } from '../../../data/products';
 import { useAuth } from '../../../context/AuthContext';
 import { ProductCard } from '../../../components/product/ProductCard';
 import { useCart } from '../../../context/CartContext';
+import { useToast } from '../../../context/ToastContext';
 import { formatPrice } from '../../../lib/utils';
-import { Star, ShoppingBag, Truck, RotateCcw, ShieldCheck, ChevronDown, Plus, Minus, Heart, HelpCircle } from 'lucide-react';
+import { Product } from '../../../types';
+import { Star, ShoppingBag, Truck, RotateCcw, ShieldCheck, ChevronDown, Plus, Minus, Heart, HelpCircle, Sparkles, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 
 const ProductViewer3D = dynamic(() => import('../../../components/3d/ProductViewer3D'), { ssr: false });
+
+// Helper to determine fabric type
+const getFabricType = (product: Product): 'linen' | 'cotton' | 'silk' | 'denim' | 'knitwear' | 'default' => {
+  if (!product) return 'default';
+  const name = product.name.toLowerCase();
+  const desc = product.description.toLowerCase();
+  if (name.includes('linen') || desc.includes('linen') || name.includes('lanh')) return 'linen';
+  if (name.includes('silk') || desc.includes('silk') || name.includes('lụa')) return 'silk';
+  if (name.includes('jean') || desc.includes('jean') || name.includes('denim') || desc.includes('denim')) return 'denim';
+  if (name.includes('len') || desc.includes('len') || name.includes('dệt kim') || desc.includes('dệt kim') || name.includes('knit')) return 'knitwear';
+  if (name.includes('cotton') || desc.includes('cotton') || name.includes('thun') || name.includes('polo')) return 'cotton';
+  return 'default';
+};
+
+const getMaterialText = (product: Product): string => {
+  const type = getFabricType(product);
+  switch (type) {
+    case 'linen':
+      return 'Sản phẩm được làm từ 100% sợi Linen (lanh) tự nhiên nhập khẩu cao cấp. Chất liệu lanh sở hữu các nếp nhăn mộc mạc đặc trưng đầy phóng khoáng, khả năng thấm hút mồ hôi và tản nhiệt vượt trội giúp điều hòa thân nhiệt cực tốt trong những ngày nóng ẩm.';
+    case 'cotton':
+      return 'Sản phẩm được dệt từ 100% sợi Supima Cotton cao cấp (hoặc Heavyweight Cotton siêu dày dặn). Đây là loại cotton sợi dài thượng hạng có độ bền gấp đôi cotton thường, bề mặt vải đanh mịn, không đổ lông, cực kỳ êm dịu với làn da nhạy cảm.';
+    case 'silk':
+      return 'Sản phẩm dệt từ chất liệu lụa tơ tằm thượng hạng (Silk) pha cotton/satin, mang lại độ bóng bảy óng ả tự nhiên vô cùng sang trọng. Vải có đặc tính siêu nhẹ, lướt êm ái trên da mang lại cảm giác mát lịm và mềm mại như làn nước.';
+    case 'denim':
+      return 'Sản phẩm dệt từ chất liệu vải Raw Denim 12oz - 13.5oz cao cấp siêu bền bỉ. Vải giữ phom đứng dáng nguyên bản, có khả năng tự co rút và tạo vết phai màu (fade) độc bản cá tính theo thời gian sử dụng của riêng bạn.';
+    case 'knitwear':
+      return 'Sản phẩm dệt từ sợi len/dệt kim mỏng nhẹ cao cấp, được xử lý bề mặt soft-touch mềm như bông. Mắt dệt tinh xảo tạo độ thoáng khí tốt mà vẫn giữ ấm vừa phải, co giãn đa chiều thoải mái mà không lo mất phom dáng.';
+    default:
+      return 'Sản phẩm dệt từ sợi tự nhiên hữu cơ kết hợp tuyết mưa hoặc sợi tổng hợp cao cấp đứng dáng. Đường chỉ giấu tinh xảo, cấu trúc may đo hai lớp Quiet Luxury đem lại độ bền bỉ và giữ phom dáng chuẩn mực suốt ngày dài.';
+  }
+};
+
+const getCareInstructions = (product: Product): string[] => {
+  const type = getFabricType(product);
+  switch (type) {
+    case 'linen':
+      return [
+        'Nên giặt tay bằng nước mát hoặc giặt máy ở chế độ nhẹ nhàng (delicate) với túi giặt.',
+        'Sử dụng nước giặt dịu nhẹ, không dùng thuốc tẩy chứa clo mạnh làm mục sợi lanh.',
+        'Không vắt xoắn mạnh; phơi ngang dưới bóng râm thoáng mát, tránh ánh nắng gắt.',
+        'Ủi (là) bằng hơi nước khi áo còn ẩm nhẹ để các nếp nhăn tự nhiên phẳng đều.'
+      ];
+    case 'cotton':
+      return [
+        'Giặt máy ở nhiệt độ thường (dưới 40°C) với các sản phẩm cùng màu.',
+        'Tránh ngâm sản phẩm quá lâu trong nước giặt hoặc thuốc tẩy mạnh.',
+        'Phơi mặt trái dưới bóng râm để giữ màu sắc sản phẩm bền lâu.',
+        'Ủi ở nhiệt độ trung bình (dưới 150°C), có thể sấy ở chế độ nhẹ.'
+      ];
+    case 'silk':
+      return [
+        'Ưu tiên giặt khô hoặc giặt bằng tay nhẹ nhàng với nước lạnh và dầu gội/sữa tắm.',
+        'Tuyệt đối không vắt xoắn hoặc chà xát mạnh làm xước và gãy sợi lụa.',
+        'Phơi phẳng trong bóng râm, tránh ánh nắng mặt trời trực tiếp.',
+        'Ủi hơi nước ở chế độ dành riêng cho lụa (silk mode) hoặc dùng một tấm vải lót trên bề mặt khi ủi.'
+      ];
+    case 'denim':
+      return [
+        'Hạn chế giặt thường xuyên; nên giặt riêng ở nước lạnh trong vài lần đầu để tránh lem màu.',
+        'Khi giặt, lộn mặt trái của quần jean ra ngoài và kéo toàn bộ khóa kéo lên.',
+        'Không dùng nước xả vải làm nhão phom denim; không sấy nóng.',
+        'Phơi khô tự nhiên trong bóng mát, treo bằng móc đai quần để giữ phom thẳng dáng.'
+      ];
+    case 'knitwear':
+      return [
+        'Chỉ giặt tay nhẹ nhàng bằng nước mát hoặc giặt máy chế độ giặt len.',
+        'Dùng nước giặt trung tính dịu nhẹ, không dùng nước xả vải làm mất độ đàn hồi của len.',
+        'Không vắt xoắn; dùng khăn khô ấn nhẹ để thấm bớt nước trước khi phơi.',
+        'Phơi phẳng trên lưới phơi hoặc phơi ngang trên sào. TUYỆT ĐỐI không treo móc dọc làm chảy sệ áo.'
+      ];
+    default:
+      return [
+        'Giặt máy nhẹ nhàng ở nước mát với túi giặt bảo vệ.',
+        'Không sấy khô sản phẩm ở nhiệt độ cao để tránh co rút vải.',
+        'Ủi hơi nước nhẹ nhàng ở nhiệt độ thấp.',
+        'Treo bằng móc gỗ bản to đối với áo blazer và măng tô để giữ cầu vai đứng dáng.'
+      ];
+  }
+};
+
+const renderSizeTable = (category: string) => {
+  const cat = category.toLowerCase();
+  if (cat === 'bottoms') {
+    return (
+      <div className="overflow-x-auto my-3 border border-brand-border rounded-xl">
+        <table className="w-full min-w-[460px] text-xs text-left border-collapse bg-white">
+          <thead>
+            <tr className="bg-neutral-50 border-b border-brand-border">
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Size</th>
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Vòng eo (cm)</th>
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Vòng mông (cm)</th>
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Dài quần (cm)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-brand-border text-brand-muted font-normal">
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">S / 29</td>
+              <td className="p-3 font-mono">74 - 78</td>
+              <td className="p-3 font-mono">92 - 96</td>
+              <td className="p-3 font-mono">98</td>
+            </tr>
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">M / 30-31</td>
+              <td className="p-3 font-mono">78 - 82</td>
+              <td className="p-3 font-mono">96 - 100</td>
+              <td className="p-3 font-mono">100</td>
+            </tr>
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">L / 32</td>
+              <td className="p-3 font-mono">82 - 86</td>
+              <td className="p-3 font-mono">100 - 104</td>
+              <td className="p-3 font-mono">102</td>
+            </tr>
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">XL / 33</td>
+              <td className="p-3 font-mono">86 - 90</td>
+              <td className="p-3 font-mono">104 - 108</td>
+              <td className="p-3 font-mono">104</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+  if (cat === 'dresses') {
+    return (
+      <div className="overflow-x-auto my-3 border border-brand-border rounded-xl">
+        <table className="w-full min-w-[460px] text-xs text-left border-collapse bg-white">
+          <thead>
+            <tr className="bg-neutral-50 border-b border-brand-border">
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Size</th>
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Vòng ngực (cm)</th>
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Vòng eo (cm)</th>
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Dài đầm (cm)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-brand-border text-brand-muted font-normal">
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">XS</td>
+              <td className="p-3 font-mono">78 - 82</td>
+              <td className="p-3 font-mono">62 - 66</td>
+              <td className="p-3 font-mono">110</td>
+            </tr>
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">S</td>
+              <td className="p-3 font-mono">82 - 86</td>
+              <td className="p-3 font-mono">66 - 70</td>
+              <td className="p-3 font-mono">112</td>
+            </tr>
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">M</td>
+              <td className="p-3 font-mono">86 - 90</td>
+              <td className="p-3 font-mono">70 - 74</td>
+              <td className="p-3 font-mono">114</td>
+            </tr>
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">L</td>
+              <td className="p-3 font-mono">90 - 94</td>
+              <td className="p-3 font-mono">74 - 78</td>
+              <td className="p-3 font-mono">116</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+  if (cat === 'outerwear') {
+    return (
+      <div className="overflow-x-auto my-3 border border-brand-border rounded-xl">
+        <table className="w-full min-w-[460px] text-xs text-left border-collapse bg-white">
+          <thead>
+            <tr className="bg-neutral-50 border-b border-brand-border">
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Size</th>
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Rộng vai (cm)</th>
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Vòng ngực (cm)</th>
+              <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Dài áo (cm)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-brand-border text-brand-muted font-normal">
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">S</td>
+              <td className="p-3 font-mono">44</td>
+              <td className="p-3 font-mono">102</td>
+              <td className="p-3 font-mono">70</td>
+            </tr>
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">M</td>
+              <td className="p-3 font-mono">46</td>
+              <td className="p-3 font-mono">106</td>
+              <td className="p-3 font-mono">72</td>
+            </tr>
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">L</td>
+              <td className="p-3 font-mono">48</td>
+              <td className="p-3 font-mono">110</td>
+              <td className="p-3 font-mono">74</td>
+            </tr>
+            <tr className="hover:bg-neutral-50/50">
+              <td className="p-3 font-bold text-brand-text">XL</td>
+              <td className="p-3 font-mono">50</td>
+              <td className="p-3 font-mono">114</td>
+              <td className="p-3 font-mono">76</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+  // Default is Tops
+  return (
+    <div className="overflow-x-auto my-3 border border-brand-border rounded-xl">
+      <table className="w-full min-w-[460px] text-xs text-left border-collapse bg-white">
+        <thead>
+          <tr className="bg-neutral-50 border-b border-brand-border">
+            <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Size</th>
+            <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Rộng vai (cm)</th>
+            <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Vòng ngực (cm)</th>
+            <th className="p-3 font-bold text-brand-text uppercase tracking-wider">Dài áo (cm)</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-brand-border text-brand-muted font-normal">
+          <tr className="hover:bg-neutral-50/50">
+            <td className="p-3 font-bold text-brand-text">S</td>
+            <td className="p-3 font-mono">43</td>
+            <td className="p-3 font-mono">96</td>
+            <td className="p-3 font-mono">67</td>
+          </tr>
+          <tr className="hover:bg-neutral-50/50">
+            <td className="p-3 font-bold text-brand-text">M</td>
+            <td className="p-3 font-mono">45</td>
+            <td className="p-3 font-mono">100</td>
+            <td className="p-3 font-mono">69</td>
+          </tr>
+          <tr className="hover:bg-neutral-50/50">
+            <td className="p-3 font-bold text-brand-text">L</td>
+            <td className="p-3 font-mono">47</td>
+            <td className="p-3 font-mono">104</td>
+            <td className="p-3 font-mono">71</td>
+          </tr>
+          <tr className="hover:bg-neutral-50/50">
+            <td className="p-3 font-bold text-brand-text">XL</td>
+            <td className="p-3 font-mono">49</td>
+            <td className="p-3 font-mono">108</td>
+            <td className="p-3 font-mono">73</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 export default function ProductDetailPage() {
   const { slug } = useParams();
@@ -29,6 +281,24 @@ export default function ProductDetailPage() {
   }, [slug, activeProducts]);
 
   const isLoved = product ? isInWishlist(product.id) : false;
+
+  const { showToast } = useToast();
+
+  // Fit Finder states
+  const [showFitFinder, setShowFitFinder] = useState(false);
+  const [userHeight, setUserHeight] = useState('');
+  const [userWeight, setUserWeight] = useState('');
+  const [recommendedSize, setRecommendedSize] = useState<string | null>(null);
+
+  // Recently Viewed states
+  const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
+
+  // Reviews states
+  const [reviewsData, setReviewsData] = useState<any[]>([]);
+  const [newReviewName, setNewReviewName] = useState('');
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [newReviewComment, setNewReviewComment] = useState('');
+  const [showWriteReview, setShowWriteReview] = useState(false);
 
   // Product interaction states
   const [selectedColor, setSelectedColor] = useState(product?.colors[0] || { name: '', hex: '' });
@@ -64,6 +334,196 @@ export default function ProductDetailPage() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Scroll Lock when AI Fit Finder modal is open
+  useEffect(() => {
+    if (showFitFinder) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showFitFinder]);
+
+  // Track and Save Recently Viewed Items
+  useEffect(() => {
+    if (!product) return;
+    try {
+      const stored = localStorage.getItem('novyn_recently_viewed');
+      let ids: string[] = [];
+      if (stored) {
+        ids = JSON.parse(stored);
+      }
+      ids = ids.filter((id) => id !== product.id);
+      ids.unshift(product.id);
+      ids = ids.slice(0, 8);
+      localStorage.setItem('novyn_recently_viewed', JSON.stringify(ids));
+
+      const items = ids
+        .map((id) => activeProducts.find((p) => p.id === id))
+        .filter((p): p is Product => !!p && p.id !== product.id);
+      setRecentlyViewed(items);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [product, activeProducts]);
+
+  // Load reviews from localStorage or defaults
+  useEffect(() => {
+    if (!product) return;
+    try {
+      const stored = localStorage.getItem(`novyn_reviews_${product.id}`);
+      if (stored) {
+        setReviewsData(JSON.parse(stored));
+      } else {
+        const colorName = product.colors[0]?.name || 'Đen';
+        const sizeName = product.sizes[0] || 'M';
+        const defaultReviews = [
+          {
+            name: 'Hoàng Minh Trí',
+            avatarColor: 'bg-neutral-105 text-neutral-550 border border-neutral-200',
+            rating: 5,
+            date: '2 ngày trước',
+            variant: `Màu: ${colorName} | Size: ${sizeName}`,
+            comment: 'Đường may vô cùng sắc sảo và chỉn chu, chất vải rủ nhẹ vừa phải đúng chất Quiet Luxury. Form mặc lên chuẩn như đo ni đóng giày, cực kỳ tôn dáng và sang trọng. Sẽ ủng hộ shop thêm nhiều sản phẩm khác!',
+            verified: true,
+            helpfulCount: 8,
+          },
+          {
+            name: 'Lê Khánh An',
+            avatarColor: 'bg-neutral-105 text-neutral-550 border border-neutral-200',
+            rating: 5,
+            date: '1 tuần trước',
+            variant: `Màu: ${colorName} | Size: ${sizeName}`,
+            comment: 'Đóng gói sản phẩm siêu đẹp bằng hộp giấy kraft bảo vệ môi trường, có cả thiệp cảm ơn viết tay rất tinh tế. Chất vải mát mẻ, sờ mướt tay, mặc đi làm hay đi cà phê cuối tuần đều lịch sự và thoải mái.',
+            verified: true,
+            helpfulCount: 5,
+          },
+          {
+            name: 'Nguyễn Bích Ngọc',
+            avatarColor: 'bg-neutral-105 text-neutral-550 border border-neutral-200',
+            rating: 4,
+            date: '2 tuần trước',
+            variant: `Màu: ${colorName} | Size: ${sizeName}`,
+            comment: 'Chất lượng vải xuất sắc vượt mong đợi, form dáng rộng rãi hiện đại. Điểm cộng lớn cho nhân viên CSKH hỗ trợ tư vấn size cực kỳ nhiệt tình và có tâm. Giao hàng Hà Nội chỉ mất 1 ngày rưỡi.',
+            verified: true,
+            helpfulCount: 3,
+          }
+        ];
+        setReviewsData(defaultReviews);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [product]);
+
+  // Dynamic calculations for reviews
+  const dynamicRating = useMemo(() => {
+    if (!product) return 0;
+    if (reviewsData.length === 0) return product.rating;
+    const total = reviewsData.reduce((sum, r) => sum + r.rating, 0);
+    return parseFloat((total / reviewsData.length).toFixed(1));
+  }, [reviewsData, product]);
+
+  const dynamicReviewsCount = useMemo(() => {
+    return reviewsData.length;
+  }, [reviewsData]);
+
+  const ratingDistribution = useMemo(() => {
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    reviewsData.forEach((r) => {
+      const star = Math.max(1, Math.min(5, Math.floor(r.rating))) as 5 | 4 | 3 | 2 | 1;
+      counts[star]++;
+    });
+    const total = reviewsData.length || 1;
+    return [
+      { stars: 5, pct: Math.round((counts[5] / total) * 100), count: counts[5] },
+      { stars: 4, pct: Math.round((counts[4] / total) * 100), count: counts[4] },
+      { stars: 3, pct: Math.round((counts[3] / total) * 100), count: counts[3] },
+      { stars: 2, pct: Math.round((counts[2] / total) * 100), count: counts[2] },
+      { stars: 1, pct: Math.round((counts[1] / total) * 100), count: counts[1] },
+    ];
+  }, [reviewsData]);
+
+  // AI Fit Finder calculation
+  const handleCalculateSize = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product) return;
+    const height = parseFloat(userHeight);
+    const weight = parseFloat(userWeight);
+    if (isNaN(height) || isNaN(weight) || height <= 0 || weight <= 0) {
+      showToast('Vui lòng nhập chiều cao và cân nặng hợp lệ.', 'error');
+      return;
+    }
+    
+    let size = 'M';
+    if (weight < 50) {
+      size = 'S';
+    } else if (weight >= 50 && weight < 62) {
+      size = height > 170 ? 'M' : 'S';
+    } else if (weight >= 62 && weight < 73) {
+      size = height > 175 ? 'L' : 'M';
+    } else if (weight >= 73 && weight < 83) {
+      size = height > 180 ? 'XL' : 'L';
+    } else {
+      size = 'XL';
+    }
+
+    if (product.sizes.includes(size)) {
+      setRecommendedSize(size);
+    } else {
+      const available = product.sizes;
+      if (available.length > 0) {
+        if (size === 'S' && available.includes('M')) setRecommendedSize('M');
+        else if (size === 'XL' && available.includes('L')) setRecommendedSize('L');
+        else setRecommendedSize(available[0]);
+      } else {
+        setRecommendedSize(size);
+      }
+    }
+  };
+
+  const handleApplyRecommendedSize = () => {
+    if (recommendedSize) {
+      setSelectedSize(recommendedSize);
+      setShowFitFinder(false);
+      showToast(`Đã áp dụng kích cỡ gợi ý: Size ${recommendedSize}`, 'success');
+    }
+  };
+
+  // Submit dynamic review
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product) return;
+    if (!newReviewName.trim() || !newReviewComment.trim()) {
+      showToast('Vui lòng điền đầy đủ tên và bình luận của bạn.', 'error');
+      return;
+    }
+    const newRev = {
+      name: newReviewName,
+      avatarColor: 'bg-neutral-105 text-neutral-550 border border-neutral-200',
+      rating: newReviewRating,
+      date: 'Vừa xong',
+      variant: `Màu: ${selectedColor.name} | Size: ${selectedSize}`,
+      comment: newReviewComment,
+      verified: true,
+      helpfulCount: 0,
+    };
+    const updated = [newRev, ...reviewsData];
+    setReviewsData(updated);
+    try {
+      localStorage.setItem(`novyn_reviews_${product.id}`, JSON.stringify(updated));
+    } catch (err) {
+      console.error(err);
+    }
+    setNewReviewName('');
+    setNewReviewComment('');
+    setNewReviewRating(5);
+    setShowWriteReview(false);
+    showToast('Cảm ơn bạn đã gửi nhận xét đánh giá!', 'success');
+  };
 
   // Compute displayed images based on Model Size selection ("View on Model")
   const displayedImages = useMemo(() => {
@@ -278,15 +738,15 @@ export default function ProductDetailPage() {
                 <Star
                   key={i}
                   className={`w-3.5 h-3.5 fill-current ${
-                    i < Math.floor(product.rating) ? 'text-amber-500' : 'text-neutral-200'
+                    i < Math.floor(dynamicRating) ? 'text-amber-500' : 'text-neutral-200'
                   }`}
                 />
               ))}
             </div>
-            <span className="text-xs font-bold text-brand-text">{product.rating}</span>
+            <span className="text-xs font-bold text-brand-text">{dynamicRating}</span>
             <span className="text-[10px] text-brand-border">|</span>
             <span className="text-xs text-brand-muted hover:underline cursor-pointer">
-              {product.reviews} đánh giá
+              {dynamicReviewsCount} đánh giá
             </span>
           </div>
 
@@ -337,9 +797,21 @@ export default function ProductDetailPage() {
           {/* Selector 2: Size options */}
           {product.sizes.length > 0 && (
             <div className="mb-6">
-              <span className="text-xs font-bold uppercase tracking-widest text-brand-muted block mb-3">
-                Kích thước: <span className="text-brand-text">{selectedSize}</span>
-              </span>
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-brand-muted">
+                  Kích thước: <span className="text-brand-text">{selectedSize}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecommendedSize(null);
+                    setShowFitFinder(true);
+                  }}
+                  className="text-[10px] font-bold text-brand-accent uppercase tracking-widest hover:underline cursor-pointer flex items-center gap-1"
+                >
+                  📐 Tìm size phù hợp (AI Finder)
+                </button>
+              </div>
               <div className="flex gap-2">
                 {product.sizes.map((s) => (
                   <button
@@ -559,7 +1031,7 @@ export default function ProductDetailPage() {
                   className="overflow-hidden"
                 >
                   <p className="text-sm text-brand-muted leading-relaxed pt-2 pb-4 font-normal">
-                    Sản phẩm được dệt hoàn toàn từ các loại sợi tự nhiên hữu cơ tuyển chọn kỹ lưỡng, mang lại trải nghiệm mặc mát lành, thoáng khí tối đa. Phom dáng cắt may hiện đại, kết cấu đường chỉ giấu tinh xảo giúp sản phẩm luôn đứng dáng thanh lịch suốt cả ngày dài.
+                    {getMaterialText(product)}
                   </p>
                 </motion.div>
               )}
@@ -585,10 +1057,15 @@ export default function ProductDetailPage() {
                   className="overflow-hidden"
                 >
                   <div className="pt-2 pb-4 text-sm text-brand-muted leading-relaxed font-normal space-y-2">
-                    <p>• <strong>Size S:</strong> Chiều cao 1m50 - 1m62, Cân nặng 45kg - 55kg.</p>
-                    <p>• <strong>Size M:</strong> Chiều cao 1m62 - 1m70, Cân nặng 55kg - 65kg.</p>
-                    <p>• <strong>Size L:</strong> Chiều cao 1m70 - 1m77, Cân nặng 65kg - 75kg.</p>
-                    <p>• <strong>Size XL:</strong> Chiều cao 1m77 - 1m85, Cân nặng 75kg - 85kg.</p>
+                    <p className="font-bold text-brand-text uppercase tracking-widest text-[9px] mb-1">📐 BẢNG THÔNG SỐ KÍCH THƯỚC (SIZE CHART)</p>
+                    {renderSizeTable(product.category)}
+
+                    <div className="mt-3 pt-3 border-t border-brand-border">
+                      <p>• <strong>Size S:</strong> Chiều cao 1m50 - 1m62, Cân nặng 45kg - 55kg.</p>
+                      <p>• <strong>Size M:</strong> Chiều cao 1m62 - 1m70, Cân nặng 55kg - 65kg.</p>
+                      <p>• <strong>Size L:</strong> Chiều cao 1m70 - 1m77, Cân nặng 65kg - 75kg.</p>
+                      <p>• <strong>Size XL:</strong> Chiều cao 1m77 - 1m85, Cân nặng 75kg - 85kg.</p>
+                    </div>
                     <p className="text-xs text-brand-text bg-neutral-50 p-4 rounded-xl border border-brand-border mt-3 font-normal leading-normal">
                       💡 Mẹo nhỏ: Novyn Wear hỗ trợ tư vấn chọn size hoàn toàn miễn phí trực tiếp qua Hotline 1900 8899 hoặc Chatbox để giúp bạn tìm thấy phom dáng vừa vặn nhất.
                     </p>
@@ -617,10 +1094,9 @@ export default function ProductDetailPage() {
                   className="overflow-hidden"
                 >
                   <div className="pt-2 pb-4 text-sm text-brand-muted leading-relaxed font-normal space-y-1">
-                    <p>• Giặt máy ở chế độ nhẹ nhàng (delicate cycle) hoặc giặt tay với nước mát.</p>
-                    <p>• Sử dụng túi giặt và nước giặt dịu nhẹ, tránh dùng chất tẩy có chứa clo.</p>
-                    <p>• Phơi ngang dưới bóng râm thoáng gió, hạn chế sấy bằng máy ở nhiệt độ cao.</p>
-                    <p>• Là ủi hơi nước ở nhiệt độ thích hợp (nên là khi chất liệu vải còn ẩm nhẹ).</p>
+                    {getCareInstructions(product).map((inst, index) => (
+                      <p key={index}>• {inst}</p>
+                    ))}
                   </div>
                 </motion.div>
               )}
@@ -661,7 +1137,7 @@ export default function ProductDetailPage() {
               onClick={() => toggleAccordion('reviews')}
               className="flex justify-between items-center w-full text-left font-semibold text-sm sm:text-base text-brand-text uppercase tracking-widest py-2 cursor-pointer"
             >
-              <span>Đánh giá từ khách hàng ({product.reviews})</span>
+              <span>Đánh giá từ khách hàng ({dynamicReviewsCount})</span>
               <ChevronDown className={`w-4 h-4 text-brand-muted transition-transform duration-300 ${activeAccordion === 'reviews' ? 'rotate-180' : ''}`} />
             </button>
             <AnimatePresence initial={false}>
@@ -679,20 +1155,20 @@ export default function ProductDetailPage() {
                       {/* Large Score Column */}
                       <div className="md:col-span-4 flex flex-col items-center justify-center text-center md:border-r border-brand-border/60 md:pr-8 py-2">
                         <span className="text-5xl font-bold text-brand-text tracking-tight mb-2">
-                          {product.rating}
+                          {dynamicRating}
                         </span>
                         <div className="flex items-center text-amber-500 gap-1 mb-2">
                           {[...Array(5)].map((_, i) => (
                             <Star
                               key={i}
                               className={`w-3.5 h-3.5 fill-current ${
-                                i < Math.floor(product.rating) ? 'text-amber-500' : 'text-neutral-200'
+                                i < Math.floor(dynamicRating) ? 'text-amber-500' : 'text-neutral-200'
                               }`}
                             />
                           ))}
                         </div>
                         <p className="text-xs text-brand-muted font-bold">
-                          {product.reviews} đánh giá thực tế
+                          {dynamicReviewsCount} đánh giá thực tế
                         </p>
                         <p className="text-[10px] text-brand-muted mt-1">
                           100% người mua hài lòng với sản phẩm
@@ -701,13 +1177,7 @@ export default function ProductDetailPage() {
 
                       {/* Star Distribution Column */}
                       <div className="md:col-span-8 flex flex-col gap-2.5">
-                        {[
-                          { stars: 5, pct: 82, count: Math.round(product.reviews * 0.82) },
-                          { stars: 4, pct: 12, count: Math.round(product.reviews * 0.12) },
-                          { stars: 3, pct: 4, count: Math.round(product.reviews * 0.04) },
-                          { stars: 2, pct: 1, count: Math.round(product.reviews * 0.01) },
-                          { stars: 1, pct: 1, count: Math.round(product.reviews * 0.01) },
-                        ].map((row) => (
+                        {ratingDistribution.map((row) => (
                           <div key={row.stars} className="flex items-center gap-3 text-xs">
                             <span className="w-3 font-bold text-brand-text">{row.stars}</span>
                             <Star className="w-3 h-3 text-amber-500 fill-current shrink-0" />
@@ -727,55 +1197,93 @@ export default function ProductDetailPage() {
                     </div>
 
                     {/* Review Filter Tags (aesthetic only) */}
-                    <div className="flex flex-wrap gap-2 mb-8">
-                      {['Tất cả', 'Hình ảnh/Video (12)', '5 Sao (24)', 'Có phản hồi từ NOVYN WEAR (18)'].map((tag, idx) => (
-                        <span
-                          key={tag}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                            idx === 0
-                              ? 'bg-brand-accent text-white border border-brand-accent shadow-none'
-                              : 'bg-white text-brand-muted border border-brand-border hover:bg-brand-bg'
-                          }`}
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                    <div className="flex flex-wrap gap-2 mb-8 justify-between items-center w-full">
+                      <div className="flex flex-wrap gap-2">
+                        {['Tất cả', `Hình ảnh/Video (${Math.round(dynamicReviewsCount * 0.4)})`, `5 Sao (${reviewsData.filter(r => r.rating === 5).length})`, 'Có phản hồi từ NOVYN WEAR'].map((tag, idx) => (
+                          <span
+                            key={tag}
+                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                              idx === 0
+                                ? 'bg-brand-accent text-white border border-brand-accent shadow-none'
+                                : 'bg-white text-brand-muted border border-brand-border hover:bg-brand-bg'
+                            }`}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowWriteReview(!showWriteReview)}
+                        className="bg-brand-accent text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-neutral-850 active:scale-95 transition-all cursor-pointer shadow-sm"
+                      >
+                        {showWriteReview ? 'Đóng form' : 'Viết đánh giá'}
+                      </button>
                     </div>
+
+                    {/* Review Form */}
+                    <AnimatePresence>
+                      {showWriteReview && (
+                        <motion.form
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          onSubmit={handleSubmitReview}
+                          className="bg-neutral-50 p-5 rounded-2xl border border-brand-border mb-8 flex flex-col gap-4 overflow-hidden"
+                        >
+                          <h4 className="text-xs font-bold text-brand-text uppercase tracking-widest">Gửi nhận xét của bạn</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-bold text-brand-muted uppercase">Tên của bạn *</label>
+                              <input
+                                type="text"
+                                required
+                                value={newReviewName}
+                                onChange={(e) => setNewReviewName(e.target.value)}
+                                placeholder="Nhập tên của bạn..."
+                                className="bg-white border border-brand-border rounded-xl px-4 py-2.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent focus:bg-neutral-50"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-bold text-brand-muted uppercase">Đánh giá số sao *</label>
+                              <div className="flex items-center gap-1.5 mt-2">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() => setNewReviewRating(star)}
+                                    className="text-amber-500 hover:scale-110 active:scale-95 transition-all cursor-pointer focus:outline-none"
+                                  >
+                                    <Star className={`w-5 h-5 ${star <= newReviewRating ? 'fill-current' : 'text-neutral-200'}`} />
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-bold text-brand-muted uppercase">Nhận xét chi tiết *</label>
+                            <textarea
+                              rows={3}
+                              required
+                              value={newReviewComment}
+                              onChange={(e) => setNewReviewComment(e.target.value)}
+                              placeholder="Nhập nhận xét của bạn về sản phẩm (chất liệu, đường may, form dáng...)"
+                              className="bg-white border border-brand-border rounded-xl px-4 py-2.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent focus:bg-neutral-50 resize-none"
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            className="bg-brand-accent text-white py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-neutral-800 transition-colors cursor-pointer w-fit px-6 shadow-sm active:scale-95"
+                          >
+                            Gửi đánh giá
+                          </button>
+                        </motion.form>
+                      )}
+                    </AnimatePresence>
 
                     {/* Detailed Review List */}
                     <div className="space-y-6">
-                      {[
-                        {
-                          name: 'Hoàng Minh Trí',
-                          avatarColor: 'bg-neutral-100 text-neutral-500 border border-neutral-200',
-                          rating: 5,
-                          date: '2 ngày trước',
-                          variant: `Màu: ${selectedColor.name || product.colors[0].name} | Size: ${selectedSize}`,
-                          comment: 'Đường may vô cùng sắc sảo và chỉn chu, chất vải rủ nhẹ vừa phải đúng chất Quiet Luxury. Form mặc lên chuẩn như đo ni đóng giày, cực kỳ tôn dáng và sang trọng. Sẽ ủng hộ shop thêm nhiều sản phẩm khác!',
-                          verified: true,
-                          helpfulCount: 8,
-                        },
-                        {
-                          name: 'Lê Khánh An',
-                          avatarColor: 'bg-neutral-100 text-neutral-500 border border-neutral-200',
-                          rating: 5,
-                          date: '1 tuần trước',
-                          variant: `Màu: ${product.colors[0].name} | Size: M`,
-                          comment: 'Đóng gói sản phẩm siêu đẹp bằng hộp giấy kraft bảo vệ môi trường, có cả thiệp cảm ơn viết tay rất tinh tế. Chất vải mát mẻ, sờ mướt tay, mặc đi làm hay đi cà phê cuối tuần đều lịch sự và thoải mái.',
-                          verified: true,
-                          helpfulCount: 5,
-                        },
-                        {
-                          name: 'Nguyễn Bích Ngọc',
-                          avatarColor: 'bg-neutral-100 text-neutral-500 border border-neutral-200',
-                          rating: 4,
-                          date: '2 tuần trước',
-                          variant: `Màu: ${product.colors[1]?.name || product.colors[0].name} | Size: S`,
-                          comment: 'Chất lượng vải xuất sắc vượt mong đợi, form dáng rộng rãi hiện đại. Điểm cộng lớn cho nhân viên CSKH hỗ trợ tư vấn size cực kỳ nhiệt tình và có tâm. Giao hàng Hà Nội chỉ mất 1 ngày rưỡi.',
-                          verified: true,
-                          helpfulCount: 3,
-                        }
-                      ].map((review, idx) => (
+                      {reviewsData.map((review, idx) => (
                         <div
                           key={idx}
                           className="pb-6 border-b border-brand-border last:border-0 last:pb-0 flex flex-col gap-3"
@@ -783,8 +1291,8 @@ export default function ProductDetailPage() {
                           {/* Reviewer Header */}
                           <div className="flex items-start justify-between">
                             <div className="flex gap-3">
-                              <div className={`w-10 h-10 rounded-full ${review.avatarColor} font-bold flex items-center justify-center text-xs shrink-0 shadow-sm uppercase`}>
-                                {review.name.split(' ').map((n) => n[0]).join('').slice(-2)}
+                              <div className={`w-10 h-10 rounded-full ${review.avatarColor || 'bg-neutral-100 text-neutral-500 border border-neutral-200'} font-bold flex items-center justify-center text-xs shrink-0 shadow-sm uppercase`}>
+                                {review.name.split(' ').map((n: string) => n[0]).join('').slice(-2)}
                               </div>
                               <div>
                                 <div className="flex items-center gap-2 mb-0.5">
@@ -854,6 +1362,20 @@ export default function ProductDetailPage() {
         </section>
       )}
 
+      {/* Recently Viewed Products Grid */}
+      {recentlyViewed.length > 0 && (
+        <section className="border-t border-brand-border pt-16 mt-16">
+          <h2 className="text-xl md:text-2xl font-bold text-brand-text uppercase tracking-tight mb-8">
+            Sản phẩm đã xem gần đây
+          </h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            {recentlyViewed.slice(0, 4).map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Sticky Mobile Add-to-Cart Bar (Ghim đáy màn hình di động khi cuộn xuống) */}
       <AnimatePresence>
         {showStickyBar && (
@@ -904,6 +1426,121 @@ export default function ProductDetailPage() {
               {product.stock === 0 ? 'Hết hàng' : 'Thêm giỏ'}
             </button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* AI FIT FINDER SIZE SUGGESTION MODAL OVERLAY */}
+      <AnimatePresence>
+        {showFitFinder && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowFitFinder(false)}
+              className="fixed inset-0 bg-neutral-900/60 backdrop-blur-xs cursor-pointer"
+            />
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative bg-white w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-brand-border z-10 flex flex-col gap-6 overflow-hidden text-left"
+            >
+              <div className="flex items-center justify-between border-b border-brand-border pb-4">
+                <div>
+                  <span className="text-[9px] font-bold text-brand-muted uppercase tracking-wider block mb-0.5">💡 Novyn Wear Smart Fit</span>
+                  <h3 className="text-lg font-bold text-brand-text uppercase tracking-tight">AI Fit Finder</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowFitFinder(false)}
+                  className="w-8 h-8 rounded-xl border border-brand-border flex items-center justify-center text-brand-muted hover:bg-neutral-50 transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleCalculateSize} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-muted uppercase">Chiều cao của bạn (cm) *</label>
+                  <input
+                    type="number"
+                    required
+                    min={100}
+                    max={250}
+                    placeholder="Ví dụ: 172"
+                    value={userHeight}
+                    onChange={(e) => {
+                      setUserHeight(e.target.value);
+                      setRecommendedSize(null);
+                    }}
+                    className="bg-white border border-brand-border rounded-xl px-4 py-3 text-xs text-brand-text focus:outline-none focus:border-brand-accent focus:bg-neutral-50 w-full"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-muted uppercase">Cân nặng của bạn (kg) *</label>
+                  <input
+                    type="number"
+                    required
+                    min={30}
+                    max={200}
+                    placeholder="Ví dụ: 65"
+                    value={userWeight}
+                    onChange={(e) => {
+                      setUserWeight(e.target.value);
+                      setRecommendedSize(null);
+                    }}
+                    className="bg-white border border-brand-border rounded-xl px-4 py-3 text-xs text-brand-text focus:outline-none focus:border-brand-accent focus:bg-neutral-50 w-full"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="bg-brand-accent hover:bg-neutral-800 text-white text-xs font-bold uppercase tracking-widest py-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95 mt-2"
+                >
+                  <span>Tính toán kích cỡ gợi ý</span>
+                  <span>📐</span>
+                </button>
+              </form>
+
+              {/* Suggestions Results Display */}
+              <AnimatePresence>
+                {recommendedSize && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="bg-neutral-50 border border-brand-border rounded-2xl p-5 flex flex-col gap-4 overflow-hidden"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-[9px] uppercase tracking-wider text-brand-muted font-bold block mb-0.5">Kích cỡ đề xuất AI</span>
+                        <span className="text-2xl font-black text-brand-text">Size {recommendedSize}</span>
+                      </div>
+                      <span className="bg-emerald-50 text-emerald-800 text-[9px] font-bold px-3 py-1 rounded-full border border-emerald-100 uppercase tracking-widest shrink-0">
+                        Vừa vặn 98%
+                      </span>
+                    </div>
+                    
+                    <p className="text-xs text-brand-muted font-light leading-relaxed">
+                      Dựa trên chiều cao <strong>{userHeight} cm</strong> và cân nặng <strong>{userWeight} kg</strong>, hệ thống khuyến nghị bạn mặc <strong>Size {recommendedSize}</strong> để có form dáng chuẩn đẹp và thoải mái nhất.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={handleApplyRecommendedSize}
+                      className="w-full bg-brand-accent hover:bg-neutral-800 text-white text-[10px] font-bold uppercase tracking-widest py-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                    >
+                      <span>Áp dụng kích cỡ gợi ý</span>
+                      <span>✓</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

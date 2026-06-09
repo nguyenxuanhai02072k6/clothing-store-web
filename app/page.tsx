@@ -7,7 +7,7 @@ import { MOCK_PRODUCTS } from '../data/products';
 import { useAuth } from '../context/AuthContext';
 import { ProductCard } from '../components/product/ProductCard';
 import { motion } from 'framer-motion';
-import { ArrowRight, Truck, ShieldCheck, RefreshCw, Headphones, Star, Leaf, Award } from 'lucide-react';
+import { ArrowRight, Truck, ShieldCheck, RefreshCw, Headphones, Star, Leaf, Award, Sparkles } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const Hero3D = dynamic(() => import('../components/3d/Hero3D'), { ssr: false });
@@ -138,7 +138,7 @@ export default function HomePage() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-brand-text leading-[1.15] mb-6 uppercase"
+              className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-brand-text leading-[1.15] mb-6 uppercase"
             >
               Định hình phong cách<br />
               <span className="text-brand-muted font-light italic lowercase">tối giản, nhẹ như không.</span>
@@ -186,7 +186,7 @@ export default function HomePage() {
           </div>
  
           {/* Hero Visual Collage with Zero-gravity floating animations */}
-          <div className="lg:col-span-6 grid grid-cols-12 gap-5 relative pt-12 lg:pt-0">
+          <div className="lg:col-span-6 grid grid-cols-12 gap-4 md:gap-5 relative pt-12 lg:pt-0 max-w-lg mx-auto lg:max-w-none w-full">
             
             {/* Ethereal Floating Tag */}
             <div className="absolute -top-3 left-[20%] z-20 bg-white/70 backdrop-blur-md border border-white/60 shadow-lg px-4.5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest text-neutral-900 animate-anti-gravity-3 flex items-center gap-2">
@@ -272,52 +272,151 @@ export default function HomePage() {
         </div>
       </section>
  
-      {/* 2.5. EDITORIAL LOOKBOOK SECTION */}
+      {/* 2.5. BRAND STORY & INTRODUCTION (Quiet Luxury Ethos) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+          {/* Story Text */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-100px' }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-6 flex flex-col items-start text-left"
+          >
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted mb-4 bg-white px-3.5 py-1.5 rounded-full border border-brand-border shadow-xs">
+              Triết lý thương hiệu
+            </span>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-normal tracking-wide text-brand-text leading-[1.2] mb-6 uppercase">
+              Sự tinh tế của<br />
+              <span className="text-brand-muted font-light italic lowercase">thời trang thầm lặng.</span>
+            </h2>
+            <p className="text-sm text-brand-muted leading-relaxed mb-6 font-normal font-sans">
+              Tại Novyn Wear, chúng tôi tin rằng phong cách sống thực thụ không cần phô trương. Nó ẩn mình trong nét thô mộc đặc trưng của sợi Linen tự nhiên, độ đanh mịn của bông Supima Cotton và những đường kim mũi chỉ tỉ mỉ được chế tác hoàn toàn thủ công.
+            </p>
+            <p className="text-sm text-brand-muted leading-relaxed mb-8 font-normal font-sans">
+              Mỗi thiết kế là một tác phẩm bền vững trường tồn cùng thời gian. Chúng tôi loại bỏ các chi tiết thừa thãi để tập trung vào cảm giác mặc: nhẹ tênh, tự do và giải phóng hoàn toàn cơ thể bạn khỏi những gò bó thường nhật.
+            </p>
+            <Link
+              href="/about"
+              className="text-xs font-bold uppercase tracking-widest text-brand-text hover:text-brand-muted transition-colors flex items-center gap-2 border-b border-brand-text hover:border-brand-muted pb-1.5"
+            >
+              Tìm hiểu câu chuyện của chúng tôi
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </motion.div>
+
+          {/* Floating Editorial Photo Collage */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-100px' }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-6 relative aspect-[4/3] w-full flex items-center justify-center mt-8 lg:mt-0"
+          >
+            {/* Background decorative glow */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-neutral-200/30 filter blur-3xl pointer-events-none" />
+
+            {/* Back image - Slow float */}
+            <div className="absolute left-4 w-[60%] aspect-[3/4] rounded-2xl overflow-hidden shadow-lg border border-white/60 animate-anti-gravity-2 z-10">
+              <Image
+                src="https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80"
+                alt="Chất liệu Linen mộc"
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+
+            {/* Front image - Hover overlay */}
+            <div className="absolute right-4 bottom-0 w-[55%] aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl border border-white/60 animate-anti-gravity-1 z-20">
+              <Image
+                src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=500&auto=format&fit=crop&q=80"
+                alt="Craftsmanship tinh xảo"
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* 2.6. EDITORIAL INTERACTIVE LOOKBOOK BANNER */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 25 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-neutral-50 rounded-3xl p-8 md:p-14 border border-brand-border relative overflow-hidden flex flex-col md:flex-row items-center gap-10 md:gap-16 shadow-sm"
+          className="bg-neutral-50 rounded-3xl p-8 md:p-14 border border-brand-border relative overflow-hidden flex flex-col lg:flex-row items-center gap-10 md:gap-16 shadow-sm"
         >
-          {/* Soft background glow */}
+          {/* Glow backdrop */}
           <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-neutral-200/20 filter blur-3xl pointer-events-none" />
           
-          <div className="w-full md:w-1/2 flex flex-col items-start text-left relative z-10">
-            <span className="text-[9px] font-bold text-brand-muted uppercase tracking-widest mb-4 bg-white px-3 py-1 rounded-full border border-brand-border">Summer Weightless 2026</span>
-            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-brand-text uppercase tracking-tight mb-6 leading-tight">
-              Tối giản trong từng phom dáng,<br />
-              <span className="text-brand-muted font-light italic lowercase">tự do trong từng chuyển động.</span>
+          <div className="w-full lg:w-1/2 flex flex-col items-start text-left relative z-10">
+            <span className="text-[10px] font-mono font-bold text-brand-muted uppercase tracking-[0.2em] mb-4 bg-white px-3 py-1.5 rounded-full border border-brand-border">
+              Summer Weightless &apos;26
+            </span>
+            <h3 className="text-3xl sm:text-4xl lg:text-5xl font-normal text-brand-text uppercase tracking-tight mb-6 leading-tight">
+              Khám phá tủ đồ<br />
+              <span className="text-brand-muted font-light italic lowercase">phối đồ thông minh AI.</span>
             </h3>
-            <p className="text-sm text-brand-muted leading-relaxed mb-8 font-normal">
-              Novyn Wear chắt lọc những mảnh ghép thời trang tối giản thanh lịch nhất tạo nên các outfits hoàn chỉnh. Mỗi set đồ được chế tác từ sợi lanh tự nhiên thô mộc, lụa bias-cut hay blazer đứng phom mang đến cảm hứng mặc nhẹ tênh, tự do.
+            <p className="text-sm text-brand-muted leading-relaxed mb-6 font-normal">
+              Trải nghiệm phòng thử đồ kỹ thuật số độc quyền tại Novyn Wear. AI Outfit Lounge sẽ giúp bạn ghép các mảnh trang phục linen thô mộc, áo khoác blazer relaxed-fit và đầm lụa satin rủ tôn dáng thành những set đồ đồng điệu lý tưởng nhất.
             </p>
+            
+            <div className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-brand-border shadow-xs mb-8 max-w-md">
+              <Sparkles className="w-5 h-5 text-brand-accent shrink-0 animate-pulse" />
+              <p className="text-xs text-brand-muted leading-relaxed font-light">
+                <strong>Novyn AI Fitting Lounge:</strong> Tự động phối đồ theo Dịp sử dụng (công sở, đi biển, dạo phố) và tặng mã giảm giá độc quyền <strong className="text-brand-text font-medium">10% NOVYNLOOK</strong> khi mua trọn bộ.
+              </p>
+            </div>
+
             <div className="flex flex-wrap gap-4">
               <Link
                 href="/lookbook"
-                className="bg-brand-accent text-white text-xs font-bold uppercase tracking-widest px-6 py-4 rounded-full hover:bg-neutral-850 transition-all shadow-sm flex items-center gap-2 active:scale-95"
+                className="bg-brand-accent text-white text-xs font-bold uppercase tracking-widest px-8 py-4.5 rounded-full hover:bg-neutral-850 transition-all shadow-sm flex items-center gap-2 active:scale-95 animate-pulse-slow"
               >
-                Shop the look
+                Thử phối đồ AI ngay
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
               <Link
                 href="/lookbook"
-                className="bg-white border border-brand-border text-brand-text text-xs font-bold uppercase tracking-widest px-6 py-4 rounded-full hover:bg-neutral-50 transition-all flex items-center gap-2 active:scale-95 shadow-sm"
+                className="bg-white border border-brand-border text-brand-text text-xs font-bold uppercase tracking-widest px-8 py-4.5 rounded-full hover:bg-neutral-50 transition-all flex items-center gap-2 active:scale-95 shadow-sm"
               >
-                Xem lookbook
+                Xem lookbook tạp chí
               </Link>
             </div>
           </div>
           
-          <div className="w-full md:w-1/2 aspect-[4/3] relative rounded-3xl overflow-hidden border border-brand-border relative z-10 shrink-0 animate-anti-gravity-2">
+          {/* Interactive lookbook preview column */}
+          <div className="w-full lg:w-1/2 aspect-[4/3] md:aspect-[16/11] relative rounded-3xl overflow-hidden border border-brand-border relative z-10 shrink-0 group shadow-sm">
             <Image
-              src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&auto=format&fit=crop&q=80"
+              src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80"
               alt="Summer Weightless Lookbook Promo"
               fill
-              className="object-cover transition-transform duration-700 hover:scale-[1.02]"
+              className="object-cover transition-transform duration-[1200ms] group-hover:scale-[1.02]"
               unoptimized
             />
+            {/* Interactive Mock Hotspots */}
+            <div className="absolute top-[35%] left-[45%] z-20">
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-white border border-brand-text"></span>
+              </span>
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-xs border border-brand-border text-[9px] font-bold uppercase tracking-wider text-brand-text px-2.5 py-1.5 rounded-lg shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                Áo khoác Blazer (01)
+              </div>
+            </div>
+            <div className="absolute top-[68%] left-[53%] z-20">
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-white border border-brand-text"></span>
+              </span>
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-xs border border-brand-border text-[9px] font-bold uppercase tracking-wider text-brand-text px-2.5 py-1.5 rounded-lg shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                Quần Tây Xếp Ly (02)
+              </div>
+            </div>
           </div>
         </motion.div>
       </section>
@@ -333,7 +432,7 @@ export default function HomePage() {
           </p>
         </div>
  
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[260px] md:auto-rows-[320px]">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 auto-rows-[160px] md:auto-rows-[320px]">
           {categories.map((cat, idx) => (
             <motion.div
               key={cat.slug}

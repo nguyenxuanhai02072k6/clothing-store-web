@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -19,7 +19,7 @@ interface FormErrors {
 
 export default function CheckoutPage() {
   const { cart, cartSubtotal, cartDiscount, memberDiscount, cartShipping, cartTotal, appliedPromo, clearCart } = useCart();
-  const { createOrder } = useAuth();
+  const { createOrder, currentUser } = useAuth();
   const router = useRouter();
 
   // Form Fields
@@ -27,6 +27,46 @@ export default function CheckoutPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
+
+  // Load addresses from local storage
+  const [addressBook, setAddressBook] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (currentUser) {
+      setEmail(prev => prev || currentUser.email || '');
+      setFullName(prev => prev || currentUser.name || '');
+      setPhone(prev => prev || currentUser.phone || '');
+      
+      try {
+        const stored = localStorage.getItem(`novyn_addresses_${currentUser.id}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setAddressBook(parsed);
+          
+          // Auto fill default address on initial load
+          const defaultAddr = parsed.find((a: any) => a.isDefault);
+          if (defaultAddr) {
+            setFullName(defaultAddr.fullName || '');
+            setPhone(defaultAddr.phone || '');
+            setAddress(`${defaultAddr.detailAddress}, ${defaultAddr.city}`);
+          }
+        } else {
+          const initial = [
+            { id: 'addr-default', fullName: currentUser.name, phone: currentUser.phone || '0901234567', detailAddress: '120 Lê Lợi, Phường Bến Thành, Quận 1', city: 'TP. Hồ Chí Minh', isDefault: true }
+          ];
+          setAddressBook(initial);
+          localStorage.setItem(`novyn_addresses_${currentUser.id}`, JSON.stringify(initial));
+          
+          // Auto fill
+          setFullName(currentUser.name || '');
+          setPhone(currentUser.phone || '0901234567');
+          setAddress('120 Lê Lợi, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [currentUser]);
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'transfer' | 'card'>('cod');
   
@@ -46,6 +86,18 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [generatedOrderId, setGeneratedOrderId] = useState('');
+
+  // Scroll Lock when success modal is open
+  useEffect(() => {
+    if (showSuccessModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showSuccessModal]);
 
   // Validate step fields
   const validateInfoStep = (): boolean => {
@@ -175,7 +227,7 @@ export default function CheckoutPage() {
               <span className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] font-bold transition-all ${
                 checkoutStep === 'info' ? 'bg-brand-text border-brand-text text-white' : 'border-brand-border text-brand-muted'
               }`}>1</span>
-              <span className={`text-[10px] font-bold uppercase tracking-widest ${
+              <span className={`hidden sm:inline text-[10px] font-bold uppercase tracking-widest ${
                 checkoutStep === 'info' ? 'text-brand-text' : 'text-brand-muted'
               }`}>Thông tin</span>
             </button>
@@ -190,7 +242,7 @@ export default function CheckoutPage() {
               <span className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] font-bold transition-all ${
                 checkoutStep === 'shipping' ? 'bg-brand-text border-brand-text text-white' : 'border-brand-border text-brand-muted'
               }`}>2</span>
-              <span className={`text-[10px] font-bold uppercase tracking-widest ${
+              <span className={`hidden sm:inline text-[10px] font-bold uppercase tracking-widest ${
                 checkoutStep === 'shipping' ? 'text-brand-text' : 'text-brand-muted'
               }`}>Vận chuyển</span>
             </button>
@@ -205,7 +257,7 @@ export default function CheckoutPage() {
               <span className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] font-bold transition-all ${
                 checkoutStep === 'payment' ? 'bg-brand-text border-brand-text text-white' : 'border-brand-border text-brand-muted'
               }`}>3</span>
-              <span className={`text-[10px] font-bold uppercase tracking-widest ${
+              <span className={`hidden sm:inline text-[10px] font-bold uppercase tracking-widest ${
                 checkoutStep === 'payment' ? 'text-brand-text' : 'text-brand-muted'
               }`}>Thanh toán</span>
             </button>
@@ -219,6 +271,44 @@ export default function CheckoutPage() {
                 <h3 className="text-xs font-bold text-brand-text uppercase tracking-widest pb-4 border-b border-brand-border mb-2">
                   1. Thông tin liên hệ
                 </h3>
+
+                {currentUser && addressBook.length > 0 && (
+                  <div className="flex flex-col gap-2 pb-4 border-b border-brand-border mb-2 animate-fade-in">
+                    <label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1">
+                      Sử dụng địa chỉ đã lưu
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {addressBook.map((addr) => {
+                        const isSelected = fullName === addr.fullName && phone === addr.phone;
+                        return (
+                          <button
+                            key={addr.id}
+                            type="button"
+                            onClick={() => {
+                              setFullName(addr.fullName);
+                              setPhone(addr.phone);
+                              setAddress(`${addr.detailAddress}, ${addr.city}`);
+                            }}
+                            className={`text-left p-3.5 rounded-xl border transition-all flex flex-col gap-1 cursor-pointer focus:outline-none ${
+                              isSelected
+                                ? 'border-brand-text bg-neutral-50 shadow-sm'
+                                : 'border-brand-border hover:border-brand-text bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-[11px] font-bold text-brand-text">{addr.fullName}</span>
+                              {addr.isDefault && (
+                                <span className="text-[8px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-1.5 py-0.5 border border-emerald-100 rounded-md">Mặc định</span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-brand-muted font-mono">{addr.phone}</span>
+                            <span className="text-[10px] text-brand-muted line-clamp-1">{addr.detailAddress}, {addr.city}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Full Name */}
                 <div className="flex flex-col gap-1.5">
@@ -295,6 +385,44 @@ export default function CheckoutPage() {
                 <h3 className="text-xs font-bold text-brand-text uppercase tracking-widest pb-4 border-b border-brand-border mb-2">
                   2. Địa chỉ nhận hàng
                 </h3>
+
+                {currentUser && addressBook.length > 0 && (
+                  <div className="flex flex-col gap-2 pb-4 border-b border-brand-border mb-2 animate-fade-in">
+                    <label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1">
+                      Chọn nhanh địa chỉ giao hàng
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {addressBook.map((addr) => {
+                        const isSelected = address === `${addr.detailAddress}, ${addr.city}`;
+                        return (
+                          <button
+                            key={addr.id}
+                            type="button"
+                            onClick={() => {
+                              setFullName(addr.fullName);
+                              setPhone(addr.phone);
+                              setAddress(`${addr.detailAddress}, ${addr.city}`);
+                            }}
+                            className={`text-left p-3.5 rounded-xl border transition-all flex flex-col gap-1 cursor-pointer focus:outline-none ${
+                              isSelected
+                                ? 'border-brand-text bg-neutral-50 shadow-sm'
+                                : 'border-brand-border hover:border-brand-text bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-[11px] font-bold text-brand-text">{addr.fullName}</span>
+                              {addr.isDefault && (
+                                <span className="text-[8px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-1.5 py-0.5 border border-emerald-100 rounded-md">Mặc định</span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-brand-muted font-mono">{addr.phone}</span>
+                            <span className="text-[10px] text-brand-muted line-clamp-1">{addr.detailAddress}, {addr.city}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Shipping Address */}
                 <div className="flex flex-col gap-1.5">

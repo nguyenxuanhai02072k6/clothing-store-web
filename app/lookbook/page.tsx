@@ -42,6 +42,164 @@ export default function LookbookPage() {
   const [selectedColors, setSelectedColors] = useState<Record<string, ColorOption>>({});
   const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
 
+  // AI Outfit suggestion states
+  const [outfitGender, setOutfitGender] = useState<'male' | 'female'>('female');
+  const [outfitOccasion, setOutfitOccasion] = useState<string>('office');
+  const [outfitColor, setOutfitColor] = useState<string>('minimalist');
+  const [generatedOutfit, setGeneratedOutfit] = useState<Product[]>([]);
+  const [showOutfitResult, setShowOutfitResult] = useState(false);
+  const [outfitSizes, setOutfitSizes] = useState<Record<string, string>>({});
+  const [outfitColors, setOutfitColors] = useState<Record<string, ColorOption>>({});
+
+  const handleGenerateOutfit = () => {
+    let topId = 'prod-03';
+    let bottomId = 'prod-05';
+    let outerId = 'prod-02';
+    let dressId = '';
+
+    if (outfitGender === 'male') {
+      if (outfitOccasion === 'office') {
+        topId = 'prod-03';
+        bottomId = 'prod-05';
+        outerId = 'prod-02';
+      } else if (outfitOccasion === 'streetwear') {
+        topId = 'prod-01';
+        bottomId = 'prod-31';
+        outerId = 'prod-33';
+      } else if (outfitOccasion === 'beach') {
+        topId = 'prod-03';
+        bottomId = 'prod-06';
+        outerId = '';
+      } else if (outfitOccasion === 'party') {
+        topId = 'prod-03';
+        bottomId = 'prod-05';
+        outerId = 'prod-02';
+      }
+    } else {
+      if (outfitOccasion === 'office') {
+        dressId = 'prod-29';
+        outerId = 'prod-02';
+        bottomId = '';
+        topId = '';
+      } else if (outfitOccasion === 'streetwear') {
+        topId = 'prod-01';
+        bottomId = 'prod-31';
+        outerId = 'prod-33';
+      } else if (outfitOccasion === 'beach') {
+        dressId = 'prod-29';
+        outerId = 'prod-03';
+        bottomId = '';
+        topId = '';
+      } else if (outfitOccasion === 'party') {
+        dressId = 'prod-29';
+        outerId = 'prod-30';
+        bottomId = '';
+        topId = '';
+      }
+    }
+
+    const items = [topId, bottomId, outerId, dressId]
+      .filter((id) => id !== '')
+      .map((id) => activeProducts.find((p) => p.id === id))
+      .filter((p): p is Product => !!p);
+
+    setGeneratedOutfit(items);
+    setShowOutfitResult(true);
+
+    const sizes: Record<string, string> = {};
+    const colors: Record<string, ColorOption> = {};
+    items.forEach((p) => {
+      sizes[p.id] = p.sizes[0] || 'M';
+      colors[p.id] = p.colors[0];
+    });
+    setOutfitSizes(sizes);
+    setOutfitColors(colors);
+    showToast('AI đã tạo bộ phối đồ gợi ý cho bạn!', 'success');
+  };
+
+  const handleApplyTemplate = (gender: 'male' | 'female', occasion: string, color: string) => {
+    setOutfitGender(gender);
+    setOutfitOccasion(occasion);
+    setOutfitColor(color);
+
+    let topId = 'prod-03';
+    let bottomId = 'prod-05';
+    let outerId = 'prod-02';
+    let dressId = '';
+
+    if (gender === 'male') {
+      if (occasion === 'office') {
+        topId = 'prod-03';
+        bottomId = 'prod-05';
+        outerId = 'prod-02';
+      } else if (occasion === 'streetwear') {
+        topId = 'prod-01';
+        bottomId = 'prod-31';
+        outerId = 'prod-33';
+      } else if (occasion === 'beach') {
+        topId = 'prod-03';
+        bottomId = 'prod-06';
+        outerId = '';
+      } else if (occasion === 'party') {
+        topId = 'prod-03';
+        bottomId = 'prod-05';
+        outerId = 'prod-02';
+      }
+    } else {
+      if (occasion === 'office') {
+        dressId = 'prod-29';
+        outerId = 'prod-02';
+        bottomId = '';
+        topId = '';
+      } else if (occasion === 'streetwear') {
+        topId = 'prod-01';
+        bottomId = 'prod-31';
+        outerId = 'prod-33';
+      } else if (occasion === 'beach') {
+        dressId = 'prod-29';
+        outerId = 'prod-03';
+        bottomId = '';
+        topId = '';
+      } else if (occasion === 'party') {
+        dressId = 'prod-29';
+        outerId = 'prod-30';
+        bottomId = '';
+        topId = '';
+      }
+    }
+
+    const items = [topId, bottomId, outerId, dressId]
+      .filter((id) => id !== '')
+      .map((id) => activeProducts.find((p) => p.id === id))
+      .filter((p): p is Product => !!p);
+
+    setGeneratedOutfit(items);
+    setShowOutfitResult(true);
+
+    const sizes: Record<string, string> = {};
+    const colors: Record<string, ColorOption> = {};
+    items.forEach((p) => {
+      sizes[p.id] = p.sizes[0] || 'M';
+      colors[p.id] = p.colors[0];
+    });
+    setOutfitSizes(sizes);
+    setOutfitColors(colors);
+    showToast('Đã áp dụng bản phối ý tưởng từ AI Lounge!', 'success');
+  };
+
+  const handleBuyOutfit = () => {
+    if (generatedOutfit.length === 0) return;
+    generatedOutfit.forEach((product) => {
+      const size = outfitSizes[product.id] || product.sizes[0] || 'M';
+      const color = outfitColors[product.id] || product.colors[0];
+      addToCart(product, 1, color, size);
+    });
+
+    addDynamicPromoCode('NOVYNLOOK', 'percent', 10, 'Ưu đãi trọn bộ Lookbook 10%');
+    applyPromoCode('NOVYNLOOK');
+    showToast('Đã thêm trọn bộ phối đồ vào giỏ hàng và áp dụng giảm giá 10% NOVYNLOOK!', 'success');
+  };
+
   // Lookbook curated collections matching our products
   const lookbooks: LookbookItem[] = [
     {
@@ -166,6 +324,18 @@ export default function LookbookPage() {
     }
   }, [activeDrawerLook, activeProducts, selectedSizes, selectedColors]);
 
+  // Scroll Lock when Shop the Look drawer is open
+  useEffect(() => {
+    if (activeDrawerLook) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [activeDrawerLook]);
+
   // Handle adding a single product to cart
   const handleAddSingleToCart = (product: Product) => {
     const size = selectedSizes[product.id] || product.sizes[0] || 'M';
@@ -235,17 +405,236 @@ export default function LookbookPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Editorial Header */}
-        <div className="text-center max-w-3xl mx-auto mb-20 md:mb-28">
+        <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand-muted mb-4 block">
             — SUMMER WEIGHTLESS 2026
           </span>
           <h1 className="text-4xl sm:text-6xl font-normal tracking-widest text-brand-text uppercase mb-6">
             NOVYN WEAR <span className="font-light italic text-brand-muted lowercase">lookbook</span>
           </h1>
-          <div className="w-12 h-[1px] bg-brand-border mx-auto mb-6" />
-          <p className="text-xs sm:text-sm text-brand-muted leading-relaxed font-light tracking-wide max-w-xl mx-auto">
-            Tối giản trong từng phom dáng, tự do trong từng chuyển động. Khám phá các bộ phối đồ tinh tế, dệt nên từ những chất liệu cao cấp mộc mạc và phong thái hiện đại phóng khoáng.
-          </p>
+        </div>
+
+        {/* AI INTERACTIVE OUTFIT SUGGESTION WIDGET */}
+        <div className="max-w-4xl mx-auto bg-[#FAF8F5] border border-brand-border rounded-3xl p-6 sm:p-8 mb-24 shadow-lg relative overflow-hidden text-brand-text">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-50/60 filter blur-3xl pointer-events-none" />
+          
+          <div className="flex items-center gap-2 mb-6">
+            <Sparkles className="w-4 h-4 text-brand-accent animate-pulse" />
+            <h3 className="text-xs font-bold text-brand-text uppercase tracking-widest">
+              Novyn AI Fitting Lounge - Gợi ý phối đồ
+            </h3>
+          </div>
+
+          {/* Quick Coordination Templates */}
+          <div className="mb-8 flex flex-wrap gap-2.5 items-center justify-start border-b border-brand-border pb-6">
+            <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mr-2">Bản phối gợi ý nhanh:</span>
+            {[
+              { name: '☕ Lịch lãm Công sở', gender: 'female', occasion: 'office', color: 'minimalist' },
+              { name: '🌊 Đi biển Mộc mạc', gender: 'female', occasion: 'beach', color: 'neutral' },
+              { name: '🍸 Tiệc đêm Sang trọng', gender: 'female', occasion: 'party', color: 'minimalist' },
+              { name: '🛹 Dạo phố Phong cách', gender: 'male', occasion: 'streetwear', color: 'bright' },
+            ].map((tpl) => (
+              <button
+                key={tpl.name}
+                type="button"
+                onClick={() => handleApplyTemplate(tpl.gender as any, tpl.occasion, tpl.color)}
+                className="px-3.5 py-2 rounded-xl bg-white border border-brand-border hover:bg-neutral-50 text-brand-text text-[10px] font-bold tracking-wide transition-all active:scale-95 cursor-pointer shadow-sm"
+              >
+                {tpl.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end pb-6 border-b border-brand-border">
+            {/* Gender Select */}
+            <div className="flex flex-col gap-2 text-left">
+              <label className="text-[9px] font-bold uppercase tracking-wider text-brand-muted">Giới tính</label>
+              <div className="flex bg-white border border-brand-border rounded-xl p-1 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setOutfitGender('female')}
+                  className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    outfitGender === 'female' ? 'bg-brand-text text-white shadow-sm' : 'text-brand-muted hover:text-brand-text'
+                  }`}
+                >
+                  Nữ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOutfitGender('male')}
+                  className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    outfitGender === 'male' ? 'bg-brand-text text-white shadow-sm' : 'text-brand-muted hover:text-brand-text'
+                  }`}
+                >
+                  Nam
+                </button>
+              </div>
+            </div>
+
+            {/* Occasion Select */}
+            <div className="flex flex-col gap-2 text-left">
+              <label className="text-[9px] font-bold uppercase tracking-wider text-brand-muted">Dịp sử dụng</label>
+              <select
+                value={outfitOccasion}
+                onChange={(e) => setOutfitOccasion(e.target.value)}
+                className="w-full bg-white border border-brand-border rounded-xl px-3 py-2.5 text-xs text-brand-text font-semibold focus:outline-none cursor-pointer focus:border-brand-text shadow-sm"
+              >
+                <option value="office">Công sở / Thanh lịch</option>
+                <option value="streetwear">Dạo phố / Streetwear</option>
+                <option value="beach">Đi biển / Nghỉ dưỡng</option>
+                <option value="party">Đi tiệc / Event</option>
+              </select>
+            </div>
+
+            {/* Color Select */}
+            <div className="flex flex-col gap-2 text-left">
+              <label className="text-[9px] font-bold uppercase tracking-wider text-brand-muted">Tông màu chủ đạo</label>
+              <select
+                value={outfitColor}
+                onChange={(e) => setOutfitColor(e.target.value)}
+                className="w-full bg-white border border-brand-border rounded-xl px-3 py-2.5 text-xs text-brand-text font-semibold focus:outline-none cursor-pointer focus:border-brand-text shadow-sm"
+              >
+                <option value="minimalist">Tối giản (Đen / Trắng / Xám)</option>
+                <option value="neutral">Trung tính (Beige / Nâu / Kem)</option>
+                <option value="bright">Tươi sáng (Xanh mộc / Pastel)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={handleGenerateOutfit}
+              className="bg-brand-text hover:bg-neutral-800 text-white text-xs font-bold uppercase tracking-widest px-8 py-4 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-2"
+            >
+              <span>Phối đồ thông minh AI</span>
+              <Sparkles className="w-3.5 h-3.5 text-white" />
+            </button>
+          </div>
+
+          {/* Result Panel */}
+          <AnimatePresence>
+            {showOutfitResult && generatedOutfit.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="mt-8 border-t border-brand-border pt-8 overflow-hidden text-left"
+              >
+                <div className="bg-white border border-brand-border rounded-2xl p-6 shadow-inner flex flex-col md:flex-row gap-8 items-start">
+                  
+                  {/* Left Column: Description & Summary */}
+                  <div className="flex-1 flex flex-col justify-between h-full min-h-[200px]">
+                    <div>
+                      <span className="bg-[#FAF8F5] border border-brand-border px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-muted w-fit block mb-4">
+                        Set đồ hoàn thiện đề xuất
+                      </span>
+                      <h4 className="text-xl font-normal text-brand-text uppercase tracking-widest mb-3">
+                        {outfitOccasion === 'office' ? 'Sophisticated Minimalist' :
+                         outfitOccasion === 'streetwear' ? 'Urban Quiet Luxury' :
+                         outfitOccasion === 'beach' ? 'Organic Breathable Summer' : 'Elegant Chic Party'}
+                      </h4>
+                      <p className="text-xs text-brand-muted leading-relaxed font-light mb-6">
+                        {outfitOccasion === 'office'
+                          ? 'Set đồ công sở lịch lãm pha trộn giữa chất liệu cao cấp mộc mạc và những đường cắt tinh xảo. Vừa thoải mái năng động vừa giữ vững nét chuyên nghiệp.'
+                          : outfitOccasion === 'streetwear'
+                          ? 'Thời trang dạo phố mang hơi thở tối giản hiện đại. Kết cấu thoải mái cùng phom dáng rủ nhẹ tạo cảm giác mặc tự do tự tại.'
+                          : outfitOccasion === 'beach'
+                          ? 'Hành trang nghỉ dưỡng nhẹ tênh dệt hoàn toàn từ sợi lanh tự nhiên thô mộc. Thấm hút mồ hôi cực tốt, thông thoáng mát mẻ suốt cả ngày.'
+                          : 'Bản phối đi tiệc cao cấp tôn vinh phom dáng đứng măng tô dạ len wool và đầm satin bias-cut sang trọng.'}
+                      </p>
+                    </div>
+
+                    <div className="border-t border-brand-border pt-4 mt-auto">
+                      <div className="flex justify-between items-baseline mb-4">
+                        <span className="text-[9px] uppercase font-bold tracking-widest text-brand-muted">
+                          Giá trọn bộ phối đồ
+                        </span>
+                        <div className="text-right">
+                          <span className="text-xs line-through text-brand-muted mr-2">
+                            {formatPrice(generatedOutfit.reduce((acc, p) => acc + p.price, 0))}
+                          </span>
+                          <span className="text-lg font-normal text-brand-text">
+                            {formatPrice(Math.round(generatedOutfit.reduce((acc, p) => acc + p.price, 0) * 0.9))}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleBuyOutfit}
+                        className="w-full py-4 bg-brand-accent hover:bg-neutral-800 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                      >
+                        <ShoppingBag className="w-4 h-4 text-white" />
+                        <span>Mua trọn bộ set đồ (-10%)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Items Swatches List */}
+                  <div className="w-full md:w-96 flex flex-col gap-4">
+                    {generatedOutfit.map((product) => {
+                      const selectedSize = outfitSizes[product.id] || product.sizes[0] || 'M';
+                      const selectedColor = outfitColors[product.id] || product.colors[0];
+
+                      return (
+                        <div key={product.id} className="flex gap-4 p-4 border border-brand-border rounded-xl bg-[#FAF8F5]/80 hover:bg-[#FAF8F5] transition-all">
+                          <div className="relative aspect-[4/5] w-14 rounded-lg overflow-hidden bg-brand-bg border border-brand-border shrink-0">
+                            <Image
+                              src={product.images[0]}
+                              alt={product.name}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                            <div>
+                              <h5 className="text-xs font-bold uppercase text-brand-text truncate leading-tight mb-1">{product.name}</h5>
+                              <span className="text-[10px] text-brand-text font-bold block">{formatPrice(product.price)}</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-3 mt-1.5">
+                              {/* Quick Size selection */}
+                              <div className="flex items-center gap-1">
+                                <span className="text-[8px] font-bold text-brand-muted uppercase">Size:</span>
+                                <select
+                                  value={selectedSize}
+                                  onChange={(e) => setOutfitSizes(prev => ({ ...prev, [product.id]: e.target.value }))}
+                                  className="bg-transparent border-0 text-[9px] font-bold text-brand-text p-0 focus:outline-none uppercase cursor-pointer"
+                                >
+                                  {product.sizes.map((sz) => (
+                                    <option key={sz} value={sz} className="bg-white text-brand-text">{sz}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Quick Color selection */}
+                              <div className="flex items-center gap-1">
+                                <span className="text-[8px] font-bold text-brand-muted uppercase">Màu:</span>
+                                <select
+                                  value={selectedColor?.name}
+                                  onChange={(e) => {
+                                    const col = product.colors.find(c => c.name === e.target.value);
+                                    if (col) setOutfitColors(prev => ({ ...prev, [product.id]: col }));
+                                  }}
+                                  className="bg-transparent border-0 text-[9px] font-bold text-brand-text p-0 focus:outline-none lowercase cursor-pointer"
+                                >
+                                  {product.colors.map((c) => (
+                                    <option key={c.name} value={c.name} className="bg-white text-brand-text">{c.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Curated Editorial Lookbooks Magazine Grid */}

@@ -4,85 +4,104 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Leaf, Award, Heart, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Leaf, Award, Heart, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
 
 export default function AboutPage() {
   const stats = [
     { value: '2024', label: 'Năm Thành Lập' },
     { value: '15K+', label: 'Khách Hàng Ưu Tú' },
     { value: '98%', label: 'Nguyên Liệu Tự Nhiên' },
-    { value: '100%', label: 'Bao Bì Thân Thiện' },
+    { value: '100%', label: 'Bao Bì Hữu Cơ' },
   ];
 
   const values = [
     {
       icon: <Leaf className="w-5 h-5 text-brand-text" />,
       title: 'Thời Trang Bền Vững',
-      desc: 'Chúng tôi cam kết sử dụng 100% sợi linen organic, cotton hữu cơ và các chất liệu thân thiện nhằm giảm thiểu tối đa tác động lên môi trường.',
+      desc: 'Chúng tôi cam kết sử dụng 100% sợi Linen hữu cơ tự nhiên, Cotton Supima và các chất liệu thân thiện nhằm giảm thiểu tối đa dấu chân sinh thái.',
     },
     {
       icon: <Award className="w-5 h-5 text-brand-text" />,
       title: 'Tỉ Mỉ Trong Craftsmanship',
-      desc: 'Mỗi đường kim mũi chỉ, phom dáng cắt may hay các chi tiết nút áo đều được chế tác thủ công tỉ mỉ bởi những người thợ lành nghề nhất.',
+      desc: 'Mỗi đường kim mũi chỉ, kỹ thuật giấu viền hay các chi tiết đính nút đều được chế tác thủ công tỉ mỉ bởi các nghệ nhân may đo lành nghề.',
     },
     {
       icon: <Heart className="w-5 h-5 text-brand-text" />,
-      title: 'Thiết Kế Độc Bản',
-      desc: 'Không chạy theo xu hướng nhất thời, các bộ sưu tập của Novyn Wear định hình phong cách sống tối giản (Quiet Luxury) trường tồn cùng thời gian.',
+      title: 'Triết lý Quiet Luxury',
+      desc: 'Không chạy theo các xu hướng chớp nhoáng, các thiết kế của Novyn Wear hướng đến sự tinh giản, thanh lịch trường tồn cùng thời gian.',
     },
     {
       icon: <ShieldCheck className="w-5 h-5 text-brand-text" />,
       title: 'Trách Nhiệm Xã Hội',
-      desc: 'Chúng tôi xây dựng môi trường làm việc nhân văn, công bằng và đóng góp trích doanh thu cho các dự án trồng rừng xã hội.',
+      desc: 'Chúng tôi xây dựng chuỗi cung ứng minh bạch, bảo đảm môi trường làm việc nhân văn và cam kết trích doanh thu cho các quỹ cộng đồng.',
     },
   ];
 
+  const materials = [
+    {
+      name: 'Organic Linen',
+      description: 'Được dệt từ sợi lanh tự nhiên nhập khẩu thô mộc. Có đặc tính thấm hút tuyệt đối, tản nhiệt tự nhiên nhanh chóng giúp làn da luôn được hít thở mát lành trong những ngày oi ả.',
+      image: 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=600&auto=format&fit=crop&q=80'
+    },
+    {
+      name: 'Supima Cotton',
+      description: 'Sợi cotton siêu dài thượng hạng có độ bền bỉ gấp đôi và độ mịn màng vượt trội so với sợi cotton thường. Vải đanh phom, không đổ lông và mang lại cảm nhận êm dịu tối đa.',
+      image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600&auto=format&fit=crop&q=80'
+    }
+  ];
+
   return (
-    <div className="flex flex-col gap-20 pb-20 overflow-hidden bg-white">
+    <div className="flex flex-col gap-16 md:gap-32 pb-32 overflow-hidden bg-[#FAF8F5] relative">
       
+      {/* Background Decorative Mesh Orbs */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[10%] left-[-10%] w-[35rem] h-[35rem] rounded-full bg-neutral-200/20 filter blur-[100px] animate-pulse-slow" />
+        <div className="absolute top-[50%] right-[-10%] w-[40rem] h-[40rem] rounded-full bg-neutral-150/35 filter blur-[120px] animate-float-slow" />
+      </div>
+
       {/* 1. HERO BANNER */}
-      <section className="relative min-h-[45vh] flex items-center bg-white px-4 sm:px-6 lg:px-8 border-b border-brand-border">
-        <div className="max-w-4xl mx-auto w-full text-center relative z-10 py-16">
+      <section className="relative min-h-[50vh] flex items-center bg-transparent px-4 sm:px-6 lg:px-8 border-b border-brand-border/40 z-10">
+        <div className="max-w-4xl mx-auto w-full text-center py-16 md:py-24">
           <motion.span
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand-muted mb-4 block"
+            className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand-muted mb-5 block bg-white/60 border border-brand-border/60 w-fit mx-auto px-4 py-1.5 rounded-full shadow-xs"
           >
             Câu chuyện thương hiệu
           </motion.span>
           <motion.h1
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-4xl sm:text-5xl md:text-6xl font-normal tracking-widest text-brand-text leading-tight mb-6 uppercase"
+            transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="text-3xl sm:text-5xl md:text-7xl font-bold tracking-widest text-brand-text leading-tight mb-6 uppercase"
           >
             Về Novyn Wear
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-xs sm:text-sm text-brand-muted max-w-2xl mx-auto leading-relaxed font-light tracking-wide"
+            transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="text-xs sm:text-sm md:text-base text-brand-muted max-w-2xl mx-auto leading-relaxed font-light tracking-wide font-sans"
           >
-            Được thành lập với sứ mệnh định hình lại tủ đồ hiện đại, Novyn Wear chắt lọc tinh hoa tối giản, kết hợp nguyên liệu tự nhiên bền vững để kiến tạo nên những sản phẩm tinh tế, nâng niu phong cách sống tự tại của bạn.
+            Kiến tạo từ ước mơ về một tủ đồ tinh gọn, bền bỉ và thời thượng. Novyn Wear chắt lọc các phom dáng tối giản hiện đại kết hợp nguồn nguyên liệu hữu cơ mộc mạc để định hình nên phong thái tự do cho riêng bạn.
           </motion.p>
         </div>
       </section>
 
       {/* 2. STATS GRID */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-24 relative z-20 w-full">
-        <div className="bg-white rounded-3xl p-8 md:p-12 border border-brand-border shadow-sm grid grid-cols-2 lg:grid-cols-4 gap-8 divide-y-0 divide-x-0 md:divide-y-0 lg:divide-x lg:divide-brand-border">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-32 relative z-20 w-full">
+        <div className="bg-white/95 backdrop-blur-md rounded-3xl p-8 md:p-12 border border-brand-border shadow-sm grid grid-cols-2 lg:grid-cols-4 gap-8 divide-y-0 divide-x-0 md:divide-y-0 lg:divide-x lg:divide-brand-border">
           {stats.map((s, idx) => (
             <motion.div
               key={idx}
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: idx * 0.1 }}
+              transition={{ duration: 0.6, delay: idx * 0.1 }}
               className="flex flex-col items-center justify-center text-center p-4 lg:first:pl-0 lg:last:pr-0"
             >
-              <span className="text-3xl md:text-4xl lg:text-5xl font-normal text-brand-text tracking-tight mb-2">
+              <span className="text-3xl md:text-4xl lg:text-5xl font-light text-brand-text tracking-tight mb-2">
                 {s.value}
               </span>
               <span className="text-[9px] font-bold uppercase tracking-widest text-brand-muted">
@@ -94,89 +113,100 @@ export default function AboutPage() {
       </section>
 
       {/* 3. MANIFESTO & PHILOSOPHY */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-lg md:text-xl font-normal text-brand-text mb-6 tracking-widest uppercase">
-            Tuyên Ngôn Thiết Kế: &ldquo;Less but Better&rdquo;
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="max-w-3xl mx-auto text-center bg-white border border-brand-border rounded-3xl p-8 md:p-12 shadow-xs"
+        >
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted mb-4 block">Tuyên Ngôn Thiết Kế</span>
+          <h2 className="text-xl md:text-2xl font-normal text-brand-text mb-6 tracking-widest uppercase">
+            &ldquo;Less but Better&rdquo;
           </h2>
-          <p className="text-xs sm:text-sm text-brand-muted leading-loose italic font-light px-4">
-            &ldquo;Tại Novyn Wear, chúng tôi tin rằng sự sang trọng thực sự không nằm ở những chi tiết phô trương, mà ẩn giấu trong sự mộc mạc nguyên bản của chất liệu và phom dáng chuẩn mực. Một chiếc áo Linen cao cấp hay mùi hương nước hoa ấm áp từ gỗ tuyết tùng chính là ngôn ngữ thầm lặng, khẳng định cá tính tinh tế, sâu lắng của người sở hữu.&rdquo;
+          <p className="text-xs sm:text-sm text-brand-muted leading-loose italic font-light px-2 sm:px-4 font-sans">
+            &ldquo;Tại Novyn Wear, chúng tôi tin rằng sự sang trọng thực sự không nằm ở những chi tiết phô trương rực rỡ, mà ẩn giấu sâu sắc trong sự mộc mạc nguyên bản của chất liệu và sự thoải mái của phom dáng. Chiếc áo Linen cao cấp hay bộ blazer relaxed-fit chính là ngôn ngữ thầm lặng định danh khí chất tinh tế của bạn.&rdquo;
           </p>
-        </div>
+        </motion.div>
       </section>
 
-      {/* 4. STORY SECTION (ALTERNATING BLOCKS) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col gap-24">
+      {/* 4. BRAND STORY SECTION (ALTERNATING EDITORIAL BLOCKS) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col gap-28 z-10">
         
         {/* Block 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="lg:col-span-6 flex flex-col items-start"
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-6 flex flex-col items-start text-left"
           >
-            <span className="text-[9px] font-bold text-brand-muted uppercase tracking-widest mb-3">— Khởi nguồn ý tưởng</span>
-            <h3 className="text-2xl font-normal text-brand-text uppercase tracking-widest mb-5">
-              Từ ước mơ về sợi Linen bản địa
+            <span className="text-[9px] font-bold text-brand-muted uppercase tracking-widest mb-3 bg-white px-3 py-1 rounded-full border border-brand-border">— Khởi nguồn ý tưởng</span>
+            <h3 className="text-2xl sm:text-3xl font-normal text-brand-text uppercase tracking-widest mb-6 leading-snug">
+              Hành trình tìm về<br />
+              <span className="text-brand-muted font-light italic lowercase">những sợi dệt bản địa.</span>
             </h3>
-            <p className="text-xs sm:text-sm text-brand-muted leading-relaxed mb-4 font-light">
-              Novyn Wear bắt đầu hành trình từ những chuyến đi tìm kiếm chất liệu dệt thô mộc. Chúng tôi nhận thấy những sợi linen tự nhiên có khả năng thoáng mát tự điều hòa nhiệt độ vượt trội, cực kỳ phù hợp với khí hậu nóng ẩm nhiệt đới của Việt Nam.
+            <p className="text-sm text-brand-muted leading-relaxed mb-4 font-light font-sans">
+              Novyn Wear bắt đầu hành trình từ những chuyến đi thực tế đến các làng dệt thô mộc. Chúng tôi nhận thấy những sợi linen tự nhiên có khả năng thoáng mát tự điều hòa nhiệt độ vượt trội, cực kỳ phù hợp với khí hậu nóng ẩm nhiệt đới của Việt Nam.
             </p>
-            <p className="text-xs sm:text-sm text-brand-muted leading-relaxed font-light">
+            <p className="text-sm text-brand-muted leading-relaxed font-light font-sans">
               Trải qua hơn 18 tháng nghiên cứu phát triển sợi Linen hữu cơ cao cấp, Novyn Wear ra đời với mong muốn tạo nên những chiếc áo thô mộc nhưng giữ nguyên phom dáng cắt may hiện đại của thời trang thiết kế cao cấp, giúp tôn vinh thần thái tự tin của người mặc.
             </p>
           </motion.div>
+          
           <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            whileInView={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0, scale: 0.98, x: 30 }}
+            whileInView={{ opacity: 1, scale: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="lg:col-span-6 aspect-[16/11] relative rounded-2xl overflow-hidden shadow-sm border border-brand-border"
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-6 aspect-[16/11] relative rounded-3xl overflow-hidden shadow-md border border-brand-border group"
           >
             <Image
               src="https://images.unsplash.com/photo-1544816155-12df9643f363?w=800&auto=format&fit=crop&q=80"
               alt="Natural Linen Fabric Production"
               fill
-              className="object-cover"
+              className="object-cover transition-transform duration-1000 group-hover:scale-102"
               unoptimized
             />
           </motion.div>
         </div>
 
         {/* Block 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            whileInView={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0, scale: 0.98, x: -30 }}
+            whileInView={{ opacity: 1, scale: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="lg:col-span-6 lg:order-2 aspect-[16/11] relative rounded-2xl overflow-hidden shadow-sm border border-brand-border"
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-6 lg:order-2 aspect-[16/11] relative rounded-3xl overflow-hidden shadow-md border border-brand-border group"
           >
             <Image
               src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=800&auto=format&fit=crop&q=80"
               alt="Ethical Tailoring Craftsmanship"
               fill
-              className="object-cover"
+              className="object-cover transition-transform duration-1000 group-hover:scale-102"
               unoptimized
             />
           </motion.div>
+
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="lg:col-span-6 lg:order-1 flex flex-col items-start"
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-6 lg:order-1 flex flex-col items-start text-left"
           >
-            <span className="text-[9px] font-bold text-brand-muted uppercase tracking-widest mb-3">— Triết lý thiết kế</span>
-            <h3 className="text-2xl font-normal text-brand-text uppercase tracking-widest mb-5">
-              Đôi tay chế tác thủ công tài hoa
+            <span className="text-[9px] font-bold text-brand-muted uppercase tracking-widest mb-3 bg-white px-3 py-1 rounded-full border border-brand-border">— Triết lý thiết kế</span>
+            <h3 className="text-2xl sm:text-3xl font-normal text-brand-text uppercase tracking-widest mb-6 leading-snug">
+              Bàn tay chế tác<br />
+              <span className="text-brand-muted font-light italic lowercase">thủ công chuẩn mực.</span>
             </h3>
-            <p className="text-xs sm:text-sm text-brand-muted leading-relaxed mb-4 font-light">
+            <p className="text-sm text-brand-muted leading-relaxed mb-4 font-light font-sans">
               Mỗi sản phẩm Novyn Wear không đơn thuần là quần áo thông thường, đó là một tác phẩm chứa đựng tâm huyết của đội ngũ thợ may dày dặn kinh nghiệm. Chúng tôi thiết lập các tiêu chuẩn khắt khe về kỹ thuật giấu chỉ, vắt sổ, gia cố nút bấm để đảm bảo tuổi thọ tối đa cho sản phẩm.
             </p>
-            <p className="text-xs sm:text-sm text-brand-muted leading-relaxed font-light">
+            <p className="text-sm text-brand-muted leading-relaxed font-light font-sans">
               Bạn có thể dễ dàng cảm nhận sự khác biệt ngay trong lần chạm tay đầu tiên: vải êm mềm không gây ngứa, các nếp gấp tự nhiên rũ nhẹ ôm lấy cơ thể, tạo cảm giác dễ chịu tuyệt đối từ sáng sớm công sở đến tối muộn dạo phố.
             </p>
           </motion.div>
@@ -184,14 +214,59 @@ export default function AboutPage() {
 
       </section>
 
-      {/* 5. BRAND VALUES */}
-      <section className="bg-white py-20 px-4 sm:px-6 lg:px-8 border-y border-brand-border">
+      {/* 5. NEW: DETAILED MATERIALS ETHOS SECTION (Editorial split) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10">
+        <div className="text-center max-w-lg mx-auto mb-16">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted mb-3 block">Chất liệu cao cấp</span>
+          <h2 className="text-2xl md:text-3xl font-normal text-brand-text mb-4 tracking-widest uppercase">
+            Nguồn sợi hữu cơ nguyên bản
+          </h2>
+          <p className="text-xs md:text-sm text-brand-muted leading-relaxed font-light font-sans">
+            Tuyển chọn khắt khe những chất liệu dệt tự nhiên tốt nhất cho làn da và thân thiện với môi trường.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {materials.map((m, idx) => (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 25 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: idx * 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-white border border-brand-border rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row gap-6 items-center shadow-xs group"
+            >
+              <div className="w-full md:w-44 aspect-square relative rounded-2xl overflow-hidden shrink-0 border border-brand-border">
+                <Image
+                  src={m.image}
+                  alt={m.name}
+                  fill
+                  className="object-cover transition-transform duration-1000 group-hover:scale-105"
+                  unoptimized
+                />
+              </div>
+              <div className="text-left flex-1">
+                <h4 className="text-sm font-bold text-brand-text uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-brand-accent shrink-0" />
+                  {m.name}
+                </h4>
+                <p className="text-xs text-brand-muted leading-relaxed font-light font-sans">
+                  {m.description}
+                </p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* 6. BRAND VALUES */}
+      <section className="bg-white py-24 px-4 sm:px-6 lg:px-8 border-y border-brand-border/40 z-10 shadow-xs">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-lg mx-auto mb-16">
+          <div className="text-center max-w-lg mx-auto mb-20">
             <h2 className="text-2xl md:text-3xl font-normal text-brand-text mb-3 tracking-widest uppercase">
               Giá trị cốt lõi
             </h2>
-            <p className="text-xs md:text-sm text-brand-muted leading-relaxed font-light">
+            <p className="text-xs md:text-sm text-brand-muted leading-relaxed font-light font-sans">
               Những nguyên tắc nền tảng định hình nên tinh thần Novyn Wear trong mọi hoạt động.
             </p>
           </div>
@@ -203,17 +278,17 @@ export default function AboutPage() {
                 initial={{ opacity: 0, y: 15 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: idx * 0.05 }}
-                className="bg-neutral-50/40 p-8 rounded-2xl border border-brand-border shadow-sm flex items-start gap-5 hover:bg-neutral-100/75 transition-colors"
+                transition={{ duration: 0.6, delay: idx * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                className="bg-neutral-50/60 p-8 rounded-2xl border border-brand-border shadow-sm flex items-start gap-5 hover:bg-white transition-all"
               >
-                <div className="p-3.5 bg-white rounded-xl border border-brand-border shrink-0 text-[#26211E]">
+                <div className="p-3.5 bg-white rounded-xl border border-brand-border shrink-0 text-brand-text shadow-xs">
                   {val.icon}
                 </div>
-                <div>
+                <div className="text-left">
                   <h4 className="text-xs font-bold text-brand-text uppercase tracking-widest mb-2">
                     {val.title}
                   </h4>
-                  <p className="text-xs text-brand-muted leading-relaxed font-light">
+                  <p className="text-xs text-brand-muted leading-relaxed font-light font-sans">
                     {val.desc}
                   </p>
                 </div>
@@ -223,20 +298,23 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* 6. CALL TO ACTION */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-6">
+      {/* 7. CALL TO ACTION */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-6 z-10">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          className="bg-brand-text text-white rounded-3xl p-12 md:p-16 relative overflow-hidden shadow-sm border border-brand-border"
+          className="bg-brand-text text-white rounded-3xl p-12 md:p-16 relative overflow-hidden shadow-md border border-brand-border"
         >
+          {/* Backdrop orbs */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-neutral-900 rounded-full filter blur-3xl opacity-30 pointer-events-none" />
+
           <div className="relative z-10 max-w-xl mx-auto flex flex-col items-center">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-normal tracking-widest uppercase mb-4 leading-tight text-white">
               Khám Phá Sức Hút Tối Giản
             </h2>
-            <p className="text-xs sm:text-sm text-neutral-400 mb-8 leading-relaxed max-w-sm font-light">
-              Tìm kiếm cho riêng mình những trang phục linen nhẹ nhàng hay một mùi hương signature độc bản để tự tin định hình phong cách sống của bạn ngay hôm nay.
+            <p className="text-xs sm:text-sm text-neutral-400 mb-8 leading-relaxed max-w-sm font-light font-sans">
+              Tìm kiếm cho riêng mình những trang phục linen nhẹ nhàng hay một bộ blazer thanh lịch độc bản để tự tin định hình phong cách sống của bạn ngay hôm nay.
             </p>
             <Link
               href="/products"

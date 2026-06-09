@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-bg: #FFFFFF;
-  --color-brand-sidebar: #09090B;
+  --color-brand-bg: #FAF8F5; /* Premium Warm Cream */
+  --color-brand-sidebar: #1C1F1D;
   --color-brand-card: #FFFFFF;
-  --color-brand-text: #09090B;
-  --color-brand-muted: #71717A;
-  --color-brand-border: #E4E4E7;
-  --color-brand-accent: #09090B;
-  --color-brand-accent-secondary: #71717A;
+  --color-brand-text: #1C1F1D; /* Luxury Deep Charcoal */
+  --color-brand-muted: #6C726F; /* Soft Sage Muted Grey */
+  --color-brand-border: #EAE3D8; /* Soft Warm Linen Border */
+  --color-brand-accent: #9F523F; /* Premium Terracotta */
+  --color-brand-accent-secondary: #5F7065; /* Elegant Sage Green */
   --color-brand-success: #10B981;
   --color-brand-warning: #F59E0B;
   --color-brand-danger: #EF4444;
@@ -19,8 +19,8 @@
 }
 
 :root {
-  --background: #FFFFFF;
-  --foreground: #09090B;
+  --background: #FAF8F5;
+  --foreground: #1C1F1D;
 }
 
 body {

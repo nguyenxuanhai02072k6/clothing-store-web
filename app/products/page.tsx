@@ -49,6 +49,18 @@ const ProductListContent: React.FC = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Scroll Lock when mobile filters drawer is open
+  useEffect(() => {
+    if (showMobileFilters) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showMobileFilters]);
+
   // Categories list
   const categories = ['All', 'Tops', 'Bottoms', 'Dresses', 'Outerwear'];
 
@@ -207,7 +219,7 @@ const ProductListContent: React.FC = () => {
       <div className="flex flex-col lg:flex-row gap-8 items-start">
         
         {/* SIDEBAR FILTERS (Desktop) */}
-        <aside className="hidden lg:block w-64 shrink-0 bg-white p-6 rounded-3xl border border-brand-border sticky top-24">
+        <aside className="hidden lg:block w-64 shrink-0 bg-white p-6 rounded-3xl border border-brand-border sticky top-24 max-h-[calc(100vh-140px)] overflow-y-auto pr-2">
           <div className="flex items-center justify-between pb-4 border-b border-brand-border mb-6">
             <h3 className="text-xs font-bold text-brand-text uppercase tracking-widest flex items-center gap-2">
               <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -548,7 +560,14 @@ const ProductListContent: React.FC = () => {
         {showMobileFilters && (
           <>
             {/* Dark Backdrop */}
-                    {/* Side Drawer */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMobileFilters(false)}
+              className="fixed inset-0 bg-neutral-950 z-40 lg:hidden"
+            />
+            {/* Side Drawer */}
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}

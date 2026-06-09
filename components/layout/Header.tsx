@@ -73,7 +73,19 @@ export const Header: React.FC = () => {
     if (isOpen) {
       setIsOpen(false);
     }
-  }, [pathname, isOpen]);
+  }, [pathname]);
+
+  // Lock body scroll when any menu/drawer is open
+  useEffect(() => {
+    if (isOpen || isWishlistOpen || isCartOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, isWishlistOpen, isCartOpen]);
 
   if (pathname?.startsWith('/internal')) {
     return null;
@@ -92,8 +104,8 @@ export const Header: React.FC = () => {
       <header
         className={`fixed top-0 left-0 w-full z-40 transition-all duration-300 ${
           isScrolled
-            ? 'bg-white/80 backdrop-blur-md shadow-sm border-b border-neutral-100 py-3'
-            : 'bg-transparent py-5'
+            ? 'bg-[#FAF8F5]/90 backdrop-blur-md shadow-xs border-b border-brand-border/40 py-3'
+            : 'bg-[#FAF8F5]/90 backdrop-blur-md shadow-xs border-b border-brand-border/40 py-3 md:bg-transparent md:backdrop-blur-none md:shadow-none md:border-b-0 md:py-5'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -176,10 +188,10 @@ export const Header: React.FC = () => {
                 <Search className="w-5 h-5" />
               </button>
 
-              {/* Wishlist Heart Icon */}
+              {/* Wishlist Heart Icon (Hidden on Mobile) */}
               <button
                 onClick={() => setIsWishlistOpen(true)}
-                className="relative p-2 rounded-full text-neutral-600 hover:bg-neutral-100 transition-colors cursor-pointer"
+                className="hidden sm:inline-flex relative p-2 rounded-full text-neutral-600 hover:bg-neutral-100 transition-colors cursor-pointer"
                 aria-label="Danh sách yêu thích"
               >
                 <Heart className="w-5 h-5 text-neutral-600" />
@@ -218,10 +230,10 @@ export const Header: React.FC = () => {
                 </AnimatePresence>
               </button>
 
-              {/* Account Profile Icon */}
+              {/* Account Profile Icon (Hidden on Mobile) */}
               <Link
                 href="/account"
-                className="relative p-2 rounded-full text-neutral-600 hover:bg-neutral-100 transition-colors flex items-center justify-center cursor-pointer"
+                className="hidden sm:flex relative p-2 rounded-full text-neutral-600 hover:bg-neutral-100 transition-colors flex items-center justify-center cursor-pointer"
                 aria-label="Tài khoản"
               >
                 {currentUser ? (

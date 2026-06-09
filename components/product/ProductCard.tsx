@@ -150,14 +150,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <button
           onClick={handleWishlistClick}
           style={{ transform: 'translateZ(30px)' }}
-          className={`absolute top-3 right-3 z-20 p-2 rounded-full border shadow-sm backdrop-blur-md transition-all duration-300 active:scale-90 ${
+          className={`absolute top-3 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-full border shadow-sm backdrop-blur-md transition-all duration-300 active:scale-90 cursor-pointer ${
             isLoved 
               ? 'bg-rose-50 border-rose-100 text-rose-500 hover:bg-rose-100 scale-105' 
               : 'bg-white/80 border-neutral-200/40 text-neutral-600 hover:text-rose-500 hover:bg-white'
           }`}
           aria-label="Thêm vào danh sách yêu thích"
         >
-          <Heart className={`w-3.5 h-3.5 ${isLoved ? 'fill-current' : ''}`} />
+          <Heart className={`w-4 h-4 ${isLoved ? 'fill-current' : ''}`} />
         </button>
 
         {/* Floating Discount Tag */}
@@ -175,10 +175,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             setShowMobileSizes(true);
           }}
           style={{ transform: 'translateZ(25px)' }}
-          className="absolute bottom-3 right-3 z-20 p-2 rounded-full bg-white/90 backdrop-blur-sm border border-neutral-200 shadow-sm text-neutral-800 md:hidden hover:bg-neutral-900 hover:text-white transition-all duration-300"
+          className="absolute bottom-3 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm border border-neutral-200 shadow-sm text-neutral-800 md:hidden hover:bg-neutral-900 hover:text-white transition-all duration-300"
           aria-label="Thêm nhanh kích cỡ"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-4 h-4" />
         </button>
 
         {/* Premium Size Selector Overlay (Slides in on hover/touch) */}
@@ -249,7 +249,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </span>
 
           {/* Product Name */}
-          <h3 className="text-xs sm:text-sm font-medium text-neutral-900 group-hover:text-neutral-700 transition-colors line-clamp-1 mb-1">
+          <h3 className="text-xs sm:text-sm font-medium text-neutral-900 group-hover:text-neutral-700 transition-colors line-clamp-2 min-h-[32px] sm:min-h-[40px] mb-1">
             <Link href={`/products/${product.slug}`}>{product.name}</Link>
           </h3>
 

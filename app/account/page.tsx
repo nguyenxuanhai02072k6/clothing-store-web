@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -32,7 +32,8 @@ export default function AccountPage() {
     loginWithSocial,
     logout,
     quickLogin,
-    addCustomerSpending
+    addCustomerSpending,
+    allOrders
   } = useAuth();
 
   const { showToast } = useToast();
@@ -78,6 +79,215 @@ export default function AccountPage() {
 
   // Navigation / Tabs inside Dashboard
   const [activeTab, setActiveTab] = useState('profile');
+
+  // Change Password states
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showChangePassword, setShowChangePassword] = useState(false);
+
+  // Address Book states
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<any | null>(null);
+  const [addrName, setAddrName] = useState('');
+  const [addrPhone, setAddrPhone] = useState('');
+  const [addrDetail, setAddrDetail] = useState('');
+  const [addrCity, setAddrCity] = useState('TP. Hồ Chí Minh');
+  const [addrDefault, setAddrDefault] = useState(false);
+
+  // Order Tracking states
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+
+  // Filter orders for the logged-in customer
+  const customerOrders = useMemo(() => {
+    if (!currentUser || !allOrders) return [];
+    return allOrders.filter((ord: any) => {
+      const emailMatch = ord.customerInfo.email.trim().toLowerCase() === currentUser.email.trim().toLowerCase();
+      const phoneMatch = currentUser.phone && ord.customerInfo.phone.trim() === currentUser.phone.trim();
+      return emailMatch || phoneMatch;
+    });
+  }, [allOrders, currentUser]);
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Đang xử lý';
+      case 'shipping': return 'Đang giao hàng';
+      case 'completed': return 'Đã giao hàng';
+      case 'cancelled': return 'Đã hủy';
+      default: return status;
+    }
+  };
+
+  const getTimelineSteps = (order: any) => {
+    if (!order) return [];
+    const status = order.status;
+    const time = order.createdAt;
+
+    if (status === 'cancelled') {
+      return [
+        { title: 'Đặt hàng thành công', desc: 'Đơn hàng đã được ghi nhận trên hệ thống Novyn Wear.', time, status: 'completed' },
+        { title: 'Yêu cầu hủy đơn hàng', desc: 'Khách hàng hoặc quản trị viên đã gửi yêu cầu hủy đơn.', time: 'Vừa xong', status: 'completed' },
+        { title: 'Hủy đơn hoàn tất', desc: 'Hệ thống đã hoàn trả tồn kho sản phẩm và giao dịch bị hủy.', time: 'Vừa xong', status: 'active' }
+      ];
+    }
+
+    return [
+      { title: 'Đặt hàng thành công', desc: 'Đơn hàng đã được ghi nhận trên hệ thống Novyn Wear.', time, status: 'completed' },
+      { title: 'Xác nhận & Chuẩn bị hàng', desc: 'Nhân viên cửa hàng đã xác nhận và đang đóng gói sản phẩm.', time: status !== 'pending' ? 'Đã xác nhận' : 'Đang xử lý', status: status !== 'pending' ? 'completed' : 'active' },
+      { title: 'Đã giao cho GHN', desc: 'Đơn hàng đã được bàn giao cho đối tác vận chuyển Giao Hàng Nhanh.', time: status !== 'pending' ? 'Đã bàn giao' : '--/--/----', status: status !== 'pending' ? 'completed' : 'pending' },
+      { title: 'Đang vận chuyển liên tỉnh', desc: 'Hàng đang trung chuyển tại bưu cục TP. Hồ Chí Minh.', time: status === 'completed' ? 'Đã trung chuyển' : status === 'shipping' ? 'Đang vận chuyển' : '--/--/----', status: status === 'completed' ? 'completed' : status === 'shipping' ? 'active' : 'pending' },
+      { title: 'Shipper đang giao hàng', desc: 'Đơn hàng đang được shipper đi giao tới địa chỉ của bạn.', time: status === 'completed' ? 'Đã giao' : status === 'shipping' ? 'Đang giao' : '--/--/----', status: status === 'completed' ? 'completed' : status === 'shipping' ? 'active' : 'pending' },
+      { title: 'Giao hàng thành công', desc: 'Đã nhận hàng và ký tên xác nhận.', time: status === 'completed' ? 'Hoàn tất' : '--/--/----', status: status === 'completed' ? 'completed' : 'pending' },
+    ];
+  };
+
+  // Load addresses effect
+  useEffect(() => {
+    if (currentUser) {
+      try {
+        const stored = localStorage.getItem(`novyn_addresses_${currentUser.id}`);
+        if (stored) {
+          setAddresses(JSON.parse(stored));
+        } else {
+          const initial = [
+            { id: 'addr-default', fullName: currentUser.name, phone: currentUser.phone || '0901234567', detailAddress: '120 Lê Lợi, Phường Bến Thành, Quận 1', city: 'TP. Hồ Chí Minh', isDefault: true }
+          ];
+          setAddresses(initial);
+          localStorage.setItem(`novyn_addresses_${currentUser.id}`, JSON.stringify(initial));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [currentUser]);
+
+  // Save address action
+  const handleSaveAddress = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addrName.trim() || !addrPhone.trim() || !addrDetail.trim()) {
+      showToast('Vui lòng điền đầy đủ thông tin địa chỉ.', 'error');
+      return;
+    }
+
+    const phoneRegex = /^(03|05|07|08|09)\d{8}$/;
+    if (!phoneRegex.test(addrPhone)) {
+      showToast('Số điện thoại nhận hàng không hợp lệ (10 số, bắt đầu bằng 03, 05, 07, 08, 09).', 'error');
+      return;
+    }
+
+    let updated = [...addresses];
+    
+    if (addrDefault) {
+      updated = updated.map(a => ({ ...a, isDefault: false }));
+    }
+
+    if (editingAddress) {
+      updated = updated.map(a => a.id === editingAddress.id ? {
+        ...a,
+        fullName: addrName,
+        phone: addrPhone,
+        detailAddress: addrDetail,
+        city: addrCity,
+        isDefault: addrDefault
+      } : a);
+    } else {
+      const newAddr = {
+        id: `addr-${Math.floor(Math.random() * 100000)}`,
+        fullName: addrName,
+        phone: addrPhone,
+        detailAddress: addrDetail,
+        city: addrCity,
+        isDefault: updated.length === 0 ? true : addrDefault
+      };
+      updated.push(newAddr);
+    }
+
+    setAddresses(updated);
+    try {
+      if (currentUser) {
+        localStorage.setItem(`novyn_addresses_${currentUser.id}`, JSON.stringify(updated));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+    setAddrName('');
+    setAddrPhone('');
+    setAddrDetail('');
+    setAddrCity('TP. Hồ Chí Minh');
+    setAddrDefault(false);
+    setEditingAddress(null);
+    setShowAddressForm(false);
+    showToast('Đã lưu địa chỉ nhận hàng thành công!', 'success');
+  };
+
+  const handleEditAddressClick = (addr: any) => {
+    setEditingAddress(addr);
+    setAddrName(addr.fullName);
+    setAddrPhone(addr.phone);
+    setAddrDetail(addr.detailAddress);
+    setAddrCity(addr.city);
+    setAddrDefault(addr.isDefault);
+    setShowAddressForm(true);
+  };
+
+  const handleDeleteAddress = (id: string) => {
+    const target = addresses.find(a => a.id === id);
+    let updated = addresses.filter(a => a.id !== id);
+    if (target?.isDefault && updated.length > 0) {
+      updated[0].isDefault = true;
+    }
+    setAddresses(updated);
+    try {
+      if (currentUser) {
+        localStorage.setItem(`novyn_addresses_${currentUser.id}`, JSON.stringify(updated));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    showToast('Đã xóa địa chỉ nhận hàng.', 'info');
+  };
+
+  const handleSetDefaultAddress = (id: string) => {
+    const updated = addresses.map(a => ({ ...a, isDefault: a.id === id }));
+    setAddresses(updated);
+    try {
+      if (currentUser) {
+        localStorage.setItem(`novyn_addresses_${currentUser.id}`, JSON.stringify(updated));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    showToast('Đã thiết lập địa chỉ mặc định mới.', 'success');
+  };
+
+  // Change password action
+  const handleChangePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      showToast('Vui lòng điền đầy đủ các trường mật khẩu.', 'error');
+      return;
+    }
+    if (newPassword.length < 6) {
+      showToast('Mật khẩu mới phải dài từ 6 ký tự trở lên.', 'error');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showToast('Xác nhận mật khẩu mới không khớp.', 'error');
+      return;
+    }
+    if (oldPassword !== '123456' && oldPassword !== 'social-login-123456') {
+      showToast('Mật khẩu hiện tại không đúng!', 'error');
+      return;
+    }
+
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowChangePassword(false);
+    showToast('Đã thay đổi mật khẩu tài khoản thành công!', 'success');
+  };
 
   // Login / Register Form states
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -379,7 +589,10 @@ export default function AccountPage() {
                 </button>
 
                 <button
-                  onClick={() => setActiveTab('orders')}
+                  onClick={() => {
+                    setTrackingOrderId(null);
+                    setActiveTab('orders');
+                  }}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all text-left cursor-pointer border-l-2 ${
                     activeTab === 'orders'
                       ? 'bg-neutral-50 text-brand-text shadow-sm border-brand-text'
@@ -388,6 +601,21 @@ export default function AccountPage() {
                 >
                   <FileText className="w-4 h-4" />
                   Lịch sử mua hàng
+                </button>
+
+                <button
+                  onClick={() => {
+                    setTrackingOrderId(null);
+                    setActiveTab('addresses');
+                  }}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all text-left cursor-pointer border-l-2 ${
+                    activeTab === 'addresses'
+                      ? 'bg-neutral-50 text-brand-text shadow-sm border-brand-text'
+                      : 'text-brand-muted hover:text-brand-text hover:bg-neutral-50 border-transparent'
+                  }`}
+                >
+                  <span className="text-xs shrink-0 select-none">📍</span>
+                  Sổ địa chỉ giao hàng ({addresses.length})
                 </button>
 
                 <button
@@ -452,6 +680,71 @@ export default function AccountPage() {
                       Tiếp tục mua sắm
                     </Link>
                   </div>
+
+                  {/* Change Password Block */}
+                  <div className="mt-8 border border-brand-border rounded-2xl p-6 bg-neutral-50/50 shadow-xs text-left">
+                    <button
+                      type="button"
+                      onClick={() => setShowChangePassword(!showChangePassword)}
+                      className="flex justify-between items-center w-full text-left font-bold text-xs uppercase tracking-widest text-brand-text"
+                    >
+                      <span>🔒 Đổi mật khẩu tài khoản</span>
+                      <span>{showChangePassword ? '▲' : '▼'}</span>
+                    </button>
+                    <AnimatePresence>
+                      {showChangePassword && (
+                        <motion.form
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          onSubmit={handleChangePasswordSubmit}
+                          className="mt-6 space-y-4 overflow-hidden"
+                        >
+                          <div>
+                            <label className="text-[9px] font-bold uppercase tracking-widest text-brand-muted block mb-1">Mật khẩu hiện tại</label>
+                            <input
+                              type="password"
+                              required
+                              placeholder="Mặc định: 123456"
+                              value={oldPassword}
+                              onChange={(e) => setOldPassword(e.target.value)}
+                              className="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:border-brand-accent text-xs bg-white"
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-[9px] font-bold uppercase tracking-widest text-brand-muted block mb-1">Mật khẩu mới</label>
+                              <input
+                                type="password"
+                                required
+                                placeholder="Tối thiểu 6 ký tự"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:border-brand-accent text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-bold uppercase tracking-widest text-brand-muted block mb-1">Xác nhận mật khẩu mới</label>
+                              <input
+                                type="password"
+                                required
+                                placeholder="Nhập lại mật khẩu mới"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:border-brand-accent text-xs bg-white"
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="submit"
+                            className="bg-brand-accent hover:bg-neutral-800 text-white text-[10px] font-bold uppercase tracking-widest px-6 py-3 rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 mt-2"
+                          >
+                            Cập nhật mật khẩu
+                          </button>
+                        </motion.form>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
               )}
 
@@ -501,42 +794,126 @@ export default function AccountPage() {
               {/* Order History Tab */}
               {activeTab === 'orders' && (
                 <div>
-                  <h3 className="text-xl font-normal text-brand-text tracking-widest mb-6 uppercase pb-3 border-b border-brand-border">Lịch sử mua hàng</h3>
-                  
-                  <div className="space-y-4">
-                    {[
-                      { id: 'ORD-58190', date: '28/05/2026', total: 680000, status: 'Đang xử lý', items: 'Áo Sơ Mi Linen Cổ Tàu x 1, Quần Kaki Chino Slim Fit x 1' },
-                      { id: 'ORD-41902', date: '15/05/2026', total: 1250000, status: 'Đã giao hàng', items: 'Áo Vest Blazer Linen x 1, Túi Tote Canvas Hữu Cơ x 1' }
-                    ].map((ord) => (
-                      <div key={ord.id} className="bg-neutral-50/40 hover:bg-white border border-brand-border p-5 rounded-xl transition-all shadow-sm">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 border-b border-brand-border mb-3 gap-2">
-                          <div>
-                            <span className="text-[8px] font-bold text-brand-muted block tracking-widest">MÃ ĐƠN HÀNG</span>
-                            <h4 className="text-xs font-bold text-brand-text font-mono uppercase">{ord.id}</h4>
-                          </div>
-                          <div className="text-left sm:text-right">
-                            <span className="text-[8px] font-bold text-brand-muted block tracking-widest">NGÀY MUA</span>
-                            <p className="text-xs text-brand-text font-bold">{ord.date}</p>
-                          </div>
-                          <div className="text-left sm:text-right">
-                            <span className="text-[8px] font-bold text-brand-muted block tracking-widest mb-0.5">TRẠNG THÁI</span>
-                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest ${
-                              ord.status === 'Đang xử lý' 
-                                ? 'bg-amber-50 text-amber-800 border border-amber-200' 
-                                : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                            }`}>
-                              {ord.status}
-                            </span>
-                          </div>
+                  {trackingOrderId ? (
+                    <div>
+                      {/* Tracking Detail Panel */}
+                      <div className="flex items-center justify-between pb-4 border-b border-brand-border mb-6 text-left">
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setTrackingOrderId(null)}
+                            className="text-[9px] font-bold uppercase tracking-widest text-brand-muted hover:text-brand-text transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            ← Quay lại danh sách
+                          </button>
+                          <h4 className="text-lg font-bold text-brand-text uppercase tracking-tight mt-1.5 font-mono">
+                            Theo dõi vận đơn: {trackingOrderId}
+                          </h4>
                         </div>
-                        <p className="text-xs text-brand-muted font-light mb-3">Sản phẩm: {ord.items}</p>
-                        <div className="flex justify-between items-center pt-2">
-                          <span className="text-xs text-brand-muted font-bold uppercase tracking-widest text-[9px]">Tổng thanh toán:</span>
-                          <span className="text-sm font-bold text-brand-text">{formatPrice(ord.total)}</span>
-                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest bg-neutral-100 text-brand-text border border-brand-border px-3 py-1.5 rounded-full font-mono shrink-0">
+                          Mã vận đơn: GHN-{trackingOrderId.split('-')[1] || '58190'}
+                        </span>
                       </div>
-                    ))}
-                  </div>
+
+                      {/* Timeline steps */}
+                      <div className="bg-neutral-50/40 border border-brand-border p-6 rounded-2xl relative overflow-hidden flex flex-col gap-8 max-w-xl mx-auto">
+                        {(() => {
+                          const matchedOrder = customerOrders.find(o => o.id === trackingOrderId);
+                          if (!matchedOrder) {
+                            return <p className="text-xs text-brand-muted text-center">Không tìm thấy thông tin đơn hàng này.</p>;
+                          }
+                          return getTimelineSteps(matchedOrder).map((step, idx, arr) => {
+                            const isLast = idx === arr.length - 1;
+                            return (
+                              <div key={idx} className="flex gap-4 relative text-left">
+                                {/* Left line segment connecting nodes */}
+                                {!isLast && (
+                                  <div className={`absolute left-2.5 top-5 bottom-[-24px] w-[1.5px] ${
+                                    step.status === 'completed' ? 'bg-brand-text' : 'bg-neutral-200'
+                                  }`} />
+                                )}
+                                
+                                {/* Node dot */}
+                                <div className={`w-5.5 h-5.5 rounded-full border flex items-center justify-center shrink-0 z-10 ${
+                                  step.status === 'completed' 
+                                    ? 'bg-brand-text border-brand-text text-white'
+                                    : step.status === 'active'
+                                    ? 'bg-amber-500 border-amber-500 text-white animate-pulse'
+                                    : 'bg-white border-neutral-300 text-neutral-400'
+                                }`}>
+                                  <span className="text-[9px] font-bold">✓</span>
+                                </div>
+
+                                {/* Content description */}
+                                <div className="text-left py-0.5">
+                                  <h5 className={`text-xs font-bold uppercase tracking-wider ${
+                                    step.status === 'completed' ? 'text-brand-text' : step.status === 'active' ? 'text-amber-600' : 'text-neutral-400'
+                                  }`}>
+                                    {step.title}
+                                  </h5>
+                                  <p className="text-xs text-brand-muted font-light mt-1">{step.desc}</p>
+                                  <span className="text-[9px] text-brand-muted block mt-1 font-mono">{step.time}</span>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <h3 className="text-xl font-normal text-brand-text tracking-widest mb-6 uppercase pb-3 border-b border-brand-border">Lịch sử mua hàng</h3>
+                      
+                      <div className="space-y-4">
+                        {customerOrders.length === 0 ? (
+                          <div className="text-center py-12 border border-dashed border-brand-border rounded-xl">
+                            <p className="text-xs text-brand-muted font-normal">Bạn chưa có đơn hàng nào.</p>
+                          </div>
+                        ) : (
+                          customerOrders.map((ord: any) => {
+                            const itemsSummary = ord.items.map((it: any) => `${it.productName} (Màu: ${it.selectedColor.name} | Size: ${it.selectedSize}) x ${it.quantity}`).join(', ');
+                            return (
+                              <div key={ord.id} className="bg-neutral-50/40 hover:bg-white border border-brand-border p-5 rounded-xl transition-all shadow-sm text-left">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 border-b border-brand-border mb-3 gap-2">
+                                  <div>
+                                    <span className="text-[8px] font-bold text-brand-muted block tracking-widest">MÃ ĐƠN HÀNG</span>
+                                    <h4 className="text-xs font-bold text-brand-text font-mono uppercase">{ord.id}</h4>
+                                  </div>
+                                  <div className="text-left sm:text-right">
+                                    <span className="text-[8px] font-bold text-brand-muted block tracking-widest">NGÀY MUA</span>
+                                    <p className="text-xs text-brand-text font-bold">{ord.createdAt}</p>
+                                  </div>
+                                  <div className="text-left sm:text-right">
+                                    <span className="text-[8px] font-bold text-brand-muted block tracking-widest mb-0.5">TRẠNG THÁI</span>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest ${
+                                      ord.status === 'pending' || ord.status === 'shipping'
+                                        ? 'bg-amber-50 text-amber-800 border border-amber-200' 
+                                        : ord.status === 'completed'
+                                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    }`}>
+                                      {getStatusLabel(ord.status)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <p className="text-xs text-brand-muted font-light mb-3">Sản phẩm: {itemsSummary}</p>
+                                <div className="flex justify-between items-center pt-3 border-t border-brand-border">
+                                  <button
+                                    type="button"
+                                    onClick={() => setTrackingOrderId(ord.id)}
+                                    className="text-[9px] font-bold text-brand-accent uppercase tracking-widest hover:underline cursor-pointer"
+                                  >
+                                    📍 Theo dõi vận đơn
+                                  </button>
+                                  <span className="text-xs font-bold text-brand-text">{formatPrice(ord.total)}</span>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -808,6 +1185,175 @@ export default function AccountPage() {
                   </div>
                 );
               })()}
+
+              {/* Address Book Tab */}
+              {activeTab === 'addresses' && (
+                <div>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 border-b border-brand-border mb-6 gap-4 text-left">
+                    <div>
+                      <h3 className="text-xl font-normal text-brand-text tracking-widest uppercase mb-1">Sổ địa chỉ nhận hàng</h3>
+                      <p className="text-xs text-brand-muted font-light">Quản lý các địa chỉ nhận hàng để thanh toán nhanh chóng.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAddress(null);
+                        setAddrName('');
+                        setAddrPhone('');
+                        setAddrDetail('');
+                        setAddrCity('TP. Hồ Chí Minh');
+                        setAddrDefault(addresses.length === 0);
+                        setShowAddressForm(!showAddressForm);
+                      }}
+                      className="bg-brand-accent hover:bg-neutral-800 text-white text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-sm shrink-0"
+                    >
+                      {showAddressForm ? 'Hủy bỏ' : '+ Thêm địa chỉ mới'}
+                    </button>
+                  </div>
+
+                  <AnimatePresence>
+                    {showAddressForm && (
+                      <motion.form
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        onSubmit={handleSaveAddress}
+                        className="bg-neutral-50 p-5 border border-brand-border rounded-2xl mb-8 flex flex-col gap-4 overflow-hidden text-left"
+                      >
+                        <h4 className="text-xs font-bold text-brand-text uppercase tracking-widest">
+                          {editingAddress ? 'Cập nhật địa chỉ nhận hàng' : 'Thêm địa chỉ nhận hàng mới'}
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-bold text-brand-muted uppercase">Họ và tên người nhận *</label>
+                            <input
+                              type="text"
+                              required
+                              value={addrName}
+                              onChange={(e) => setAddrName(e.target.value)}
+                              placeholder="Ví dụ: Nguyễn Văn A..."
+                              className="bg-white border border-brand-border rounded-xl px-4 py-2.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-bold text-brand-muted uppercase">Số điện thoại liên hệ *</label>
+                            <input
+                              type="tel"
+                              required
+                              value={addrPhone}
+                              onChange={(e) => setAddrPhone(e.target.value)}
+                              placeholder="Ví dụ: 0909xxxxxx..."
+                              className="bg-white border border-brand-border rounded-xl px-4 py-2.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="col-span-2 flex flex-col gap-1.5">
+                            <label className="text-[10px] font-bold text-brand-muted uppercase">Địa chỉ chi tiết (Số nhà, tên đường, phường/xã, quận/huyện) *</label>
+                            <input
+                              type="text"
+                              required
+                              value={addrDetail}
+                              onChange={(e) => setAddrDetail(e.target.value)}
+                              placeholder="Ví dụ: 120 Lê Lợi..."
+                              className="bg-white border border-brand-border rounded-xl px-4 py-2.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-bold text-brand-muted uppercase">Tỉnh / Thành phố *</label>
+                            <select
+                              value={addrCity}
+                              onChange={(e) => setAddrCity(e.target.value)}
+                              className="bg-white border border-brand-border rounded-xl px-3 py-2.5 text-xs text-brand-text font-bold focus:outline-none cursor-pointer"
+                            >
+                              <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
+                              <option value="Hà Nội">Hà Nội</option>
+                              <option value="Đà Nẵng">Đà Nẵng</option>
+                              <option value="Cần Thơ">Cần Thơ</option>
+                              <option value="Hải Phòng">Hải Phòng</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2.5 cursor-pointer mt-2 w-fit text-xs text-brand-muted font-bold">
+                          <input
+                            type="checkbox"
+                            checked={addrDefault}
+                            disabled={editingAddress?.isDefault && addrDefault}
+                            onChange={(e) => setAddrDefault(e.target.checked)}
+                            className="w-4 h-4 rounded border-brand-border accent-brand-accent"
+                          />
+                          <span>Đặt làm địa chỉ nhận hàng mặc định</span>
+                        </label>
+
+                        <button
+                          type="submit"
+                          className="bg-brand-accent hover:bg-neutral-800 text-white text-xs font-bold uppercase tracking-widest py-3.5 rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 w-fit px-8 mt-2"
+                        >
+                          Lưu địa chỉ
+                        </button>
+                      </motion.form>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Addresses List */}
+                  {addresses.length === 0 ? (
+                    <div className="text-center py-16 bg-neutral-50 rounded-2xl border border-brand-border flex flex-col items-center">
+                      <span className="text-3xl mb-3">📍</span>
+                      <p className="text-xs text-brand-muted font-bold">Sổ địa chỉ của bạn đang trống.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {addresses.map((addr) => (
+                        <div key={addr.id} className="p-5 border border-brand-border rounded-xl bg-neutral-50/45 hover:bg-white transition-all shadow-xs flex flex-col sm:flex-row justify-between gap-4 text-left">
+                          <div className="flex-grow">
+                            <div className="flex items-center gap-3 mb-2 flex-wrap">
+                              <h4 className="text-xs font-bold uppercase text-brand-text">{addr.fullName}</h4>
+                              {addr.isDefault && (
+                                <span className="bg-emerald-50 text-emerald-800 border border-emerald-100 text-[8px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full shrink-0">
+                                  Mặc định
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-brand-text font-medium leading-relaxed">{addr.detailAddress}, {addr.city}</p>
+                            <span className="text-[10px] text-brand-muted block mt-1 tracking-wider">Sđt: {addr.phone}</span>
+                          </div>
+
+                          <div className="flex sm:flex-col gap-2 justify-end sm:items-end shrink-0">
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditAddressClick(addr)}
+                                className="px-3 py-1.5 border border-brand-border bg-white text-[9px] font-bold uppercase tracking-widest rounded-lg hover:border-brand-text transition-colors cursor-pointer"
+                              >
+                                Sửa
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAddress(addr.id)}
+                                className="px-3 py-1.5 border border-rose-100 bg-white text-[9px] font-bold uppercase tracking-widest text-rose-600 rounded-lg hover:border-rose-300 transition-colors cursor-pointer"
+                              >
+                                Xóa
+                              </button>
+                            </div>
+                            {!addr.isDefault && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetDefaultAddress(addr.id)}
+                                className="text-[9px] font-bold text-brand-muted hover:text-brand-text uppercase tracking-widest cursor-pointer mt-1"
+                              >
+                                Đặt mặc định
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
             </div>
           </motion.div>

@@ -26,6 +26,30 @@ export default function ContactPage() {
   const [errors, setErrors] = useState<ContactFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [activeFaq, setActiveFaq] = useState<number | null>(null);
+
+  const faqs = [
+    {
+      question: '1. Thời gian giao hàng bao lâu?',
+      answer: 'Thời gian giao hàng tiêu chuẩn là từ 2 - 4 ngày làm việc tùy thuộc vào khoảng cách địa lý. Đơn hàng nội thành Hà Nội và TP.HCM có thể giao ngay trong ngày qua dịch vụ hỏa tốc.'
+    },
+    {
+      question: '2. Tôi có thể đổi size không?',
+      answer: 'Novyn Wear hỗ trợ đổi size miễn phí trong vòng 7 ngày kể từ ngày nhận hàng với điều kiện sản phẩm còn nguyên tag mác, chưa qua sử dụng hay giặt là. Bạn có thể đổi tại showroom hoặc qua bưu điện.'
+    },
+    {
+      question: '3. Làm sao để kiểm tra đơn hàng?',
+      answer: 'Bạn có thể đăng nhập vào tài khoản trên website để theo dõi trạng thái vận đơn trực tiếp, hoặc liên hệ Hotline 1900 8899/ nhắn tin cho chatbot để nhân viên CSKH tra cứu mã vận đơn cho bạn.'
+    },
+    {
+      question: '4. Novyn Wear có showroom không?',
+      answer: 'Hiện tại Novyn Wear có 2 chi nhánh lớn tại Hà Nội (28 Tràng Tiền, Hoàn Kiếm) và TP.HCM (152 Đồng Khởi, Quận 1). Bạn có thể ghé thăm để trực tiếp trải nghiệm phom dáng và chất liệu.'
+    }
+  ];
+
+  const toggleFaq = (idx: number) => {
+    setActiveFaq(prev => prev === idx ? null : idx);
+  };
 
   // Validate form fields
   const validateForm = (): boolean => {
@@ -407,42 +431,45 @@ export default function ContactPage() {
           </p>
         </div>
 
-        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm">
-            <h4 className="text-xs sm:text-sm font-bold text-brand-text uppercase tracking-wider mb-2">
-              1. Thời gian giao hàng bao lâu?
-            </h4>
-            <p className="text-xs text-brand-muted leading-relaxed font-light">
-              Thời gian giao hàng tiêu chuẩn là từ 2 - 4 ngày làm việc tùy thuộc vào khoảng cách địa lý. Đơn hàng nội thành Hà Nội và TP.HCM có thể giao ngay trong ngày qua dịch vụ hỏa tốc.
-            </p>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm">
-            <h4 className="text-xs sm:text-sm font-bold text-brand-text uppercase tracking-wider mb-2">
-              2. Tôi có thể đổi size không?
-            </h4>
-            <p className="text-xs text-brand-muted leading-relaxed font-light">
-              Novyn Wear hỗ trợ đổi size miễn phí trong vòng 7 ngày kể từ ngày nhận hàng với điều kiện sản phẩm còn nguyên tag mác, chưa qua sử dụng hay giặt là. Bạn có thể đổi tại showroom hoặc qua bưu điện.
-            </p>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm">
-            <h4 className="text-xs sm:text-sm font-bold text-brand-text uppercase tracking-wider mb-2">
-              3. Làm sao để kiểm tra đơn hàng?
-            </h4>
-            <p className="text-xs text-brand-muted leading-relaxed font-light">
-              Bạn có thể đăng nhập vào tài khoản trên website để theo dõi trạng thái vận đơn trực tiếp, hoặc liên hệ Hotline 1900 8899/ nhắn tin cho chatbot để nhân viên CSKH tra cứu mã vận đơn cho bạn.
-            </p>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm">
-            <h4 className="text-xs sm:text-sm font-bold text-brand-text uppercase tracking-wider mb-2">
-              4. Novyn Wear có showroom không?
-            </h4>
-            <p className="text-xs text-brand-muted leading-relaxed font-light">
-              Hiện tại Novyn Wear có 2 chi nhánh lớn tại Hà Nội (28 Tràng Tiền, Hoàn Kiếm) và TP.HCM (152 Đồng Khởi, Quận 1). Bạn có thể ghé thăm để trực tiếp trải nghiệm phom dáng và chất liệu.
-            </p>
-          </div>
+        <div className="max-w-2xl mx-auto flex flex-col gap-4">
+          {faqs.map((faq, idx) => {
+            const isOpen = activeFaq === idx;
+            return (
+              <div
+                key={idx}
+                className="bg-white rounded-2xl border border-brand-border shadow-sm overflow-hidden transition-all duration-300"
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleFaq(idx)}
+                  className="w-full text-left p-5 flex justify-between items-center gap-4 hover:bg-neutral-50/50 transition-colors focus:outline-none cursor-pointer"
+                >
+                  <span className="text-xs sm:text-sm font-bold text-brand-text uppercase tracking-wider">
+                    {faq.question}
+                  </span>
+                  <span className={`text-brand-muted transition-transform duration-300 shrink-0 ${isOpen ? 'rotate-180' : ''}`}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      <div className="px-5 pb-5 pt-1 border-t border-brand-border/60 text-xs text-brand-muted leading-relaxed font-light font-sans">
+                        {faq.answer}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
         </div>
       </section>
 
