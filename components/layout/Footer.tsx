@@ -235,7 +235,7 @@ export const Footer: React.FC = () => {
 
         {/* Bottom copyright */}
         <div className="border-t border-neutral-900 pt-8 mt-16 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-center md:text-left">
-          <p>© {currentYear} Novyn Wear. Tất cả quyền được bảo lưu. Dự án Demo E-commerce.</p>
+          <p>© {currentYear} Novyn Wear. Tất cả quyền được bảo lưu.</p>
           <div className="flex gap-6">
             <Link href="/terms" className="hover:text-white transition-colors">Điều khoản dịch vụ</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Chính sách bảo mật</Link>

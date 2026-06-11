@@ -54,6 +54,49 @@ export async function loginAction(email: string, password: string) {
   }
 }
 
+export async function changePasswordAction(userId: string, currentPassword: string, newPassword: string) {
+  try {
+    if (newPassword.length < 8) {
+      return { success: false, message: 'Mật khẩu mới phải dài từ 8 ký tự trở lên' };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user || !user.isActive) {
+      return { success: false, message: 'Tài khoản không tồn tại hoặc đã bị khóa' };
+    }
+
+    const isValid = bcrypt.compareSync(currentPassword, user.password);
+    if (!isValid) {
+      return { success: false, message: 'Mật khẩu hiện tại không đúng' };
+    }
+
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(newPassword, salt);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'USER_PASSWORD_CHANGE',
+        details: `Người dùng ${user.email} đã đổi mật khẩu`,
+        performedById: user.id,
+        performedByName: user.name,
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('changePasswordAction error:', error);
+    return { success: false, message: 'Lỗi hệ thống khi đổi mật khẩu' };
+  }
+}
+
 export async function registerAction(
   name: string,
   email: string,

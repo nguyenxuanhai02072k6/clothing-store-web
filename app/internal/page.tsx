@@ -99,7 +99,6 @@ export default function InternalDashboardPage() {
     branchStock,
     branchSizeStock,
     logout,
-    quickLogin,
     checkIn,
     checkOut,
     submitLeaveRequest,
@@ -413,7 +412,7 @@ export default function InternalDashboardPage() {
         setCrmClients(JSON.parse(storedCrm));
       } else {
         const defaultClients = [
-          { id: 'crm-1', name: 'Lâm Khánh Vy', email: 'customer@gmail.com', phone: '0912345678', totalSpent: 22500000, points: 225, tier: 'Gold', createdAt: '2026-05-10' },
+          { id: 'crm-1', name: 'Lâm Khánh Vy', email: 'customer@novynwear.com', phone: '0912345678', totalSpent: 22500000, points: 225, tier: 'Gold', createdAt: '2026-05-10' },
           { id: 'crm-2', name: 'Đoàn Phương Linh', email: 'linh.dp@gmail.com', phone: '0987654321', totalSpent: 35000000, points: 350, tier: 'Platinum', createdAt: '2026-05-12' },
           { id: 'crm-3', name: 'Nguyễn Bích Thuỷ', email: 'thuy.nb@gmail.com', phone: '0909090909', totalSpent: 58000000, points: 580, tier: 'VVIP', createdAt: '2026-05-15' },
           { id: 'crm-4', name: 'Hoàng Hải Nam', email: 'nam.hh@gmail.com', phone: '0933221100', totalSpent: 1200000, points: 12, tier: 'Regular', createdAt: '2026-05-18' }
@@ -812,20 +811,6 @@ export default function InternalDashboardPage() {
     );
   }
 
-  // Quick Switch accounts helper for local testing
-  const demoAccounts = [
-    { name: 'Giám đốc Bảo', email: 'director@novynwear.com', role: 'director', desc: 'Chủ doanh nghiệp' },
-    { name: 'Kế toán Thảo', email: 'accountant@novynwear.com', role: 'accountant', desc: 'Kế toán trưởng' },
-    { name: 'CSKH Mai An', email: 'cskh@novynwear.com', role: 'cskh', desc: 'CSKH Trưởng' },
-    { name: 'CSKH Thùy Dương', email: 'duong.cskh@novynwear.com', role: 'cskh', desc: 'CSKH Viên' },
-    { name: 'Quản lý Hoàng', email: 'manager.q1@novynwear.com', role: 'manager', desc: 'Quản lý Quận 1' },
-    { name: 'Thu ngân Lan', email: 'cashier.q1@novynwear.com', role: 'cashier', desc: 'Thu ngân Q.1' },
-    { name: 'Thủ kho Hải', email: 'stocker.q1@novynwear.com', role: 'stocker', desc: 'Thủ kho Q.1' },
-    { name: 'Nhân viên Đức', email: 'employee.q1@novynwear.com', role: 'employee', desc: 'Nhân viên Quận 1' },
-    { name: 'Nhân viên Tâm', email: 'tam.employee.q1@novynwear.com', role: 'employee', desc: 'Nhân viên Quận 1' },
-    { name: 'Nhân viên Nam', email: 'nam.employee.td@novynwear.com', role: 'employee', desc: 'Nhân viên T.Đ' }
-  ];
-
   // CSV Exporter for Product P&L
   const exportPLToCSV = (ledger: any[]) => {
     const headers = ['Tên sản phẩm', 'Danh mục', 'Đã bán (chiếc)', 'Doanh thu (VND)', 'Đã nhập (chiếc)', 'Vốn nhập (VND)', 'Lợi nhuận ròng (VND)'];
@@ -1132,35 +1117,6 @@ export default function InternalDashboardPage() {
         />
 
         <main className="flex-1 p-6 md:p-8 space-y-8 w-full max-w-[1700px] mx-auto px-4 md:px-8">
-          
-          {/* Demo Quick Switcher Banner */}
-          <div className="bg-white/70 backdrop-blur-md rounded-2xl border border-brand-border p-4 shadow-sm">
-            <h4 className="text-[10px] font-black text-brand-muted uppercase tracking-widest mb-3 flex items-center gap-1">
-              <Layers className="w-3.5 h-3.5 text-brand-accent-secondary" />
-              Bộ chuyển đổi quyền ERP nhanh (Demo Switcher)
-            </h4>
-            <div className="overflow-x-auto pb-1">
-              <div className="flex gap-3 min-w-max">
-                {demoAccounts.map((acc) => (
-                  <button
-                    key={acc.email}
-                    onClick={() => quickLogin(acc.email)}
-                    className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all text-left flex flex-col justify-between w-40 cursor-pointer active:scale-95 ${
-                      currentUser?.email === acc.email
-                        ? 'bg-brand-accent text-white border-brand-accent shadow-md'
-                        : 'bg-white text-brand-text border-brand-border hover:bg-brand-bg'
-                    }`}
-                  >
-                    <span className="truncate">{acc.name}</span>
-                    <span className={`text-[8px] mt-0.5 ${currentUser?.email === acc.email ? 'text-white/60' : 'text-brand-muted'}`}>
-                      {acc.desc}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}

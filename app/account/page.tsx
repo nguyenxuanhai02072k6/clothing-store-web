@@ -14,7 +14,6 @@ import {
   LogOut,
   UserCheck,
   FileText,
-  TrendingUp,
   User as UserIcon,
   CheckCircle2,
   Lock,
@@ -29,10 +28,8 @@ export default function AccountPage() {
     currentUser,
     login,
     register,
-    loginWithSocial,
+    changePassword,
     logout,
-    quickLogin,
-    addCustomerSpending,
     allOrders
   } = useAuth();
 
@@ -263,30 +260,28 @@ export default function AccountPage() {
   };
 
   // Change password action
-  const handleChangePasswordSubmit = (e: React.FormEvent) => {
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!oldPassword || !newPassword || !confirmPassword) {
       showToast('Vui lòng điền đầy đủ các trường mật khẩu.', 'error');
       return;
     }
-    if (newPassword.length < 6) {
-      showToast('Mật khẩu mới phải dài từ 6 ký tự trở lên.', 'error');
+    if (newPassword.length < 8) {
+      showToast('Mật khẩu mới phải dài từ 8 ký tự trở lên.', 'error');
       return;
     }
     if (newPassword !== confirmPassword) {
       showToast('Xác nhận mật khẩu mới không khớp.', 'error');
       return;
     }
-    if (oldPassword !== '123456' && oldPassword !== 'social-login-123456') {
-      showToast('Mật khẩu hiện tại không đúng!', 'error');
-      return;
-    }
 
-    setOldPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setShowChangePassword(false);
-    showToast('Đã thay đổi mật khẩu tài khoản thành công!', 'success');
+    const success = await changePassword(oldPassword, newPassword);
+    if (success) {
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowChangePassword(false);
+    }
   };
 
   // Login / Register Form states
@@ -318,60 +313,10 @@ export default function AccountPage() {
     }
   };
 
-  // Quick Switch accounts helper
-  const demoAccounts = [
-    { name: 'Giám đốc Bảo', email: 'director@novynwear.com', role: 'director', desc: 'Chủ tổng' },
-    { name: 'Kế toán Thảo', email: 'accountant@novynwear.com', role: 'accountant', desc: 'Kế toán trưởng' },
-    { name: 'CSKH Mai An', email: 'cskh@novynwear.com', role: 'cskh', desc: 'CSKH Trưởng' },
-    { name: 'CSKH Thùy Dương', email: 'duong.cskh@novynwear.com', role: 'cskh', desc: 'CSKH Viên' },
-    { name: 'QL Q.1 Hoàng', email: 'manager.q1@novynwear.com', role: 'manager', desc: 'Quản lý Q.1' },
-    { name: 'QL Thảo Điền Trang', email: 'manager.td@novynwear.com', role: 'manager', desc: 'Quản lý T.Đ' },
-    { name: 'NV Q.1 Đức', email: 'employee.q1@novynwear.com', role: 'employee', desc: 'Nhân viên Q.1' },
-    { name: 'NV Q.1 Tâm', email: 'tam.employee.q1@novynwear.com', role: 'employee', desc: 'Nhân viên Q.1' },
-    { name: 'NV Thảo Điền Nam', email: 'nam.employee.td@novynwear.com', role: 'employee', desc: 'Nhân viên T.Đ' },
-    { name: 'Khách hàng Vy', email: 'customer@gmail.com', role: 'customer', desc: 'Khách hàng' }
-  ];
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
-      
-      {/* SECTION 1: DEV QUICK SWITCHER BANNER */}
-      <div className="bg-neutral-50 border border-brand-border rounded-2xl p-5 mb-10 shadow-sm relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 z-10 relative">
-          <div>
-            <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-text mb-1 flex items-center gap-1.5">
-              <TrendingUp className="w-3.5 h-3.5 text-brand-muted" />
-              Chế độ DEMO - Chuyển đổi tài khoản nhanh
-            </h4>
-            <p className="text-[11px] text-brand-muted font-light leading-relaxed">
-              Nhấp chuột chọn nhanh vai trò để kiểm duyệt các chức năng phân quyền lập tức!
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {demoAccounts.map((acc) => (
-              <button
-                key={acc.email}
-                onClick={() => {
-                  quickLogin(acc.email);
-                  setActiveTab('profile');
-                }}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all active:scale-95 cursor-pointer flex flex-col items-start ${
-                  currentUser?.email === acc.email
-                    ? 'bg-brand-text text-white border-brand-text shadow-sm'
-                    : 'bg-white text-brand-text border-brand-border hover:bg-neutral-50'
-                }`}
-              >
-                <span>{acc.name}</span>
-                <span className={`text-[8px] font-normal mt-0.5 ${currentUser?.email === acc.email ? 'text-neutral-400' : 'text-brand-muted'}`}>
-                  {acc.desc}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      {/* SECTION 2: AUTHENTICATION (IF NOT LOGGED IN) */}
+      {/* SECTION 1: AUTHENTICATION (IF NOT LOGGED IN) */}
       <AnimatePresence mode="wait">
         {!currentUser ? (
           <motion.div
@@ -408,38 +353,6 @@ export default function AccountPage() {
                 </button>
               </div>
 
-              {/* SOCIAL SIGN IN MOCK */}
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <button
-                  onClick={() => loginWithSocial('google')}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl border border-brand-border bg-white hover:bg-neutral-50 transition-all text-xs font-bold text-brand-text active:scale-95 cursor-pointer uppercase tracking-widest text-[9px]"
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                    <path
-                      fill="#EA4335"
-                      d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114-3.54 0-6.423-2.883-6.423-6.423S10.45 5.67 13.99 5.67c1.782 0 3.32.73 4.417 1.905l3.226-3.227C19.68 2.415 16.99 1.1 13.99 1.1 7.975 1.1 3.1 5.975 3.1 12s4.875 10.9 10.89 10.9c5.626 0 10.315-4.074 10.315-10.9 0-.616-.055-1.2-.156-1.715H12.24z"
-                    />
-                  </svg>
-                  Google
-                </button>
-                <button
-                  onClick={() => loginWithSocial('facebook')}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl border border-brand-border bg-white hover:bg-neutral-50 transition-all text-xs font-bold text-brand-text active:scale-95 cursor-pointer uppercase tracking-widest text-[9px]"
-                >
-                  <svg className="w-3.5 h-3.5 fill-current text-[#1877F2]" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                  </svg>
-                  Facebook
-                </button>
-              </div>
-
-              <div className="relative flex items-center justify-center mb-6">
-                <div className="border-t border-brand-border w-full absolute" />
-                <span className="bg-white px-3 text-[9px] text-brand-muted font-bold uppercase tracking-widest relative">
-                  Hoặc bằng email
-                </span>
-              </div>
-
               {/* RENDER LOGIN / REGISTER FORMS */}
               {authMode === 'login' ? (
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -448,7 +361,7 @@ export default function AccountPage() {
                     <input
                       type="email"
                       required
-                      placeholder="customer@gmail.com"
+                      placeholder="customer@novynwear.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:border-brand-accent text-xs font-medium text-brand-text bg-white"
@@ -501,7 +414,7 @@ export default function AccountPage() {
                     <input
                       type="email"
                       required
-                      placeholder="customer@gmail.com"
+                      placeholder="customer@novynwear.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:border-brand-accent text-xs font-medium text-brand-text bg-white"
@@ -705,7 +618,7 @@ export default function AccountPage() {
                             <input
                               type="password"
                               required
-                              placeholder="Mặc định: 123456"
+                              placeholder="Nhập mật khẩu hiện tại"
                               value={oldPassword}
                               onChange={(e) => setOldPassword(e.target.value)}
                               className="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:border-brand-accent text-xs bg-white"
@@ -717,7 +630,7 @@ export default function AccountPage() {
                               <input
                                 type="password"
                                 required
-                                placeholder="Tối thiểu 6 ký tự"
+                                placeholder="Tối thiểu 8 ký tự"
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
                                 className="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:border-brand-accent text-xs bg-white"
@@ -1138,48 +1051,6 @@ export default function AccountPage() {
                           })}
                         </tbody>
                       </table>
-                    </div>
-
-                    {/* SPENDING SIMULATOR FOR TESTING */}
-                    <div className="p-6 rounded-2xl bg-brand-text text-white border border-brand-border shadow-md relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-neutral-800 rounded-full filter blur-xl opacity-40 pointer-events-none" />
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-10 relative">
-                        <div>
-                          <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/80 mb-1 flex items-center gap-1.5">
-                            <TrendingUp className="w-3.5 h-3.5 text-brand-muted" />
-                            Giả lập chi tiêu (Dành cho nhà phát triển)
-                          </h4>
-                          <p className="text-[11px] text-neutral-300 font-light leading-relaxed">
-                            Nhấn nút để cộng thêm tiền chi tiêu giả lập nhằm kiểm thử quá trình thăng cấp VIP & tích điểm tự động của tài khoản này!
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2 shrink-0">
-                          <button
-                            onClick={() => {
-                              addCustomerSpending(currentUser.id, 1000000);
-                            }}
-                            className="px-4 py-2.5 rounded-xl bg-white text-brand-text text-[9px] font-bold uppercase tracking-widest hover:bg-neutral-50 transition-all active:scale-95 cursor-pointer shadow-sm"
-                          >
-                            + Mua 1 Triệu
-                          </button>
-                          <button
-                            onClick={() => {
-                              addCustomerSpending(currentUser.id, 5000000);
-                            }}
-                            className="px-4 py-2.5 rounded-xl bg-white text-brand-text text-[9px] font-bold uppercase tracking-widest hover:bg-neutral-50 transition-all active:scale-95 cursor-pointer shadow-sm"
-                          >
-                            + Mua 5 Triệu
-                          </button>
-                          <button
-                            onClick={() => {
-                              addCustomerSpending(currentUser.id, 15000000);
-                            }}
-                            className="px-4 py-2.5 rounded-xl bg-white text-brand-text text-[9px] font-bold uppercase tracking-widest hover:bg-neutral-50 transition-all active:scale-95 cursor-pointer shadow-sm"
-                          >
-                            + Mua 15 Triệu
-                          </button>
-                        </div>
-                      </div>
                     </div>
 
                   </div>

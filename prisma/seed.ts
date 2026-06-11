@@ -1,24 +1,54 @@
+import 'dotenv/config';
 import * as bcrypt from 'bcryptjs';
 import { MOCK_PRODUCTS } from '../data/products';
 import { prisma } from '../lib/db';
 
-// Default users matching DEFAULT_USERS in authService
-const DEFAULT_USERS = [
-  { id: 'usr-dir', name: 'Trần Quốc Bảo', email: 'director@novynwear.com', role: 'director', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop' },
-  { id: 'usr-mgr1', name: 'Nguyễn Huy Hoàng', email: 'manager.q1@novynwear.com', role: 'manager', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop', salary: 15000000 },
-  { id: 'usr-mgr2', name: 'Đỗ Thu Trang', email: 'manager.td@novynwear.com', role: 'manager', branch: 'Chi nhánh Thảo Điền', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop', salary: 16000000 },
-  { id: 'usr-emp1', name: 'Phạm Minh Đức', email: 'employee.q1@novynwear.com', role: 'employee', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop', salary: 8500000 },
-  { id: 'usr-emp2', name: 'Lê Quỳnh Chi', email: 'employee.td@novynwear.com', role: 'employee', branch: 'Chi nhánh Thảo Điền', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop', salary: 9000000 },
-  { id: 'usr-acc', name: 'Phạm Thu Thảo', email: 'accountant@novynwear.com', role: 'accountant', salary: 12000000, avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop' },
-  { id: 'usr-cskh', name: 'Mai An CSKH', email: 'cskh@novynwear.com', role: 'cskh', salary: 9500000, avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' },
-  { id: 'usr-cskh2', name: 'Lê Thùy Dương', email: 'duong.cskh@novynwear.com', role: 'cskh', salary: 9200000, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop' },
-  { id: 'usr-cust', name: 'Lâm Khánh Vy', email: 'customer@gmail.com', role: 'customer', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop', totalSpent: 22500000 },
-  { id: 'usr-demo-cust', name: 'Demo Customer', email: 'demo.customer@example.com', role: 'customer', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop', totalSpent: 6500000, phone: '0909123456' },
-  { id: 'usr-emp3', name: 'Trần Minh Tâm', email: 'tam.employee.q1@novynwear.com', role: 'employee', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop', salary: 8500000 },
-  { id: 'usr-emp4', name: 'Nguyễn Hoàng Nam', email: 'nam.employee.td@novynwear.com', role: 'employee', branch: 'Chi nhánh Thảo Điền', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop', salary: 8800000 },
-  { id: 'usr-cashier1', name: 'Nguyễn Thuỳ Lan', email: 'cashier.q1@novynwear.com', role: 'cashier', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop', salary: 8000000 },
-  { id: 'usr-stocker1', name: 'Trần Minh Hải', email: 'stocker.q1@novynwear.com', role: 'stocker', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop', salary: 8200000 },
+type SeedUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  passwordEnv: string;
+  branch?: string;
+  avatar?: string;
+  salary?: number;
+  totalSpent?: number;
+  phone?: string;
+};
+
+// Official production users matching DEFAULT_USERS in AuthContext fallback state.
+const DEFAULT_USERS: SeedUser[] = [
+  { id: 'usr-dir', name: 'Trần Quốc Bảo', email: 'director@novynwear.com', role: 'director', passwordEnv: 'NOVYN_DIRECTOR_PASSWORD', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop' },
+  { id: 'usr-mgr1', name: 'Nguyễn Huy Hoàng', email: 'manager.q1@novynwear.com', role: 'manager', passwordEnv: 'NOVYN_MANAGER_Q1_PASSWORD', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop', salary: 15000000 },
+  { id: 'usr-mgr2', name: 'Đỗ Thu Trang', email: 'manager.td@novynwear.com', role: 'manager', passwordEnv: 'NOVYN_MANAGER_TD_PASSWORD', branch: 'Chi nhánh Thảo Điền', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop', salary: 16000000 },
+  { id: 'usr-emp1', name: 'Phạm Minh Đức', email: 'employee.q1@novynwear.com', role: 'employee', passwordEnv: 'NOVYN_EMPLOYEE_Q1_PASSWORD', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop', salary: 8500000 },
+  { id: 'usr-emp2', name: 'Lê Quỳnh Chi', email: 'employee.td@novynwear.com', role: 'employee', passwordEnv: 'NOVYN_EMPLOYEE_TD_PASSWORD', branch: 'Chi nhánh Thảo Điền', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop', salary: 9000000 },
+  { id: 'usr-acc', name: 'Phạm Thu Thảo', email: 'accountant@novynwear.com', role: 'accountant', passwordEnv: 'NOVYN_ACCOUNTANT_PASSWORD', salary: 12000000, avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop' },
+  { id: 'usr-cskh', name: 'Mai An CSKH', email: 'cskh@novynwear.com', role: 'cskh', passwordEnv: 'NOVYN_CSKH_LEAD_PASSWORD', salary: 9500000, avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' },
+  { id: 'usr-cskh2', name: 'Lê Thùy Dương', email: 'duong.cskh@novynwear.com', role: 'cskh', passwordEnv: 'NOVYN_CSKH_STAFF_PASSWORD', salary: 9200000, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop' },
+  { id: 'usr-cust', name: 'Lâm Khánh Vy', email: 'customer@novynwear.com', role: 'customer', passwordEnv: 'NOVYN_CUSTOMER_PASSWORD', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop', totalSpent: 22500000 },
+  { id: 'usr-emp3', name: 'Trần Minh Tâm', email: 'tam.employee.q1@novynwear.com', role: 'employee', passwordEnv: 'NOVYN_EMPLOYEE_TAM_PASSWORD', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop', salary: 8500000 },
+  { id: 'usr-emp4', name: 'Nguyễn Hoàng Nam', email: 'nam.employee.td@novynwear.com', role: 'employee', passwordEnv: 'NOVYN_EMPLOYEE_NAM_PASSWORD', branch: 'Chi nhánh Thảo Điền', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop', salary: 8800000 },
+  { id: 'usr-cashier1', name: 'Nguyễn Thuỳ Lan', email: 'cashier.q1@novynwear.com', role: 'cashier', passwordEnv: 'NOVYN_CASHIER_Q1_PASSWORD', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop', salary: 8000000 },
+  { id: 'usr-stocker1', name: 'Trần Minh Hải', email: 'stocker.q1@novynwear.com', role: 'stocker', passwordEnv: 'NOVYN_STOCKER_Q1_PASSWORD', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop', salary: 8200000 },
 ];
+
+const getSeedPassword = (user: SeedUser) => {
+  const password = process.env[user.passwordEnv] || process.env.NOVYN_SEED_DEFAULT_PASSWORD;
+
+  if (!password) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(`Missing required seed password env var: ${user.passwordEnv}`);
+    }
+    return 'NovynDev!2026';
+  }
+
+  if (password.length < 8) {
+    throw new Error(`${user.passwordEnv} must be at least 8 characters`);
+  }
+
+  return password;
+};
 
 const INITIAL_EXPENSES = [
   { id: 'exp-1', title: 'Chi phí Marketing chụp ảnh BST Linen Hè', amount: 25000000, category: 'marketing', date: '2026-05-10' },
@@ -89,10 +119,11 @@ async function main() {
 
   // 3. Seed Users with hashed passwords
   console.log('Seeding users...');
-  const salt = bcrypt.genSaltSync(10);
-  const hashedPassword = bcrypt.hashSync('password', salt);
 
   for (const u of DEFAULT_USERS) {
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(getSeedPassword(u), salt);
+
     await prisma.user.create({
       data: {
         id: u.id,
@@ -104,6 +135,7 @@ async function main() {
         avatar: u.avatar || null,
         salary: u.salary || null,
         totalSpent: u.totalSpent || 0,
+        phone: u.phone || null,
       }
     });
   }
@@ -272,7 +304,7 @@ async function main() {
   const chatSession = await prisma.chatSession.create({
     data: {
       customerName: 'Lâm Khánh Vy',
-      customerEmail: 'customer@gmail.com',
+      customerEmail: 'customer@novynwear.com',
       lastMessage: 'Shop ơi đầm lụa slip dress có size XS không ạ?',
     }
   });

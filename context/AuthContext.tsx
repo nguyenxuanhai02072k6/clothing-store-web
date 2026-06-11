@@ -73,10 +73,9 @@ interface AuthContextType {
   // Auth Handlers
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string, role: UserRole, branch?: string, phone?: string) => Promise<boolean>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   deleteUser: (userId: string) => void;
-  loginWithSocial: (platform: 'google' | 'facebook') => Promise<void>;
   logout: () => void;
-  quickLogin: (email: string) => void;
 
   // Employee Handlers
   checkIn: () => void;
@@ -170,8 +169,7 @@ const DEFAULT_USERS: User[] = [
   { id: 'usr-acc', name: 'Phạm Thu Thảo', email: 'accountant@novynwear.com', role: 'accountant', salary: 12000000, avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop' },
   { id: 'usr-cskh', name: 'Mai An CSKH', email: 'cskh@novynwear.com', role: 'cskh', salary: 9500000, avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' },
   { id: 'usr-cskh2', name: 'Lê Thùy Dương', email: 'duong.cskh@novynwear.com', role: 'cskh', salary: 9200000, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop' },
-  { id: 'usr-cust', name: 'Lâm Khánh Vy', email: 'customer@gmail.com', role: 'customer', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop', totalSpent: 22500000 },
-  { id: 'usr-demo-cust', name: 'Demo Customer', email: 'demo.customer@example.com', role: 'customer', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop', totalSpent: 6500000, phone: '0909123456' },
+  { id: 'usr-cust', name: 'Lâm Khánh Vy', email: 'customer@novynwear.com', role: 'customer', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop', totalSpent: 22500000 },
   { id: 'usr-emp3', name: 'Trần Minh Tâm', email: 'tam.employee.q1@novynwear.com', role: 'employee', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop', salary: 8500000 },
   { id: 'usr-emp4', name: 'Nguyễn Hoàng Nam', email: 'nam.employee.td@novynwear.com', role: 'employee', branch: 'Chi nhánh Thảo Điền', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop', salary: 8800000 },
   { id: 'usr-cashier1', name: 'Nguyễn Thuỳ Lan', email: 'cashier.q1@novynwear.com', role: 'cashier', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop', salary: 8000000 },
@@ -347,45 +345,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
-  const loginWithSocial = async (platform: 'google' | 'facebook') => {
-    const name = platform === 'google' ? 'Đăng nhập Google User' : 'Đăng nhập Facebook User';
-    const email = `${platform}.user@gmail.com`;
-    
-    try {
-      let user = usersList.find((u) => u.email === email);
-      if (!user) {
-        const success = await authService.register(name, email, 'social-login-123456', 'customer');
-        if (success) {
-          const users = await authService.getUsers();
-          setUsersList(users);
-          user = users.find(u => u.email === email);
-        }
-      }
-      if (user) {
-        setCurrentUser(user);
-        await authService.saveCurrentUser(user);
-        showToast(`Đăng ký & Đăng nhập thành công bằng ${platform === 'google' ? 'Google' : 'Facebook'}!`, 'success');
-      } else {
-        showToast('Lỗi đăng nhập mạng xã hội', 'error');
-      }
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi đăng nhập mạng xã hội', 'error');
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
+    if (!currentUser) {
+      showToast('Vui lòng đăng nhập trước khi đổi mật khẩu.', 'error');
+      return false;
     }
+
+    const result = await authService.changePassword(currentUser.id, currentPassword, newPassword);
+    if (result.success) {
+      showToast('Đã thay đổi mật khẩu tài khoản thành công!', 'success');
+      return true;
+    }
+
+    showToast(result.message || 'Đổi mật khẩu không thành công!', 'error');
+    return false;
   };
 
   const logout = () => {
     setCurrentUser(null);
     authService.saveCurrentUser(null);
     showToast('Đã đăng xuất khỏi tài khoản.', 'info');
-  };
-
-  const quickLogin = (email: string) => {
-    const user = usersList.find((u) => u.email === email);
-    if (user) {
-      setCurrentUser(user);
-      authService.saveCurrentUser(user);
-      showToast(`Đăng nhập nhanh thành công vai trò: ${user.role.toUpperCase()}`, 'success');
-    }
   };
 
   // ----------------------------------------------------
@@ -1027,10 +1006,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthLoaded,
         login,
         register,
+        changePassword,
         deleteUser,
-        loginWithSocial,
         logout,
-        quickLogin,
         checkIn,
         checkOut,
         submitLeaveRequest,

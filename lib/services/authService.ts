@@ -2,6 +2,7 @@ import { User, UserRole } from '../../types';
 import {
   getUsersAction,
   loginAction,
+  changePasswordAction,
   registerAction,
   deleteUserAction,
   updateUserSpentAction
@@ -55,6 +56,10 @@ export const authService = {
   register: async (name: string, email: string, password: string, role: UserRole, branch?: string, phone?: string): Promise<boolean> => {
     const result = await registerAction(name, email, password, role, branch, phone);
     return result.success;
+  },
+
+  changePassword: async (userId: string, currentPassword: string, newPassword: string): Promise<{ success: boolean; message?: string }> => {
+    return await changePasswordAction(userId, currentPassword, newPassword);
   },
 
   deleteUser: async (userId: string): Promise<void> => {
