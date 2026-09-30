@@ -1,9 +1,27 @@
 "use server"
 
+import { cookies } from 'next/headers';
 import { prisma } from '../db';
+import { verifySession, getSessionUser } from '../session';
+
+const CSKH_ROLES = ['director', 'manager', 'cskh'];
+
+async function canAccessChatSession(chatSession: { id: string; customerEmail: string }): Promise<boolean> {
+  const userSession = await getSessionUser();
+  if (userSession && CSKH_ROLES.includes(userSession.role)) {
+    return true;
+  }
+  if (userSession?.role === 'customer' && userSession.email.toLowerCase() === chatSession.customerEmail.toLowerCase()) {
+    return true;
+  }
+  const cookieStore = await cookies();
+  const token = cookieStore.get(`novyn_chat_${chatSession.id}`)?.value;
+  return token === '1';
+}
 
 export async function getChatSessionsAction() {
   try {
+    await verifySession(CSKH_ROLES);
     const sessions = await prisma.chatSession.findMany({
       include: {
         messages: {
@@ -38,13 +56,20 @@ export async function getChatSessionsAction() {
 
 export async function getChatMessagesAction(sessionId: string) {
   try {
+    const session = await prisma.chatSession.findUnique({
+      where: { id: sessionId }
+    });
+
+    if (!session) return [];
+
+    const allowed = await canAccessChatSession(session);
+    if (!allowed) {
+      return [];
+    }
+
     const messages = await prisma.chatMessage.findMany({
       where: { sessionId },
       orderBy: { createdAt: 'asc' }
-    });
-
-    const session = await prisma.chatSession.findUnique({
-      where: { id: sessionId }
     });
 
     return (messages as any[]).map((m: any) => ({
@@ -57,6 +82,47 @@ export async function getChatMessagesAction(sessionId: string) {
   } catch (error) {
     console.error('getChatMessagesAction error:', error);
     return [];
+  }
+}
+
+export async function getCustomerChatSessionAction(sessionId: string) {
+  try {
+    const session = await prisma.chatSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' }
+        }
+      }
+    });
+
+    if (!session) return null;
+
+    const allowed = await canAccessChatSession(session);
+    if (!allowed) {
+      return null;
+    }
+
+    return {
+      id: session.id,
+      customerId: session.customerEmail,
+      customerName: session.customerName,
+      customerEmail: session.customerEmail,
+      status: session.status as 'waiting' | 'active' | 'closed',
+      cskhName: session.cskhName || undefined,
+      createdAt: session.createdAt.toISOString(),
+      lastMessageAt: session.updatedAt.toISOString(),
+      messages: (session.messages as any[]).map((m: any) => ({
+        id: m.id,
+        sender: (m.sender === 'staff' ? 'cskh' : 'customer') as 'customer' | 'cskh',
+        text: m.content,
+        timestamp: m.createdAt.toISOString(),
+        senderName: m.sender === 'staff' ? (session.cskhName || 'CSKH') : session.customerName
+      }))
+    };
+  } catch (error) {
+    console.error('getCustomerChatSessionAction error:', error);
+    return null;
   }
 }
 
@@ -94,13 +160,27 @@ export async function createChatSessionAction(
       });
     }
 
+    // Set HttpOnly possession cookie for guest chat ownership
+    try {
+      const cookieStore = await cookies();
+      cookieStore.set(`novyn_chat_${session.id}`, '1', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7 // 7 days
+      });
+    } catch (e) {
+      console.error('Failed to set chat possession cookie:', e);
+    }
+
     // If initial message is provided, create the message record
-    if (initialMessage) {
+    if (initialMessage && initialMessage.trim()) {
       await prisma.chatMessage.create({
         data: {
           sessionId: session.id,
           sender: 'customer',
-          content: initialMessage
+          content: initialMessage.trim().substring(0, 2000)
         }
       });
     }
@@ -114,18 +194,32 @@ export async function createChatSessionAction(
 
 export async function sendCustomerMessageAction(sessionId: string, text: string, senderName: string) {
   try {
+    const cleanText = text?.trim();
+    if (!cleanText || cleanText.length > 2000) return;
+
+    const session = await prisma.chatSession.findUnique({
+      where: { id: sessionId }
+    });
+    if (!session || session.status === 'closed') return;
+
+    const allowed = await canAccessChatSession(session);
+    if (!allowed) {
+      console.warn(`Unauthorized attempt to send customer message to session: ${sessionId}`);
+      return;
+    }
+
     await prisma.chatMessage.create({
       data: {
         sessionId,
         sender: 'customer',
-        content: text
+        content: cleanText
       }
     });
 
     await prisma.chatSession.update({
       where: { id: sessionId },
       data: {
-        lastMessage: text
+        lastMessage: cleanText
       }
     });
   } catch (error) {
@@ -135,6 +229,7 @@ export async function sendCustomerMessageAction(sessionId: string, text: string,
 
 export async function sendCskhMessageAction(sessionId: string, text: string, cskhName: string) {
   try {
+    const session = await verifySession(CSKH_ROLES);
     await prisma.chatMessage.create({
       data: {
         sessionId,
@@ -146,7 +241,8 @@ export async function sendCskhMessageAction(sessionId: string, text: string, csk
     await prisma.chatSession.update({
       where: { id: sessionId },
       data: {
-        lastMessage: text
+        lastMessage: text,
+        cskhName: session.name || cskhName
       }
     });
   } catch (error) {
@@ -156,11 +252,12 @@ export async function sendCskhMessageAction(sessionId: string, text: string, csk
 
 export async function acceptSessionAction(sessionId: string, cskhName: string) {
   try {
+    const session = await verifySession(CSKH_ROLES);
     await prisma.chatSession.update({
       where: { id: sessionId },
       data: {
         status: 'active',
-        cskhName
+        cskhName: session.name || cskhName
       }
     });
   } catch (error) {
@@ -170,6 +267,7 @@ export async function acceptSessionAction(sessionId: string, cskhName: string) {
 
 export async function closeSessionAction(sessionId: string) {
   try {
+    await verifySession(CSKH_ROLES);
     await prisma.chatSession.update({
       where: { id: sessionId },
       data: {

@@ -1,5 +1,5 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+ 
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole, AttendanceLog, LeaveRequest, Product, SalaryRequest, DailyReport, Order, CustomerInfo, PayrollRecord, ExpenseItem, RestockRecord, CartItem, ShiftRequest, Announcement, ShiftSwapRequest, OfficeReservation, WorkspaceTask, WorkspacePost, WikiDoc } from '../types';
@@ -29,6 +29,7 @@ import {
   rejectShiftRequestAction,
   getAnnouncementsAction,
   addAnnouncementAction,
+  deleteAnnouncementAction,
   getShiftSwapsAction,
   requestShiftSwapAction,
   approveShiftSwapAction,
@@ -76,6 +77,8 @@ interface AuthContextType {
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   deleteUser: (userId: string) => void;
   logout: () => void;
+  refreshUser: () => Promise<void>;
+  refreshInventoryStocks: () => Promise<void>;
 
   // Employee Handlers
   checkIn: () => void;
@@ -118,7 +121,7 @@ interface AuthContextType {
 
   // Order & Revenue Handlers
   allOrders: Order[];
-  createOrder: (customerInfo: CustomerInfo, items: CartItem[], subtotal: number, discount: number, shipping: number, total: number, paymentMethod: 'cod' | 'transfer' | 'card', branch: string, status?: 'pending' | 'shipping' | 'completed' | 'cancelled') => string;
+  createOrder: (customerInfo: CustomerInfo, items: CartItem[], subtotal: number, discount: number, shipping: number, total: number, paymentMethod: 'cod' | 'transfer' | 'card', branch: string, status?: 'pending' | 'shipping' | 'completed' | 'cancelled', voucherCode?: string) => Promise<string>;
   updateOrderStatus: (orderId: string, status: 'pending' | 'shipping' | 'completed' | 'cancelled') => void;
 
   // Accountant Handlers
@@ -135,6 +138,7 @@ interface AuthContextType {
 
   // Announcements
   sendAnnouncement: (title: string, content: string, recipientType: 'all' | 'accountant' | 'branch_q1' | 'branch_td') => void;
+  deleteAnnouncement: (id: string) => Promise<void>;
 
   // Direct Shift Scheduling
   addShiftDirectly: (userId: string, date: string, shiftType: 'morning' | 'afternoon' | 'evening', comment?: string) => void;
@@ -203,77 +207,93 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const branches = ['Chi nhánh Quận 1', 'Chi nhánh Thảo Điền'];
 
+  const loadStaffData = async (user: User) => {
+    if (!user || user.role === 'customer') return;
+    try {
+      const [
+        users,
+        attendance,
+        leaves,
+        salaries,
+        reports,
+        stock,
+        sizeStock,
+        colorStock,
+        payroll,
+        expenses,
+        restocks,
+        shifts,
+        anns,
+        swaps,
+        reservations,
+        tasks,
+        posts,
+        docs,
+        orders
+      ] = await Promise.all([
+        authService.getUsers(),
+        getAttendanceLogsAction(),
+        getLeaveRequestsAction(),
+        getSalaryRequestsAction(),
+        getDailyReportsAction(),
+        inventoryService.getBranchStock(),
+        inventoryService.getBranchSizeStock(),
+        inventoryService.getBranchColorStock(),
+        financeService.getPayrollRecords(),
+        financeService.getExpensesList(),
+        inventoryService.getRestockRecords(),
+        getShiftRequestsAction(),
+        getAnnouncementsAction(),
+        getShiftSwapsAction(),
+        getReservationsAction(),
+        getWorkspaceTasksAction(),
+        getWorkspacePostsAction(),
+        getWikiDocsAction(),
+        orderService.getOrders()
+      ]);
+
+      setUsersList(users);
+      setAttendanceLogs(attendance as any);
+      setLeaveRequests(leaves as any);
+      setSalaryRequests(salaries as any);
+      setDailyReports(reports as any);
+      setBranchStock(stock);
+      setBranchSizeStock(sizeStock);
+      setBranchColorStock(colorStock);
+      setPayrollRecords(payroll);
+      setExpensesList(expenses);
+      setRestockRecords(restocks);
+      setShiftRequests(shifts as any);
+      setAnnouncements(anns as any);
+      setShiftSwapRequests(swaps as any);
+      setOfficeReservations(reservations as any);
+      setWorkspaceTasks(tasks as any);
+      setWorkspacePosts(posts as any);
+      setWikiDocs(docs as any);
+      if (orders) setAllOrders(orders);
+    } catch (err) {
+      console.error("Failed to load staff data in AuthContext:", err);
+    }
+  };
+
   // Initialize and load databases from server-side database actions and services
   useEffect(() => {
     const initData = async () => {
       try {
-        // 1. Current User
-        const storedUser = localStorage.getItem('novyn_curr_user');
-        if (storedUser) {
-          setCurrentUser(JSON.parse(storedUser));
-        }
+        const [serverUser, products] = await Promise.all([
+          authService.getCurrentUser(),
+          productService.getProducts()
+        ]);
 
-        // 2. Fetch all other states from DB via Services/Actions
-        const users = await authService.getUsers();
-        setUsersList(users);
-
-        const products = await productService.getProducts();
+        setCurrentUser(serverUser);
         setProductsList(products);
-
-        const attendance = await getAttendanceLogsAction();
-        setAttendanceLogs(attendance as any);
-
-        const leaves = await getLeaveRequestsAction();
-        setLeaveRequests(leaves as any);
-
-        const salaries = await getSalaryRequestsAction();
-        setSalaryRequests(salaries as any);
-
-        const reports = await getDailyReportsAction();
-        setDailyReports(reports as any);
 
         const orders = await orderService.getOrders();
         setAllOrders(orders);
 
-        const stock = await inventoryService.getBranchStock();
-        setBranchStock(stock);
-
-        const sizeStock = await inventoryService.getBranchSizeStock();
-        setBranchSizeStock(sizeStock);
-
-        const colorStock = await inventoryService.getBranchColorStock();
-        setBranchColorStock(colorStock);
-
-        const payroll = await financeService.getPayrollRecords();
-        setPayrollRecords(payroll);
-
-        const expenses = await financeService.getExpensesList();
-        setExpensesList(expenses);
-
-        const restocks = await inventoryService.getRestockRecords();
-        setRestockRecords(restocks);
-
-        const shifts = await getShiftRequestsAction();
-        setShiftRequests(shifts as any);
-
-        const anns = await getAnnouncementsAction();
-        setAnnouncements(anns as any);
-
-        const swaps = await getShiftSwapsAction();
-        setShiftSwapRequests(swaps as any);
-
-        const reservations = await getReservationsAction();
-        setOfficeReservations(reservations as any);
-
-        const tasks = await getWorkspaceTasksAction();
-        setWorkspaceTasks(tasks as any);
-
-        const posts = await getWorkspacePostsAction();
-        setWorkspacePosts(posts as any);
-
-        const docs = await getWikiDocsAction();
-        setWikiDocs(docs as any);
-
+        if (serverUser && serverUser.role !== 'customer') {
+          await loadStaffData(serverUser);
+        }
       } catch (err) {
         console.error("Failed to load initial data from database in AuthContext:", err);
       } finally {
@@ -284,16 +304,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initData();
   }, []);
 
-  // Sync current user to local storage for SPA session state
-  useEffect(() => {
-    if (!isAuthLoaded) return;
-    if (currentUser) {
-      localStorage.setItem('novyn_curr_user', JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem('novyn_curr_user');
-    }
-  }, [currentUser, isAuthLoaded]);
-
   // ----------------------------------------------------
   // AUTHENTICATION LOGIC
   // ----------------------------------------------------
@@ -303,13 +313,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const user = await authService.login(email, password);
       if (user) {
         setCurrentUser(user);
+        if (user.role !== 'customer') {
+          await loadStaffData(user);
+        }
         showToast(`Chào mừng quay lại, ${user.name}!`, 'success');
         return true;
       }
+      showToast('Tài khoản hoặc mật khẩu không đúng!', 'error');
     } catch (err: any) {
       console.error('Login error:', err);
+      showToast(err.message || 'Lỗi đăng nhập!', 'error');
     }
-    showToast('Tài khoản hoặc mật khẩu không đúng!', 'error');
     return false;
   };
 
@@ -321,8 +335,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const success = await authService.register(name, email, password, role, branch, phone);
-      if (success) {
+      const result = await authService.register(name, email, password, role, branch, phone);
+      if (result.success) {
         const users = await authService.getUsers();
         setUsersList(users);
 
@@ -336,6 +350,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         showToast(currentUser?.role === 'accountant' ? `Đã tạo tài khoản cho ${name} thành công!` : `Đăng ký thành công! Chào mừng ${name}.`, 'success');
         return true;
       }
+
+      showToast(result.message || 'Đăng ký không thành công!', 'error');
+      return false;
     } catch (err: any) {
       showToast(err.message || 'Lỗi đăng ký tài khoản!', 'error');
       return false;
@@ -361,9 +378,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
-  const logout = () => {
+  const refreshUser = async (): Promise<void> => {
+    try {
+      const serverUser = await authService.getCurrentUser();
+      setCurrentUser(serverUser);
+
+      if (serverUser && serverUser.role !== 'customer') {
+        await loadStaffData(serverUser);
+      }
+    } catch (e) {
+      console.error("Failed to refresh user in AuthContext:", e);
+    }
+  };
+
+  const refreshInventoryStocks = async (): Promise<void> => {
+    try {
+      const stock = await inventoryService.getBranchStock();
+      setBranchStock(stock);
+      const sizeStock = await inventoryService.getBranchSizeStock();
+      setBranchSizeStock(sizeStock);
+      const colorStock = await inventoryService.getBranchColorStock();
+      setBranchColorStock(colorStock);
+      const prods = await productService.getProducts();
+      setProductsList(prods);
+    } catch (e) {
+      console.error("Failed to refresh inventory stocks:", e);
+    }
+  };
+
+  const logout = async () => {
     setCurrentUser(null);
-    authService.saveCurrentUser(null);
+    await authService.logout();
     showToast('Đã đăng xuất khỏi tài khoản.', 'info');
   };
 
@@ -372,8 +417,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ----------------------------------------------------
   
   const checkIn = async () => {
-    if (!currentUser || !currentUser.branch) return;
-    const result = await checkInAction(currentUser.id, currentUser.name, currentUser.role, currentUser.branch);
+    if (!currentUser) return;
+    const branch = currentUser.branch || 'Chi nhánh Quận 1';
+    const result = await checkInAction(currentUser.id, currentUser.name, currentUser.role, branch);
     if (result.success && result.log) {
       setAttendanceLogs((prev) => [result.log as any, ...prev]);
       showToast('Chấm công VÀO thành công!', 'success');
@@ -394,8 +440,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const submitLeaveRequest = async (reason: string, startDate: string, endDate: string) => {
-    if (!currentUser || !currentUser.branch) return;
-    const result = await requestLeaveAction(currentUser.id, currentUser.name, currentUser.role, currentUser.branch, startDate, endDate, reason);
+    if (!currentUser) return;
+    const branch = currentUser.branch || 'Chi nhánh Quận 1';
+    const result = await requestLeaveAction(currentUser.id, currentUser.name, currentUser.role, branch, startDate, endDate, reason);
     if (result.success && result.request) {
       setLeaveRequests((prev) => [result.request as any, ...prev]);
       showToast('Gửi đơn xin nghỉ phép thành công. Chờ quản lý duyệt!', 'success');
@@ -543,9 +590,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteAnnouncement = async (id: string) => {
+    const result = await deleteAnnouncementAction(id);
+    if (result.success) {
+      setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+      showToast('Đã xóa thông báo thành công!', 'info');
+    } else {
+      showToast('Lỗi xóa thông báo', 'error');
+    }
+  };
+
   const submitSalaryRequest = async (proposedSalary: number, reason: string) => {
-    if (!currentUser || !currentUser.branch || !currentUser.salary) return;
-    const result = await requestSalaryIncreaseAction(currentUser.id, currentUser.name, currentUser.role, currentUser.branch, currentUser.salary, proposedSalary, reason);
+    if (!currentUser) return;
+    const branch = currentUser.branch || 'Chi nhánh Quận 1';
+    const salary = currentUser.salary || 8000000;
+    const result = await requestSalaryIncreaseAction(currentUser.id, currentUser.name, currentUser.role, branch, salary, proposedSalary, reason);
     if (result.success && result.request) {
       setSalaryRequests((prev) => [result.request as any, ...prev]);
       showToast('Gửi đề xuất tăng lương thành công tới Giám đốc!', 'success');
@@ -610,7 +669,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const createOrder = (
+  const createOrder = async (
     customerInfo: CustomerInfo,
     items: CartItem[],
     subtotal: number,
@@ -619,40 +678,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     total: number,
     paymentMethod: 'cod' | 'transfer' | 'card',
     branch: string,
-    status: 'pending' | 'shipping' | 'completed' | 'cancelled' = 'pending'
-  ): string => {
-    const orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
-    
-    orderService.createOrder(customerInfo, items, subtotal, discount, shipping, total, paymentMethod, branch, status, currentUser?.role === 'customer' ? currentUser.id : undefined)
-      .then(async () => {
-        // Refresh orders & users (spent amount) & stock levels!
-        const orders = await orderService.getOrders();
-        setAllOrders(orders);
-        
-        const users = await authService.getUsers();
-        setUsersList(users);
-        
-        if (currentUser && currentUser.role === 'customer') {
-          const updatedUser = users.find(u => u.id === currentUser.id);
-          if (updatedUser) setCurrentUser(updatedUser);
-        }
-        
-        const stock = await inventoryService.getBranchStock();
-        setBranchStock(stock);
-        const sizeStock = await inventoryService.getBranchSizeStock();
-        setBranchSizeStock(sizeStock);
-        const colorStock = await inventoryService.getBranchColorStock();
-        setBranchColorStock(colorStock);
-        const prods = await productService.getProducts();
-        setProductsList(prods);
+    status: 'pending' | 'shipping' | 'completed' | 'cancelled' = 'pending',
+    voucherCode?: string
+  ): Promise<string> => {
+    try {
+      const realOrderId = await orderService.createOrder(
+        customerInfo,
+        items,
+        subtotal,
+        discount,
+        shipping,
+        total,
+        paymentMethod,
+        branch,
+        status,
+        currentUser?.role === 'customer' ? currentUser.id : undefined,
+        voucherCode
+      );
 
-        showToast('Đặt hàng thành công!', 'success');
-      })
-      .catch((err) => {
-        showToast(err.message || 'Lỗi đặt hàng', 'error');
-      });
+      // Refresh orders & users & stock levels
+      const orders = await orderService.getOrders();
+      setAllOrders(orders);
+      
+      const users = await authService.getUsers();
+      setUsersList(users);
+      
+      if (currentUser && currentUser.role === 'customer') {
+        const updatedUser = users.find(u => u.id === currentUser.id);
+        if (updatedUser) setCurrentUser(updatedUser);
+      }
+      
+      const stock = await inventoryService.getBranchStock();
+      setBranchStock(stock);
+      const sizeStock = await inventoryService.getBranchSizeStock();
+      setBranchSizeStock(sizeStock);
+      const colorStock = await inventoryService.getBranchColorStock();
+      setBranchColorStock(colorStock);
+      const prods = await productService.getProducts();
+      setProductsList(prods);
 
-    return orderId;
+      showToast('Đặt hàng thành công!', 'success');
+      return realOrderId;
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi đặt hàng', 'error');
+      throw err;
+    }
   };
 
   const updateOrderStatus = async (orderId: string, status: 'pending' | 'shipping' | 'completed' | 'cancelled') => {
@@ -771,7 +841,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const submitSwapRequest = async (fromShiftId: string, toShiftId: string) => {
-    if (!currentUser || !currentUser.branch) return;
+    if (!currentUser) return;
 
     const fromShift = shiftRequests.find((s) => s.id === fromShiftId && s.status === 'approved');
     const toShift = shiftRequests.find((s) => s.id === toShiftId && s.status === 'approved');
@@ -807,7 +877,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toShiftId,
       toShift.date,
       toShift.shiftType,
-      currentUser.branch
+      currentUser.branch || fromShift.branch || 'Chi nhánh Quận 1'
     );
 
     if (result.success && result.request) {
@@ -1009,6 +1079,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         changePassword,
         deleteUser,
         logout,
+        refreshUser,
+        refreshInventoryStocks,
         checkIn,
         checkOut,
         submitLeaveRequest,
@@ -1039,6 +1111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         approveShiftRequest,
         announcements,
         sendAnnouncement,
+        deleteAnnouncement,
         addGlobalProduct,
         deleteGlobalProduct,
         addShiftDirectly,

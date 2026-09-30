@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatPrice } from '../../lib/utils';
-import { ShieldCheck, Truck, CreditCard, Landmark, CheckCircle, ArrowRight, ArrowLeft, Info } from 'lucide-react';
+import { ShieldCheck, Truck, Landmark, CheckCircle, ArrowRight, ArrowLeft, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface FormErrors {
@@ -51,16 +51,9 @@ export default function CheckoutPage() {
             setAddress(`${defaultAddr.detailAddress}, ${defaultAddr.city}`);
           }
         } else {
-          const initial = [
-            { id: 'addr-default', fullName: currentUser.name, phone: currentUser.phone || '0901234567', detailAddress: '120 Lê Lợi, Phường Bến Thành, Quận 1', city: 'TP. Hồ Chí Minh', isDefault: true }
-          ];
-          setAddressBook(initial);
-          localStorage.setItem(`novyn_addresses_${currentUser.id}`, JSON.stringify(initial));
-          
-          // Auto fill
+          setAddressBook([]);
           setFullName(currentUser.name || '');
-          setPhone(currentUser.phone || '0901234567');
-          setAddress('120 Lê Lợi, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh');
+          setPhone(currentUser.phone || '');
         }
       } catch (e) {
         console.error(e);
@@ -68,12 +61,7 @@ export default function CheckoutPage() {
     }
   }, [currentUser]);
   const [notes, setNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'transfer' | 'card'>('cod');
-  
-  // Visa Card details (Demo only)
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'transfer'>('cod');
 
   // Shipping Branch
   const [selectedBranch, setSelectedBranch] = useState('Chi nhánh Quận 1');
@@ -104,10 +92,10 @@ export default function CheckoutPage() {
     const tempErrors: FormErrors = {};
     if (!fullName.trim()) tempErrors.fullName = 'Vui lòng nhập họ và tên.';
     
-    const phoneRegex = /^(0[3|5|7|8|9])([0-9]{8})$/;
+    const phoneRegex = /^0[35789]\d{8}$/;
     if (!phone.trim()) {
       tempErrors.phone = 'Vui lòng nhập số điện thoại.';
-    } else if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
+    } else if (!phoneRegex.test(phone.replace(/\s+/g, ''))) {
       tempErrors.phone = 'Số điện thoại không hợp lệ (gồm 10 chữ số đầu 03/05/07/08/09).';
     }
 
@@ -147,26 +135,28 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      
-      // Create actual order in context, which also automatically handles spending!
-      const orderId = createOrder(
-        { fullName, phone, email, address, notes },
-        cart,
-        cartSubtotal,
-        cartDiscount,
-        cartShipping,
-        cartTotal,
-        paymentMethod,
-        selectedBranch,
-        'completed'
-      );
-      
-      setGeneratedOrderId(orderId);
-      setShowSuccessModal(true);
-    }, 1500);
+    createOrder(
+      { fullName, phone, email, address, notes },
+      cart,
+      cartSubtotal,
+      cartDiscount,
+      cartShipping,
+      cartTotal,
+      paymentMethod,
+      selectedBranch,
+      'pending',
+      appliedPromo?.code
+    )
+      .then((realOrderId) => {
+        setGeneratedOrderId(realOrderId);
+        setShowSuccessModal(true);
+      })
+      .catch((err) => {
+        console.error('Checkout error:', err);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   };
 
   const handleFinishCheckout = () => {
@@ -573,7 +563,7 @@ export default function CheckoutPage() {
                               NOVYN
                             </div>
                           </div>
-                          <span className="text-[8px] font-bold uppercase text-brand-muted mt-2 tracking-widest">Demo QR Code</span>
+                          <span className="text-[8px] font-bold uppercase text-brand-muted mt-2 tracking-widest">Mã QR chuyển khoản</span>
                         </div>
 
                         {/* Bank Text Details */}
@@ -595,103 +585,6 @@ export default function CheckoutPage() {
                             <span className="col-span-2 text-brand-accent font-bold uppercase tracking-wider select-all">
                               NOVYN CK {generatedOrderId || 'DONHANG'}
                             </span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-
-                  {/* Credit Card Method option (Demo sandbox) */}
-                  <div
-                    onClick={() => setPaymentMethod('card')}
-                    className={`p-4 rounded-xl border flex flex-col gap-4 cursor-pointer transition-all ${
-                      paymentMethod === 'card' ? 'border-brand-text bg-neutral-50' : 'border-brand-border hover:border-brand-text'
-                    }`}
-                  >
-                    <div className="flex items-start gap-4 w-full">
-                      <input
-                        type="radio"
-                        name="payment"
-                        checked={paymentMethod === 'card'}
-                        onChange={() => setPaymentMethod('card')}
-                        className="w-4 h-4 accent-neutral-900 mt-1 cursor-pointer shrink-0"
-                      />
-                      <div className="flex gap-3">
-                        <CreditCard className="w-5 h-5 text-brand-muted shrink-0 mt-0.5" />
-                        <div>
-                          <span className="text-xs font-bold text-brand-text uppercase block mb-1">Thanh toán qua Thẻ quốc tế Visa/Master</span>
-                          <p className="text-[10px] text-brand-muted leading-normal font-light">
-                            Thanh toán bảo mật tức thì qua cổng thanh toán quốc tế kết nối thẻ ngân hàng của bạn.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Subpanel for Credit Card Input Sandbox Form */}
-                    {paymentMethod === 'card' && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        className="overflow-hidden border-t border-brand-border pt-4 flex flex-col gap-4"
-                      >
-                        <div className="bg-neutral-900 text-white p-6 rounded-xl border border-brand-border shadow-md flex flex-col justify-between max-w-sm w-full aspect-[1.6] shrink-0 mx-auto">
-                          <div className="flex justify-between items-start">
-                            <span className="text-[9px] font-normal tracking-[0.2em] uppercase text-neutral-400">NOVYN WEAR VIP CARD</span>
-                            <div className="h-6 w-9 bg-white/20 border border-brand-border/40 rounded-md" />
-                          </div>
-                          <div className="text-base sm:text-lg font-mono tracking-widest py-3">
-                            {cardNumber || '•••• •••• •••• ••••'}
-                          </div>
-                          <div className="flex justify-between items-end">
-                            <div>
-                              <span className="text-[8px] uppercase tracking-wider text-neutral-400 block mb-0.5">Chủ thẻ</span>
-                              <span className="text-xs uppercase font-normal tracking-widest">{fullName || 'NGUYEN VAN A'}</span>
-                            </div>
-                            <div>
-                              <span className="text-[8px] uppercase tracking-wider text-neutral-400 block mb-0.5">Hết hạn</span>
-                              <span className="text-xs font-normal font-mono">{cardExpiry || 'MM/YY'}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-neutral-50 p-3 rounded-xl border border-brand-border text-[10px] text-brand-muted font-light leading-relaxed">
-                          ⚠️ <strong>Chú ý Sandbox Demo:</strong> Đây là môi trường kiểm thử an toàn, không giao dịch tiền thật. Vui lòng nhập số thẻ giả lập bất kỳ (ví dụ: 4111 2222 3333 4444) và <strong>KHÔNG</strong> cung cấp thẻ tín dụng thực tế của bạn.
-                        </div>
-
-                        {/* Visa Form inputs */}
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="col-span-3 flex flex-col gap-1.5">
-                            <label className="text-[9px] font-bold uppercase text-brand-muted tracking-wider">Số thẻ Visa *</label>
-                            <input
-                              type="text"
-                              placeholder="4111 2222 3333 4444"
-                              maxLength={19}
-                              value={cardNumber}
-                              onChange={(e) => setCardNumber(e.target.value.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim())}
-                              className="bg-white border border-brand-border rounded-xl px-3 py-2.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-[9px] font-bold uppercase text-brand-muted tracking-wider">Hết hạn *</label>
-                            <input
-                              type="text"
-                              placeholder="MM/YY"
-                              maxLength={5}
-                              value={cardExpiry}
-                              onChange={(e) => setCardExpiry(e.target.value)}
-                              className="bg-white border border-brand-border rounded-xl px-3 py-2.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-[9px] font-bold uppercase text-brand-muted tracking-wider">Mã CVV *</label>
-                            <input
-                              type="password"
-                              placeholder="123"
-                              maxLength={3}
-                              value={cardCvv}
-                              onChange={(e) => setCardCvv(e.target.value)}
-                              className="bg-white border border-brand-border rounded-xl px-3 py-2.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent"
-                            />
                           </div>
                         </div>
                       </motion.div>
@@ -817,14 +710,14 @@ export default function CheckoutPage() {
                 </div>
               ) : (
                 <>
-                  Đặt hàng an toàn (Demo)
+                  Đặt hàng an toàn
                   <ShieldCheck className="w-4.5 h-4.5" />
                 </>
               )}
             </button>
 
             <span className="text-[10px] text-brand-muted text-center block mt-4 font-light leading-relaxed">
-              🔒 Thanh toán demo bảo mật. Thông tin cá nhân được mã hóa an toàn.
+              Thanh toán được xử lý qua phương thức bạn chọn. NOVYN WEAR không lưu thông tin thẻ ngân hàng trên website.
             </span>
           </div>
 

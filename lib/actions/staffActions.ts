@@ -1,12 +1,14 @@
 "use server"
 
 import { prisma } from '../db';
+import { verifySession } from '../session';
 
 // ----------------------------------------------------
 // 1. Attendance Log
 // ----------------------------------------------------
 export async function getAttendanceLogsAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     return await prisma.attendanceLog.findMany({
       orderBy: { date: 'desc' }
     });
@@ -18,22 +20,28 @@ export async function getAttendanceLogsAction() {
 
 export async function checkInAction(userId: string, name: string, role: string, branch: string) {
   try {
+    const session = await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
+    const targetUserId = session.userId;
+    const targetName = session.name;
+    const targetRole = session.role;
+    const targetBranch = session.branch || branch || 'Chi nhánh Quận 1';
+
     const today = new Date().toISOString().substring(0, 10);
     const nowTime = new Date().toTimeString().substring(0, 8);
 
     // Check if user already checked in today
     const exists = await prisma.attendanceLog.findFirst({
-      where: { userId, date: today }
+      where: { userId: targetUserId, date: today }
     });
 
     if (exists) return { success: false, message: 'Hôm nay bạn đã chấm công vào rồi!' };
 
     const newLog = await prisma.attendanceLog.create({
       data: {
-        userId,
-        name,
-        role,
-        branch,
+        userId: targetUserId,
+        name: targetName,
+        role: targetRole,
+        branch: targetBranch,
         date: today,
         timeIn: nowTime
       }
@@ -48,11 +56,14 @@ export async function checkInAction(userId: string, name: string, role: string, 
 
 export async function checkOutAction(userId: string) {
   try {
+    const session = await verifySession();
+    const targetUserId = session.userId;
+
     const today = new Date().toISOString().substring(0, 10);
     const nowTime = new Date().toTimeString().substring(0, 8);
 
     const log = await prisma.attendanceLog.findFirst({
-      where: { userId, date: today }
+      where: { userId: targetUserId, date: today }
     });
 
     if (!log) return { success: false, message: 'Hôm nay bạn chưa chấm công vào!' };
@@ -75,6 +86,7 @@ export async function checkOutAction(userId: string) {
 // ----------------------------------------------------
 export async function getLeaveRequestsAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     const list = await prisma.leaveRequest.findMany({
       orderBy: { createdAt: 'desc' }
     });
@@ -98,12 +110,18 @@ export async function requestLeaveAction(
   reason: string
 ) {
   try {
+    const session = await verifySession();
+    const targetUserId = session.userId;
+    const targetName = session.name;
+    const targetRole = session.role;
+    const targetBranch = session.branch || branch || 'Chi nhánh Quận 1';
+
     const newRequest = await prisma.leaveRequest.create({
       data: {
-        userId,
-        name,
-        role,
-        branch,
+        userId: targetUserId,
+        name: targetName,
+        role: targetRole,
+        branch: targetBranch,
         startDate,
         endDate,
         reason,
@@ -120,6 +138,7 @@ export async function requestLeaveAction(
 
 export async function approveLeaveRequestAction(requestId: string, managerComment?: string) {
   try {
+    await verifySession(['director', 'manager']);
     await prisma.leaveRequest.update({
       where: { id: requestId },
       data: {
@@ -136,6 +155,7 @@ export async function approveLeaveRequestAction(requestId: string, managerCommen
 
 export async function rejectLeaveRequestAction(requestId: string, managerComment?: string) {
   try {
+    await verifySession(['director', 'manager']);
     await prisma.leaveRequest.update({
       where: { id: requestId },
       data: {
@@ -155,6 +175,7 @@ export async function rejectLeaveRequestAction(requestId: string, managerComment
 // ----------------------------------------------------
 export async function getSalaryRequestsAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     const list = await prisma.salaryRequest.findMany({
       orderBy: { createdAt: 'desc' }
     });
@@ -178,12 +199,18 @@ export async function requestSalaryIncreaseAction(
   reason: string
 ) {
   try {
+    const session = await verifySession();
+    const targetUserId = session.userId;
+    const targetName = session.name;
+    const targetRole = session.role;
+    const targetBranch = session.branch || branch || 'Chi nhánh Quận 1';
+
     const newRequest = await prisma.salaryRequest.create({
       data: {
-        userId,
-        name,
-        role,
-        branch,
+        userId: targetUserId,
+        name: targetName,
+        role: targetRole,
+        branch: targetBranch,
         currentSalary,
         proposedSalary,
         reason,
@@ -200,6 +227,7 @@ export async function requestSalaryIncreaseAction(
 
 export async function approveSalaryRequestAction(requestId: string, directorComment?: string) {
   try {
+    const callerSession = await verifySession(['director']);
     const request = await prisma.salaryRequest.findUnique({ where: { id: requestId } });
     if (!request) return false;
 
@@ -237,6 +265,7 @@ export async function approveSalaryRequestAction(requestId: string, directorComm
 
 export async function rejectSalaryRequestAction(requestId: string, directorComment?: string) {
   try {
+    await verifySession(['director']);
     await prisma.salaryRequest.update({
       where: { id: requestId },
       data: {
@@ -256,6 +285,7 @@ export async function rejectSalaryRequestAction(requestId: string, directorComme
 // ----------------------------------------------------
 export async function getDailyReportsAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     const list = await prisma.dailyReport.findMany({
       orderBy: { createdAt: 'desc' }
     });
@@ -279,13 +309,19 @@ export async function submitDailyReportAction(
   content: string
 ) {
   try {
+    const session = await verifySession();
+    const targetUserId = session.userId;
+    const targetName = session.name;
+    const targetRole = session.role;
+    const targetBranch = session.branch || branch || 'Chi nhánh Quận 1';
+
     const today = new Date().toISOString().substring(0, 10);
     const newReport = await prisma.dailyReport.create({
       data: {
-        userId,
-        name,
-        role,
-        branch,
+        userId: targetUserId,
+        name: targetName,
+        role: targetRole,
+        branch: targetBranch,
         reportDate: today,
         title,
         content,
@@ -322,6 +358,7 @@ export async function markReportAsReadAction(reportId: string) {
 // ----------------------------------------------------
 export async function getShiftRequestsAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     const list = await prisma.shiftRequest.findMany({
       orderBy: { createdAt: 'desc' }
     });
@@ -367,6 +404,7 @@ export async function requestShiftAction(
 
 export async function approveShiftRequestAction(requestId: string, managerComment?: string) {
   try {
+    await verifySession(['director', 'manager']);
     await prisma.shiftRequest.update({
       where: { id: requestId },
       data: {
@@ -383,6 +421,7 @@ export async function approveShiftRequestAction(requestId: string, managerCommen
 
 export async function rejectShiftRequestAction(requestId: string, managerComment?: string) {
   try {
+    await verifySession(['director', 'manager']);
     await prisma.shiftRequest.update({
       where: { id: requestId },
       data: {
@@ -402,6 +441,7 @@ export async function rejectShiftRequestAction(requestId: string, managerComment
 // ----------------------------------------------------
 export async function getAnnouncementsAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     const list = await prisma.announcement.findMany({
       orderBy: { createdAt: 'desc' }
     });
@@ -415,21 +455,41 @@ export async function getAnnouncementsAction() {
   }
 }
 
-export async function addAnnouncementAction(title: string, content: string, recipientType: string, senderName: string) {
+export async function addAnnouncementAction(title: string, content: string, recipientType: string, senderName?: string) {
   try {
+    const session = await verifySession(['director', 'manager']);
+    if (!title?.trim() || !content?.trim()) {
+      return { success: false, message: 'Tiêu đề và nội dung không được để trống' };
+    }
+    const validRecipients = ['all', 'accountant', 'branch_q1', 'branch_td'];
+    const safeRecipient = validRecipients.includes(recipientType) ? recipientType : 'all';
+
     const newAnn = await prisma.announcement.create({
       data: {
-        title,
-        content,
-        recipientType,
-        senderName
+        title: title.trim(),
+        content: content.trim(),
+        recipientType: safeRecipient,
+        senderName: session.name || senderName || 'Ban Giám Đốc'
       }
     });
 
     return { success: true, announcement: { ...newAnn, createdAt: newAnn.createdAt.toISOString() } };
-  } catch (error) {
+  } catch (error: any) {
     console.error('addAnnouncementAction error:', error);
-    return { success: false, message: 'Lỗi tạo thông báo' };
+    return { success: false, message: error.message || 'Lỗi tạo thông báo' };
+  }
+}
+
+export async function deleteAnnouncementAction(id: string) {
+  try {
+    await verifySession(['director', 'manager']);
+    await prisma.announcement.delete({
+      where: { id }
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('deleteAnnouncementAction error:', error);
+    return { success: false, message: 'Lỗi xóa thông báo' };
   }
 }
 
@@ -438,6 +498,7 @@ export async function addAnnouncementAction(title: string, content: string, reci
 // ----------------------------------------------------
 export async function getShiftSwapsAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     const list = await prisma.shiftSwapRequest.findMany({
       orderBy: { createdAt: 'desc' }
     });
@@ -521,6 +582,17 @@ export async function requestShiftSwapAction(
 
 export async function approveShiftSwapAction(requestId: string) {
   try {
+    const session = await verifySession();
+    const swapReq = await prisma.shiftSwapRequest.findUnique({
+      where: { id: requestId }
+    });
+    if (!swapReq) return false;
+
+    // Only the target employee (toUserId) or manager/director can approve the swap
+    if (session.userId !== swapReq.toUserId && !['director', 'manager'].includes(session.role)) {
+      return false;
+    }
+
     await prisma.shiftSwapRequest.update({
       where: { id: requestId },
       data: { status: 'approved' }
@@ -534,6 +606,17 @@ export async function approveShiftSwapAction(requestId: string) {
 
 export async function rejectShiftSwapAction(requestId: string) {
   try {
+    const session = await verifySession();
+    const swapReq = await prisma.shiftSwapRequest.findUnique({
+      where: { id: requestId }
+    });
+    if (!swapReq) return false;
+    
+    // Check if caller is part of swap, or manager/director
+    if (session.userId !== swapReq.toUserId && session.userId !== swapReq.fromUserId && !['director', 'manager'].includes(session.role)) {
+      return false;
+    }
+
     await prisma.shiftSwapRequest.update({
       where: { id: requestId },
       data: { status: 'rejected' }
@@ -550,6 +633,7 @@ export async function rejectShiftSwapAction(requestId: string) {
 // ----------------------------------------------------
 export async function getReservationsAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     const list = await prisma.officeReservation.findMany({
       orderBy: { createdAt: 'desc' }
     });
@@ -574,6 +658,7 @@ export async function reserveDeskOrRoomAction(
   slot: 'morning' | 'afternoon' | 'full'
 ) {
   try {
+    const session = await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     const exists = await prisma.officeReservation.findFirst({
       where: { type, resourceId, date, slot }
     });
@@ -584,8 +669,8 @@ export async function reserveDeskOrRoomAction(
 
     const newRes = await prisma.officeReservation.create({
       data: {
-        userId,
-        userName,
+        userId: session.userId || userId,
+        userName: session.name || userName,
         type,
         resourceId,
         date,
@@ -610,6 +695,15 @@ export async function reserveDeskOrRoomAction(
 
 export async function cancelReservationAction(id: string) {
   try {
+    const session = await verifySession();
+    const reservation = await prisma.officeReservation.findUnique({ where: { id } });
+    if (!reservation) return false;
+    
+    // Check ownership or authority
+    if (session.userId !== reservation.userId && !['director', 'manager'].includes(session.role)) {
+      return false;
+    }
+
     await prisma.officeReservation.delete({
       where: { id }
     });
@@ -625,6 +719,7 @@ export async function cancelReservationAction(id: string) {
 // ----------------------------------------------------
 export async function getWorkspaceTasksAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     const list = await prisma.workspaceTask.findMany({
       orderBy: { createdAt: 'desc' }
     });
@@ -649,6 +744,7 @@ export async function addWorkspaceTaskAction(
   dueDate: string
 ) {
   try {
+    await verifySession(['director', 'manager']);
     const newTask = await prisma.workspaceTask.create({
       data: {
         title,
@@ -678,6 +774,15 @@ export async function addWorkspaceTaskAction(
 
 export async function updateWorkspaceTaskColumnAction(taskId: string, column: 'todo' | 'in_progress' | 'review' | 'done') {
   try {
+    const session = await verifySession();
+    const task = await prisma.workspaceTask.findUnique({ where: { id: taskId } });
+    if (!task) return false;
+    
+    // Verify user is assignee or manager/director
+    if (session.userId !== task.assigneeId && !['director', 'manager'].includes(session.role)) {
+      return false;
+    }
+
     await prisma.workspaceTask.update({
       where: { id: taskId },
       data: { column }
@@ -691,6 +796,7 @@ export async function updateWorkspaceTaskColumnAction(taskId: string, column: 't
 
 export async function deleteWorkspaceTaskAction(taskId: string) {
   try {
+    await verifySession(['director', 'manager']);
     await prisma.workspaceTask.delete({
       where: { id: taskId }
     });
@@ -706,6 +812,7 @@ export async function deleteWorkspaceTaskAction(taskId: string) {
 // ----------------------------------------------------
 export async function getWorkspacePostsAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     const list = await prisma.workspacePost.findMany({
       include: { comments: true },
       orderBy: { createdAt: 'desc' }
@@ -737,9 +844,10 @@ export async function getWorkspacePostsAction() {
 
 export async function addWorkspacePostAction(authorName: string, authorAvatar: string | undefined, content: string, type: 'general' | 'birthday' | 'announcement') {
   try {
+    const session = await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     const newPost = await prisma.workspacePost.create({
       data: {
-        authorName,
+        authorName: session.name || authorName,
         authorAvatar: authorAvatar || null,
         content,
         type,
@@ -772,8 +880,10 @@ export async function addWorkspacePostAction(authorName: string, authorAvatar: s
   }
 }
 
-export async function reactToPostAction(postId: string, reaction: 'like' | 'heart', userId: string) {
+export async function reactToPostAction(postId: string, reaction: 'like' | 'heart', _userId: string) {
   try {
+    const session = await verifySession();
+    const targetUserId = session.userId;
     const post = await prisma.workspacePost.findUnique({ where: { id: postId } });
     if (!post) return false;
 
@@ -781,18 +891,18 @@ export async function reactToPostAction(postId: string, reaction: 'like' | 'hear
     let heartedBy: string[] = JSON.parse(post.heartedBy);
 
     if (reaction === 'like') {
-      const idx = likedBy.indexOf(userId);
+      const idx = likedBy.indexOf(targetUserId);
       if (idx !== -1) {
         likedBy.splice(idx, 1); // Unlike
       } else {
-        likedBy.push(userId); // Like
+        likedBy.push(targetUserId); // Like
       }
     } else if (reaction === 'heart') {
-      const idx = heartedBy.indexOf(userId);
+      const idx = heartedBy.indexOf(targetUserId);
       if (idx !== -1) {
         heartedBy.splice(idx, 1); // Un-heart
       } else {
-        heartedBy.push(userId); // Heart
+        heartedBy.push(targetUserId); // Heart
       }
     }
 
@@ -815,10 +925,12 @@ export async function reactToPostAction(postId: string, reaction: 'like' | 'hear
 
 export async function commentOnPostAction(postId: string, authorName: string, content: string) {
   try {
+    const session = await verifySession();
+    const targetAuthorName = session.name;
     const newComment = await prisma.workspaceComment.create({
       data: {
         postId,
-        authorName,
+        authorName: targetAuthorName,
         content
       }
     });
@@ -843,6 +955,7 @@ export async function commentOnPostAction(postId: string, authorName: string, co
 // ----------------------------------------------------
 export async function getWikiDocsAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
     return await prisma.wikiDoc.findMany({
       orderBy: { lastUpdated: 'desc' }
     });
@@ -854,6 +967,7 @@ export async function getWikiDocsAction() {
 
 export async function addWikiDocAction(title: string, category: 'hr' | 'operations' | 'benefits', content: string) {
   try {
+    await verifySession(['director', 'manager']);
     const today = new Date().toISOString().substring(0, 10);
     const newDoc = await prisma.wikiDoc.create({
       data: {
@@ -873,6 +987,7 @@ export async function addWikiDocAction(title: string, category: 'hr' | 'operatio
 
 export async function updateWikiDocAction(docId: string, title: string, category: 'hr' | 'operations' | 'benefits', content: string) {
   try {
+    await verifySession(['director', 'manager']);
     const today = new Date().toISOString().substring(0, 10);
     const updated = await prisma.wikiDoc.update({
       where: { id: docId },
@@ -896,6 +1011,7 @@ export async function updateWikiDocAction(docId: string, title: string, category
 // ----------------------------------------------------
 export async function getAuditLogsAction() {
   try {
+    await verifySession(['director', 'manager', 'accountant']);
     const logs = await prisma.auditLog.findMany({
       orderBy: { createdAt: 'desc' },
       take: 100 // Last 100 entries
@@ -925,6 +1041,7 @@ export async function addShiftDirectlyAction(
   comment?: string
 ) {
   try {
+    await verifySession(['director', 'manager']);
     const newShift = await prisma.shiftRequest.create({
       data: {
         id: `shf-${Date.now()}`,
@@ -947,6 +1064,7 @@ export async function addShiftDirectlyAction(
 
 export async function deleteShiftRequestAction(requestId: string) {
   try {
+    await verifySession(['director', 'manager']);
     await prisma.shiftRequest.delete({
       where: { id: requestId }
     });

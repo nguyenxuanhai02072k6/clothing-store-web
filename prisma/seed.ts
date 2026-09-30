@@ -231,7 +231,13 @@ async function main() {
     data: [
       { code: 'SALE10', discountType: 'percent', value: 10, description: 'Giảm giá 10% tổng hóa đơn' },
       { code: 'FREESHIP', discountType: 'freeship', value: 0, description: 'Miễn phí vận chuyển toàn quốc' },
-      { code: 'XUAN2026', discountType: 'fixed', value: 50000, minOrderValue: 500000, description: 'Giảm trực tiếp 50k cho đơn từ 500k' }
+      { code: 'XUAN2026', discountType: 'fixed', value: 50000, minOrderValue: 500000, description: 'Giảm trực tiếp 50k cho đơn từ 500k' },
+      { code: 'SALE15', discountType: 'percent', value: 15, description: 'Giảm 15% tổng hóa đơn mua hàng' },
+      { code: 'SALE20', discountType: 'percent', value: 20, description: 'Jackpot Giảm 20% hóa đơn mua hàng' },
+      { code: 'SALE12', discountType: 'percent', value: 12, description: 'Giảm 12% tổng hóa đơn mua hàng' },
+      { code: 'NOVYN50K', discountType: 'fixed', value: 50000, description: 'Giảm 50.000 ₫ cho hóa đơn bất kỳ' },
+      { code: 'LUCKYSHIP', discountType: 'freeship', value: 0, description: 'Miễn phí vận chuyển toàn quốc' },
+      { code: 'LUCKYSHIP2', discountType: 'freeship', value: 0, description: 'Miễn phí vận chuyển toàn quốc' }
     ]
   });
 

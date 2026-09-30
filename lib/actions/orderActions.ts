@@ -2,6 +2,9 @@
 
 import { prisma } from '../db';
 import { z } from 'zod';
+import { getSessionUser, verifySession } from '../session';
+
+const STAFF_ROLES = ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker'];
 
 // Zod schemas for validation
 const customerInfoSchema = z.object({
@@ -23,10 +26,9 @@ const orderItemInputSchema = z.object({
 const checkoutSchema = z.object({
   customerInfo: customerInfoSchema,
   items: z.array(orderItemInputSchema).nonempty("Giỏ hàng trống"),
-  paymentMethod: z.enum(['cod', 'transfer', 'card']),
+  paymentMethod: z.enum(['cod', 'transfer']),
   branchName: z.string(),
-  voucherCode: z.string().optional(),
-  currentCustomerId: z.string().optional()
+  voucherCode: z.string().optional()
 });
 
 function mapOrder(dbOrder: any) {
@@ -86,7 +88,17 @@ function mapOrder(dbOrder: any) {
 
 export async function getOrdersAction() {
   try {
+    const session = await getSessionUser();
+    if (!session) return [];
+
+    const where = session.role === 'customer'
+      ? { customerEmail: session.email }
+      : STAFF_ROLES.includes(session.role)
+        ? {}
+        : { id: '__forbidden__' };
+
     const orders = await prisma.order.findMany({
+      where,
       include: {
         items: {
           include: {
@@ -110,6 +122,7 @@ export async function getOrdersAction() {
 
 export async function createOrderAction(rawInput: any) {
   try {
+    const session = await getSessionUser();
     // 1. Validate Input
     const input = checkoutSchema.parse(rawInput);
     const orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -207,20 +220,19 @@ export async function createOrderAction(rawInput: any) {
 
       // 3. Calculate VIP Discount
       let vipDiscount = 0;
-      if (input.currentCustomerId) {
-        const user = await tx.user.findUnique({
-          where: { id: input.currentCustomerId }
-        });
-        if (user) {
-          const spend = user.totalSpent || 0;
-          let rate = 0;
-          if (spend >= 60000000) rate = 0.20; // Diamond
-          else if (spend >= 30000000) rate = 0.15; // Platinum
-          else if (spend >= 15000000) rate = 0.10; // Gold
-          else if (spend >= 5000000) rate = 0.05;  // Silver
-          
-          vipDiscount = Math.round(subtotal * rate);
-        }
+      const linkedCustomer = session?.role === 'customer'
+        ? await tx.user.findUnique({ where: { id: session.userId } })
+        : null;
+
+      if (linkedCustomer) {
+        const spend = linkedCustomer.totalSpent || 0;
+        let rate = 0;
+        if (spend >= 60000000) rate = 0.20; // Diamond
+        else if (spend >= 30000000) rate = 0.15; // Platinum
+        else if (spend >= 15000000) rate = 0.10; // Gold
+        else if (spend >= 5000000) rate = 0.05;  // Silver
+
+        vipDiscount = Math.round(subtotal * rate);
       }
 
       // 4. Calculate Voucher Discount
@@ -299,22 +311,16 @@ export async function createOrderAction(rawInput: any) {
         }
       });
 
-      // 9. Update Customer spent amount (loyalty)
-      if (input.currentCustomerId) {
-        await tx.user.update({
-          where: { id: input.currentCustomerId },
-          data: {
-            totalSpent: { increment: total }
-          }
-        });
-      }
+      // 9. Loyalty spent amount is NOT updated on pending creation.
+      // It is securely awarded only when the order is marked 'completed'.
 
       // 10. Audit Log
       await tx.auditLog.create({
         data: {
           action: 'ORDER_CREATE',
           details: `Đã đặt đơn hàng mới ${orderId} qua ${input.paymentMethod.toUpperCase()}. Tổng tiền: ${total}đ (Chi nhánh: ${input.branchName})`,
-          performedById: input.currentCustomerId
+          performedById: session?.userId,
+          performedByName: session?.name
         }
       });
 
@@ -330,6 +336,7 @@ export async function createOrderAction(rawInput: any) {
 
 export async function cancelOrderAction(orderId: string, performedById?: string, performedByName?: string) {
   try {
+    const session = await verifySession();
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -339,6 +346,12 @@ export async function cancelOrderAction(orderId: string, performedById?: string,
 
     if (!order) {
       return { success: false, message: 'Đơn hàng không tồn tại' };
+    }
+
+    const isStaff = STAFF_ROLES.includes(session.role);
+    const isOwner = session.role === 'customer' && order.customerEmail === session.email;
+    if (!isStaff && !isOwner) {
+      return { success: false, message: 'Bạn không có quyền hủy đơn hàng này' };
     }
 
     if (order.status === 'cancelled') {
@@ -389,17 +402,19 @@ export async function cancelOrderAction(orderId: string, performedById?: string,
         });
       }
 
-      // 4. Reverse loyalty spent amount if customer account was linked
-      const customer = await tx.user.findFirst({
-        where: { email: order.customerEmail }
-      });
-      
-      if (customer && customer.role === 'customer') {
-        const newSpent = Math.max(0, (customer.totalSpent || 0) - order.total);
-        await tx.user.update({
-          where: { id: customer.id },
-          data: { totalSpent: newSpent }
+      // 4. Reverse loyalty spent amount ONLY if the order was previously completed
+      if (order.status === 'completed') {
+        const customer = await tx.user.findFirst({
+          where: { email: order.customerEmail }
         });
+        
+        if (customer && customer.role === 'customer') {
+          const newSpent = Math.max(0, (customer.totalSpent || 0) - order.total);
+          await tx.user.update({
+            where: { id: customer.id },
+            data: { totalSpent: newSpent }
+          });
+        }
       }
 
       // 5. Audit Log
@@ -407,8 +422,8 @@ export async function cancelOrderAction(orderId: string, performedById?: string,
         data: {
           action: 'ORDER_CANCEL',
           details: `Đã hủy đơn hàng ${orderId}. Hoàn trả lại tồn kho các biến thể sản phẩm.`,
-          performedById,
-          performedByName
+          performedById: session.userId || performedById,
+          performedByName: session.name || performedByName
         }
       });
     });
@@ -431,6 +446,8 @@ export async function updateOrderStatusAction(
       return await cancelOrderAction(orderId, performedById, performedByName);
     }
 
+    const session = await verifySession(STAFF_ROLES);
+
     const order = await prisma.order.findUnique({
       where: { id: orderId }
     });
@@ -442,19 +459,30 @@ export async function updateOrderStatusAction(
         data: { status }
       });
 
-      if (status === 'completed') {
+      if (status === 'completed' && order.status !== 'completed') {
         await tx.payment.update({
           where: { orderId },
           data: { status: 'success' }
         });
+
+        // Award loyalty spent amount to registered customer only when payment/delivery completed
+        const customer = await tx.user.findFirst({
+          where: { email: order.customerEmail }
+        });
+        if (customer && customer.role === 'customer') {
+          await tx.user.update({
+            where: { id: customer.id },
+            data: { totalSpent: { increment: order.total } }
+          });
+        }
       }
 
       await tx.auditLog.create({
         data: {
           action: 'ORDER_STATUS',
           details: `Đã cập nhật trạng thái đơn hàng ${orderId} thành ${status.toUpperCase()}`,
-          performedById,
-          performedByName
+          performedById: session.userId || performedById,
+          performedByName: session.name || performedByName
         }
       });
     });

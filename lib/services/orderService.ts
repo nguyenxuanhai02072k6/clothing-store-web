@@ -20,7 +20,8 @@ export const orderService = {
     paymentMethod: 'cod' | 'transfer' | 'card',
     branch: string,
     status: 'pending' | 'shipping' | 'completed' | 'cancelled' = 'pending',
-    currentCustomerId?: string
+    currentCustomerId?: string,
+    voucherCode?: string
   ): Promise<string> => {
     // Map CartItem back to orderItemInputSchema format for secure calculation
     const itemsInput = items.map(item => ({
@@ -36,7 +37,8 @@ export const orderService = {
       items: itemsInput,
       paymentMethod,
       branchName: branch,
-      currentCustomerId
+      currentCustomerId,
+      voucherCode
     });
 
     if (result.success && result.orderId) {
@@ -52,6 +54,9 @@ export const orderService = {
     performedById?: string,
     performedByName?: string
   ): Promise<void> => {
-    await updateOrderStatusAction(orderId, status, performedById, performedByName);
+    const result = await updateOrderStatusAction(orderId, status, performedById, performedByName);
+    if (!result.success) {
+      throw new Error(result.message || 'Lỗi cập nhật trạng thái đơn hàng');
+    }
   }
 };
