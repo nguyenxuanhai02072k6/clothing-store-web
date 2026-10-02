@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Phone, Mail, Clock, Send, CheckCircle, ArrowRight } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Send, CheckCircle, ArrowRight, ExternalLink } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { submitContactFormAction } from '@/backend/actions/contactActions';
 
 interface ContactFormErrors {
   fullName?: string;
@@ -21,6 +22,7 @@ export default function ContactPage() {
   const [phone, setPhone] = useState('');
   const [subject, setSubject] = useState('general');
   const [message, setMessage] = useState('');
+  const [botField, setBotField] = useState(''); // Honeypot field
   
   // UI States
   const [errors, setErrors] = useState<ContactFormErrors>({});
@@ -57,31 +59,39 @@ export default function ContactPage() {
     
     if (!fullName.trim()) {
       tempErrors.fullName = 'Vui lòng nhập họ và tên của bạn.';
+    } else if (fullName.trim().length < 2) {
+      tempErrors.fullName = 'Họ và tên phải có ít nhất 2 ký tự.';
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
       tempErrors.email = 'Vui lòng nhập địa chỉ email liên hệ.';
-    } else if (!emailRegex.test(email)) {
+    } else if (!emailRegex.test(cleanEmail)) {
       tempErrors.email = 'Địa chỉ email không đúng định dạng.';
     }
 
-    const phoneRegex = /^(0[35789])([0-9]{8})$/;
-    if (phone.trim() && !phoneRegex.test(phone.replace(/\s/g, ''))) {
-      tempErrors.phone = 'Số điện thoại không hợp lệ (gồm 10 chữ số).';
+    if (phone.trim()) {
+      const cleanPhone = phone.replace(/[\s\.\-\(\)]/g, '');
+      const phoneRegex = /^(\+84|0)[0-9]{9,10}$/;
+      if (!phoneRegex.test(cleanPhone)) {
+        tempErrors.phone = 'Số điện thoại không hợp lệ (10-11 số, ví dụ 0909xxxxxx hoặc +84909xxxxxx).';
+      }
     }
 
     if (!message.trim()) {
       tempErrors.message = 'Vui lòng nhập nội dung lời nhắn.';
     } else if (message.trim().length < 10) {
       tempErrors.message = 'Nội dung lời nhắn phải dài ít nhất 10 ký tự.';
+    } else if (message.length > 3000) {
+      tempErrors.message = 'Nội dung lời nhắn không được vượt quá 3000 ký tự.';
     }
 
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) {
       showToast('Vui lòng kiểm tra lại thông tin trong form liên hệ.', 'error');
@@ -90,19 +100,35 @@ export default function ContactPage() {
 
     setIsSubmitting(true);
 
-    // Simulate sending message API call
-    setTimeout(() => {
+    try {
+      const res = await submitContactFormAction({
+        fullName,
+        email,
+        phone,
+        subject,
+        message,
+        botField
+      });
+
+      if (res.success) {
+        setIsSuccess(true);
+        showToast(res.message || 'Lời nhắn của bạn đã được gửi thành công!', 'success');
+        
+        // Clear inputs
+        setFullName('');
+        setEmail('');
+        setPhone('');
+        setMessage('');
+        setSubject('general');
+        setBotField('');
+      } else {
+        showToast(res.error || 'Có lỗi xảy ra khi gửi tin nhắn.', 'error');
+      }
+    } catch (err: any) {
+      showToast('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.', 'error');
+    } finally {
       setIsSubmitting(false);
-      setIsSuccess(true);
-      showToast('Lời nhắn của bạn đã được gửi thành công!', 'success');
-      
-      // Clear inputs
-      setFullName('');
-      setEmail('');
-      setPhone('');
-      setMessage('');
-      setSubject('general');
-    }, 1500);
+    }
   };
 
   const handleResetSuccess = () => {
@@ -116,6 +142,7 @@ export default function ContactPage() {
       phone: '024 7308 6688',
       email: 'hanoi@novynwear.com',
       hours: '09:00 - 22:00 (Hằng ngày)',
+      mapsUrl: 'https://maps.google.com/?q=28+Tr%C3%A0ng+Ti%E1%BB%81n,+Ho%C3%A0n+Ki%E1%BA%BFm,+H%C3%A0+N%E1%BB%99i',
     },
     {
       city: 'TP. Hồ Chí Minh Flagship',
@@ -123,6 +150,7 @@ export default function ContactPage() {
       phone: '028 7308 9988',
       email: 'saigon@novynwear.com',
       hours: '09:00 - 22:30 (Hằng ngày)',
+      mapsUrl: 'https://maps.google.com/?q=152+%C4%90%E1%BB%93ng+Kh%E1%BB%9Fi,+Qu%E1%BA%ADn+1,+H%E1%BB%93+Ch%C3%AD+Minh',
     },
   ];
 
@@ -159,6 +187,18 @@ export default function ContactPage() {
 
                 <form onSubmit={handleFormSubmit} className="flex flex-col gap-5">
                   
+                  {/* Honeypot field for anti-spam (hidden from real users) */}
+                  <input
+                    type="text"
+                    name="website_hp"
+                    value={botField}
+                    onChange={(e) => setBotField(e.target.value)}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                    className="hidden"
+                  />
+
                   {/* Name Input */}
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="contact-fullname" className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">
@@ -173,8 +213,8 @@ export default function ContactPage() {
                         setFullName(e.target.value);
                         if (errors.fullName) setErrors({ ...errors, fullName: undefined });
                       }}
-                      className={`bg-white border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-brand-accent focus:bg-neutral-50 w-full ${
-                        errors.fullName ? 'border-rose-600 focus:border-rose-700' : 'border-brand-border'
+                      className={`bg-white border rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-brand-accent focus:border-brand-accent focus:bg-neutral-50 w-full transition-all ${
+                        errors.fullName ? 'border-rose-600 focus:border-rose-700 focus:ring-rose-200' : 'border-brand-border'
                       }`}
                       required
                     />
@@ -198,8 +238,8 @@ export default function ContactPage() {
                           setEmail(e.target.value);
                           if (errors.email) setErrors({ ...errors, email: undefined });
                         }}
-                        className={`bg-white border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-brand-accent focus:bg-neutral-50 w-full ${
-                          errors.email ? 'border-rose-600 focus:border-rose-700' : 'border-brand-border'
+                        className={`bg-white border rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-brand-accent focus:border-brand-accent focus:bg-neutral-50 w-full transition-all ${
+                          errors.email ? 'border-rose-600 focus:border-rose-700 focus:ring-rose-200' : 'border-brand-border'
                         }`}
                         required
                       />
@@ -214,14 +254,14 @@ export default function ContactPage() {
                       <input
                         id="contact-phone"
                         type="tel"
-                        placeholder="Ví dụ: 0909xxxxxx..."
+                        placeholder="Ví dụ: 0909xxxxxx hoặc +84909xxxxxx..."
                         value={phone}
                         onChange={(e) => {
                           setPhone(e.target.value);
                           if (errors.phone) setErrors({ ...errors, phone: undefined });
                         }}
-                        className={`bg-white border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-brand-accent focus:bg-neutral-50 w-full ${
-                          errors.phone ? 'border-rose-600 focus:border-rose-700' : 'border-brand-border'
+                        className={`bg-white border rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-brand-accent focus:border-brand-accent focus:bg-neutral-50 w-full transition-all ${
+                          errors.phone ? 'border-rose-600 focus:border-rose-700 focus:ring-rose-200' : 'border-brand-border'
                         }`}
                       />
                       {errors.phone && <p className="text-[10px] font-bold text-rose-600">{errors.phone}</p>}
@@ -239,7 +279,7 @@ export default function ContactPage() {
                         id="contact-subject"
                         value={subject}
                         onChange={(e) => setSubject(e.target.value)}
-                        className="bg-white border border-brand-border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-brand-accent focus:bg-neutral-50 w-full appearance-none cursor-pointer font-medium"
+                        className="bg-white border border-brand-border rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-brand-accent focus:border-brand-accent focus:bg-neutral-50 w-full appearance-none cursor-pointer font-medium"
                       >
                         <option value="general">Tư vấn phong cách & Đặt hàng</option>
                         <option value="order">Hỗ trợ đổi trả & Đơn hàng</option>
@@ -256,20 +296,24 @@ export default function ContactPage() {
 
                   {/* Message Input */}
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor="contact-message" className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">
-                      Nội dung lời nhắn *
-                    </label>
+                    <div className="flex justify-between items-center">
+                      <label htmlFor="contact-message" className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">
+                        Nội dung lời nhắn *
+                      </label>
+                      <span className="text-[9px] text-brand-muted">{message.length}/3000 ký tự</span>
+                    </div>
                     <textarea
                       id="contact-message"
                       rows={5}
+                      maxLength={3000}
                       placeholder="Nhập thông tin chi tiết về thắc mắc hoặc câu hỏi của bạn..."
                       value={message}
                       onChange={(e) => {
                         setMessage(e.target.value);
                         if (errors.message) setErrors({ ...errors, message: undefined });
                       }}
-                      className={`bg-white border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-brand-accent focus:bg-neutral-50 w-full resize-none ${
-                        errors.message ? 'border-rose-600 focus:border-rose-700' : 'border-brand-border'
+                      className={`bg-white border rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-brand-accent focus:border-brand-accent focus:bg-neutral-50 w-full resize-none transition-all ${
+                        errors.message ? 'border-rose-600 focus:border-rose-700 focus:ring-rose-200' : 'border-brand-border'
                       }`}
                       required
                     />
@@ -280,12 +324,13 @@ export default function ContactPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="mt-2 w-full bg-brand-accent text-white text-xs font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-neutral-800 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-60 shadow-sm"
+                    aria-busy={isSubmitting}
+                    className="mt-2 w-full bg-brand-accent text-white text-xs font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-neutral-800 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-60 shadow-sm cursor-pointer"
                   >
                     {isSubmitting ? (
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        <span>Đang gửi lời nhắn...</span>
+                        <span>Đang lưu và gửi lời nhắn...</span>
                       </div>
                     ) : (
                       <>
@@ -305,18 +350,18 @@ export default function ContactPage() {
                 exit={{ opacity: 0, scale: 0.98 }}
                 className="flex flex-col items-center justify-center text-center py-10"
               >
-                <div className="p-4 bg-neutral-100 rounded-2xl border border-brand-border text-emerald-800 mb-6 flex items-center justify-center">
+                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-700 mb-6 flex items-center justify-center">
                   <CheckCircle className="w-10 h-10" />
                 </div>
                 <h3 className="text-xl font-normal text-brand-text uppercase mb-2 tracking-widest">
                   Gửi thành công!
                 </h3>
                 <p className="text-xs sm:text-sm text-brand-muted leading-relaxed max-w-sm mb-8 font-light">
-                  Cảm ơn bạn đã liên hệ với <strong className="text-brand-text font-normal uppercase">NOVYN WEAR</strong>. Đội ngũ CSKH của chúng tôi sẽ phản hồi lại bạn qua email sớm nhất trong vòng 12-24 giờ làm việc.
+                  Cảm ơn bạn đã liên hệ với <strong className="text-brand-text font-normal uppercase">NOVYN WEAR</strong>. Phiếu yêu cầu đã được chuyển tới bộ phận CSKH, chúng tôi sẽ phản hồi lại bạn qua email sớm nhất trong vòng 12-24 giờ làm việc.
                 </p>
                 <button
                   onClick={handleResetSuccess}
-                  className="bg-brand-accent text-white text-xs font-bold uppercase tracking-widest px-8 py-4 rounded-xl hover:bg-neutral-800 transition-colors flex items-center gap-2"
+                  className="bg-brand-accent text-white text-xs font-bold uppercase tracking-widest px-8 py-4 rounded-xl hover:bg-neutral-800 transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   Gửi thêm lời nhắn mới
                   <ArrowRight className="w-4 h-4" />
@@ -343,9 +388,13 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <span className="font-bold text-brand-muted block text-[9px] uppercase tracking-widest">Hotline Tư Vấn</span>
-                  <span className="font-bold text-brand-text hover:text-brand-accent transition-colors block mt-0.5 select-all">
+                  <a
+                    href="tel:19008899"
+                    className="font-bold text-brand-text hover:text-brand-accent transition-colors block mt-0.5 underline-offset-2 hover:underline"
+                    title="Bấm để gọi Hotline"
+                  >
                     1900 8899 (09:00 - 22:00)
-                  </span>
+                  </a>
                 </div>
               </div>
 
@@ -355,9 +404,13 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <span className="font-bold text-brand-muted block text-[9px] uppercase tracking-widest">Email Chăm Sóc Khách Hàng</span>
-                  <span className="font-bold text-brand-text hover:text-brand-accent transition-colors block mt-0.5 select-all">
+                  <a
+                    href="mailto:support@novynwear.com"
+                    className="font-bold text-brand-text hover:text-brand-accent transition-colors block mt-0.5 underline-offset-2 hover:underline"
+                    title="Bấm để gửi email CSKH"
+                  >
                     support@novynwear.com
-                  </span>
+                  </a>
                 </div>
               </div>
 
@@ -390,28 +443,65 @@ export default function ContactPage() {
                   </h4>
                   <div className="text-[11px] sm:text-xs text-brand-muted pl-6 flex flex-col gap-1 leading-relaxed font-light">
                     <p>{sr.address}</p>
-                    <p className="font-semibold text-brand-text">Điện thoại: {sr.phone}</p>
-                    <p>Email: {sr.email}</p>
+                    <p>
+                      Điện thoại:{' '}
+                      <a href={`tel:${sr.phone.replace(/\s/g, '')}`} className="font-semibold text-brand-text hover:text-brand-accent hover:underline">
+                        {sr.phone}
+                      </a>
+                    </p>
+                    <p>
+                      Email:{' '}
+                      <a href={`mailto:${sr.email}`} className="text-brand-text hover:text-brand-accent hover:underline">
+                        {sr.email}
+                      </a>
+                    </p>
                     <p>Mở cửa: {sr.hours}</p>
+                    <a
+                      href={sr.mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-accent hover:underline mt-1 pt-1"
+                    >
+                      <span>Chỉ đường trên Google Maps</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Elegant Map Placeholder */}
-          <div className="relative aspect-[16/9] w-full bg-white rounded-2xl overflow-hidden shadow-sm border border-brand-border flex items-center justify-center">
-            <div className="absolute inset-0 bg-neutral-50/40 flex items-center justify-center p-4">
-              <div className="flex flex-col items-center gap-2 text-center">
-                <div className="w-8 h-8 rounded-full bg-brand-accent text-white flex items-center justify-center">
-                  <MapPin className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-brand-text block uppercase tracking-widest">Bản Đồ Chỉ Đường</span>
-                  <p className="text-[9px] text-brand-muted mt-1 max-w-[200px] leading-normal font-light">
-                    Khu vực mua sắm Tràng Tiền (Hà Nội) & Đồng Khởi (TP.HCM). Rất hân hạnh được đón tiếp bạn!
-                  </p>
-                </div>
+          {/* Elegant Map Showcase with Direct Map Links */}
+          <div className="relative aspect-[16/9] w-full bg-neutral-50 rounded-2xl overflow-hidden shadow-sm border border-brand-border flex items-center justify-center p-6 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-brand-accent text-white flex items-center justify-center shadow-sm">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-brand-text block uppercase tracking-widest">Tìm Đường Đến Showroom</span>
+                <p className="text-[10px] text-brand-muted mt-1 max-w-[240px] leading-relaxed font-light">
+                  Chọn chi nhánh để mở bản đồ dẫn đường chính xác trên Google Maps:
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 justify-center mt-1">
+                <a
+                  href={showrooms[0].mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-brand-border text-[10px] font-bold text-brand-text hover:border-brand-accent hover:text-brand-accent transition-all shadow-2xs"
+                >
+                  <span>Hà Nội (Tràng Tiền)</span>
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+                <a
+                  href={showrooms[1].mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-brand-border text-[10px] font-bold text-brand-text hover:border-brand-accent hover:text-brand-accent transition-all shadow-2xs"
+                >
+                  <span>TP.HCM (Đồng Khởi)</span>
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
               </div>
             </div>
           </div>
@@ -434,6 +524,7 @@ export default function ContactPage() {
         <div className="max-w-2xl mx-auto flex flex-col gap-4">
           {faqs.map((faq, idx) => {
             const isOpen = activeFaq === idx;
+            const answerId = `faq-answer-${idx}`;
             return (
               <div
                 key={idx}
@@ -442,7 +533,9 @@ export default function ContactPage() {
                 <button
                   type="button"
                   onClick={() => toggleFaq(idx)}
-                  className="w-full text-left p-5 flex justify-between items-center gap-4 hover:bg-neutral-50/50 transition-colors focus:outline-none cursor-pointer"
+                  aria-expanded={isOpen}
+                  aria-controls={answerId}
+                  className="w-full text-left p-5 flex justify-between items-center gap-4 hover:bg-neutral-50/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent cursor-pointer"
                 >
                   <span className="text-xs sm:text-sm font-bold text-brand-text uppercase tracking-wider">
                     {faq.question}
@@ -456,6 +549,9 @@ export default function ContactPage() {
                 <AnimatePresence initial={false}>
                   {isOpen && (
                     <motion.div
+                      id={answerId}
+                      role="region"
+                      aria-labelledby={`faq-button-${idx}`}
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
