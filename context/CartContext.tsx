@@ -150,52 +150,43 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addToCart = (product: Product, quantity: number, selectedColor: ColorOption, selectedSize: string) => {
     const cartItemId = `${product.id}-${selectedColor.name}-${selectedSize}`;
+    const existingItem = cart.find((item) => item.id === cartItemId);
 
-    setCart((prevCart) => {
-      const existingItemIndex = prevCart.findIndex((item) => item.id === cartItemId);
-
-      if (existingItemIndex > -1) {
-        const updatedCart = [...prevCart];
-        const currentQty = updatedCart[existingItemIndex].quantity;
-        const newQty = currentQty + quantity;
-
-        if (newQty > product.stock) {
-          showToast(`Chỉ còn ${product.stock} sản phẩm trong kho.`, 'error');
-          return prevCart;
-        }
-
-        updatedCart[existingItemIndex].quantity = newQty;
-        showToast(`Đã tăng số lượng ${product.name} trong giỏ hàng.`, 'success');
-        return updatedCart;
-      } else {
-        if (quantity > product.stock) {
-          showToast(`Chỉ còn ${product.stock} sản phẩm trong kho.`, 'error');
-          return prevCart;
-        }
-
-        showToast(`Đã thêm ${product.name} vào giỏ hàng!`, 'success');
-        return [
-          ...prevCart,
-          {
-            id: cartItemId,
-            product,
-            quantity,
-            selectedColor,
-            selectedSize,
-          },
-        ];
+    if (existingItem) {
+      const newQty = existingItem.quantity + quantity;
+      if (newQty > product.stock) {
+        showToast(`Chỉ còn ${product.stock} sản phẩm trong kho.`, 'error');
+        return;
       }
-    });
+      setCart((prevCart) =>
+        prevCart.map((item) => (item.id === cartItemId ? { ...item, quantity: newQty } : item))
+      );
+      showToast(`Đã tăng số lượng ${product.name} trong giỏ hàng.`, 'success');
+    } else {
+      if (quantity > product.stock) {
+        showToast(`Chỉ còn ${product.stock} sản phẩm trong kho.`, 'error');
+        return;
+      }
+      setCart((prevCart) => [
+        ...prevCart,
+        {
+          id: cartItemId,
+          product,
+          quantity,
+          selectedColor,
+          selectedSize,
+        },
+      ]);
+      showToast(`Đã thêm ${product.name} vào giỏ hàng!`, 'success');
+    }
   };
 
   const removeFromCart = (id: string) => {
-    setCart((prevCart) => {
-      const item = prevCart.find((i) => i.id === id);
-      if (item) {
-        showToast(`Đã xóa ${item.product.name} khỏi giỏ hàng.`, 'info');
-      }
-      return prevCart.filter((i) => i.id !== id);
-    });
+    const item = cart.find((i) => i.id === id);
+    if (item) {
+      showToast(`Đã xóa ${item.product.name} khỏi giỏ hàng.`, 'info');
+    }
+    setCart((prevCart) => prevCart.filter((i) => i.id !== id));
   };
 
   const updateQuantity = (id: string, quantity: number) => {
@@ -203,15 +194,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       removeFromCart(id);
       return;
     }
-
-    setCart((prevCart) => {
-      const item = prevCart.find((i) => i.id === id);
-      if (item && quantity > item.product.stock) {
-        showToast(`Chỉ còn ${item.product.stock} sản phẩm trong kho.`, 'error');
-        return prevCart;
-      }
-      return prevCart.map((i) => (i.id === id ? { ...i, quantity } : i));
-    });
+    const item = cart.find((i) => i.id === id);
+    if (item && quantity > item.product.stock) {
+      showToast(`Chỉ còn ${item.product.stock} sản phẩm trong kho.`, 'error');
+      return;
+    }
+    setCart((prevCart) => prevCart.map((i) => (i.id === id ? { ...i, quantity } : i)));
   };
 
   const clearCart = () => {
