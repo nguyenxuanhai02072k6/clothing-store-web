@@ -1,6 +1,23 @@
 "use server"
 
 import { prisma } from '../db';
+import { verifySession } from '../session';
+import { z } from 'zod';
+
+const PRODUCT_ADMIN_ROLES = ['director', 'manager', 'accountant'];
+
+const priceSchema = z
+  .number({ message: 'Giá sản phẩm phải là định dạng số' })
+  .int('Giá sản phẩm phải là số nguyên')
+  .min(1000, 'Giá sản phẩm tối thiểu là 1.000 ₫')
+  .max(1000000000, 'Giá sản phẩm vượt quá giới hạn tối đa cho phép');
+
+const productInputSchema = z.object({
+  name: z.string().trim().min(2, 'Tên sản phẩm phải có ít nhất 2 ký tự').max(200, 'Tên sản phẩm tối đa 200 ký tự'),
+  category: z.string().trim().min(1, 'Danh mục không được để trống').max(100),
+  price: priceSchema,
+  description: z.string().trim().max(10000, 'Mô tả không được vượt quá 10.000 ký tự').default(''),
+});
 
 // Helper to map DB product to UI product structure
 function mapProduct(dbProd: any) {
@@ -116,7 +133,14 @@ export async function addGlobalProductAction(
   initialStock: number = 20
 ) {
   try {
-    const slug = name
+    const session = await verifySession(PRODUCT_ADMIN_ROLES);
+    const parsed = productInputSchema.parse({ name, category, price, description });
+    const cleanName = parsed.name;
+    const cleanCategory = parsed.category;
+    const cleanPrice = parsed.price;
+    const cleanDescription = parsed.description;
+
+    const slug = cleanName
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -130,11 +154,11 @@ export async function addGlobalProductAction(
     const dbProd = await prisma.product.create({
       data: {
         id: productId,
-        name,
+        name: cleanName,
         slug,
-        category,
-        price,
-        description,
+        category: cleanCategory,
+        price: cleanPrice,
+        description: cleanDescription,
         images: JSON.stringify(images),
         rating: 5.0,
         reviews: 0,
@@ -211,6 +235,8 @@ export async function addGlobalProductAction(
       data: {
         action: 'PRODUCT_CREATE',
         details: `Đã tạo sản phẩm mới: ${name} (ID: ${productId})`,
+        performedById: session.userId,
+        performedByName: session.name
       }
     });
 
@@ -234,6 +260,8 @@ export async function addGlobalProductAction(
 
 export async function updateGlobalProductPriceAction(productId: string, newPrice: number) {
   try {
+    const session = await verifySession(PRODUCT_ADMIN_ROLES);
+    const validatedPrice = priceSchema.parse(newPrice);
     const oldProd = await prisma.product.findUnique({
       where: { id: productId }
     });
@@ -241,7 +269,7 @@ export async function updateGlobalProductPriceAction(productId: string, newPrice
     await prisma.product.update({
       where: { id: productId },
       data: {
-        price: newPrice,
+        price: validatedPrice,
         oldPrice: oldProd?.price
       }
     });
@@ -250,7 +278,9 @@ export async function updateGlobalProductPriceAction(productId: string, newPrice
     await prisma.auditLog.create({
       data: {
         action: 'PRICE_CHANGE',
-        details: `Đã thay đổi giá sản phẩm ID ${productId}: từ ${oldProd?.price}đ thành ${newPrice}đ`,
+        details: `Đã thay đổi giá sản phẩm ID ${productId}: từ ${oldProd?.price}đ thành ${validatedPrice}đ`,
+        performedById: session.userId,
+        performedByName: session.name
       }
     });
     
@@ -273,7 +303,14 @@ export async function updateGlobalProductDetailsAction(
   isActive?: boolean
 ) {
   try {
-    const slug = name
+    const session = await verifySession(PRODUCT_ADMIN_ROLES);
+    const parsed = productInputSchema.parse({ name, category, price, description });
+    const cleanName = parsed.name;
+    const cleanCategory = parsed.category;
+    const cleanPrice = parsed.price;
+    const cleanDescription = parsed.description;
+
+    const slug = cleanName
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -282,11 +319,11 @@ export async function updateGlobalProductDetailsAction(
       .replace(/(^-|-$)+/g, '');
 
     const dataToUpdate: any = {
-      name,
+      name: cleanName,
       slug,
-      description,
-      category,
-      price,
+      description: cleanDescription,
+      category: cleanCategory,
+      price: cleanPrice,
     };
     
     if (images) {
@@ -349,6 +386,8 @@ export async function updateGlobalProductDetailsAction(
       data: {
         action: 'PRODUCT_UPDATE',
         details: `Đã cập nhật chi tiết sản phẩm: ${name} (ID: ${productId})`,
+        performedById: session.userId,
+        performedByName: session.name
       }
     });
 
@@ -361,6 +400,7 @@ export async function updateGlobalProductDetailsAction(
 
 export async function deleteGlobalProductAction(productId: string) {
   try {
+    const session = await verifySession(PRODUCT_ADMIN_ROLES);
     await prisma.product.update({
       where: { id: productId },
       data: { isActive: false }
@@ -371,6 +411,8 @@ export async function deleteGlobalProductAction(productId: string) {
       data: {
         action: 'PRODUCT_DELETE',
         details: `Đã xóa (vô hiệu hóa) sản phẩm ID: ${productId}`,
+        performedById: session.userId,
+        performedByName: session.name
       }
     });
     
