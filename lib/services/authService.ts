@@ -2,15 +2,40 @@ import { User, UserRole } from '../../types';
 import {
   getUsersAction,
   loginAction,
+  logoutAction,
+  getCurrentUserAction,
   changePasswordAction,
   registerAction,
   deleteUserAction,
-  updateUserSpentAction
+  updateUserSpentAction,
+  getLoyaltyPointsAction,
+  redeemLoyaltyVoucherAction
 } from '../actions/authActions';
 
-const CURR_USER_KEY = 'novyn_curr_user';
-
 export const authService = {
+  getCurrentUser: async (): Promise<User | null> => {
+    try {
+      const user = await getCurrentUserAction();
+      if (!user) return null;
+      return {
+        ...user,
+        role: user.role as UserRole,
+        branch: user.branch || undefined,
+        avatar: user.avatar || undefined,
+        salary: user.salary || undefined,
+        phone: user.phone || undefined,
+        commissionRate: user.commissionRate || undefined
+      };
+    } catch (e) {
+      console.error('Failed to get user from server session:', e);
+      return null;
+    }
+  },
+
+  getCurrentUserFromServer: async (): Promise<User | null> => {
+    return authService.getCurrentUser();
+  },
+
   getUsers: async (): Promise<User[]> => {
     const users = await getUsersAction();
     return users.map(u => ({
@@ -24,38 +49,18 @@ export const authService = {
     }));
   },
 
-  getCurrentUser: async (): Promise<User | null> => {
-    if (typeof window === 'undefined') return null;
-    const stored = localStorage.getItem(CURR_USER_KEY);
-    if (!stored) return null;
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return null;
-    }
-  },
-
-  saveCurrentUser: async (user: User | null): Promise<void> => {
+  saveCurrentUser: async (_user: User | null): Promise<void> => {
     if (typeof window === 'undefined') return;
-    if (user) {
-      localStorage.setItem(CURR_USER_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(CURR_USER_KEY);
-    }
+    localStorage.removeItem('novyn_curr_user');
   },
 
   login: async (email: string, password: string): Promise<User | null> => {
     const loggedInUser = await loginAction(email, password);
-    if (loggedInUser) {
-      await authService.saveCurrentUser(loggedInUser as any);
-      return loggedInUser as any;
-    }
-    return null;
+    return loggedInUser as any;
   },
 
-  register: async (name: string, email: string, password: string, role: UserRole, branch?: string, phone?: string): Promise<boolean> => {
-    const result = await registerAction(name, email, password, role, branch, phone);
-    return result.success;
+  register: async (name: string, email: string, password: string, role: UserRole, branch?: string, phone?: string): Promise<{ success: boolean; message?: string }> => {
+    return await registerAction(name, email, password, role, branch, phone);
   },
 
   changePassword: async (userId: string, currentPassword: string, newPassword: string): Promise<{ success: boolean; message?: string }> => {
@@ -68,5 +73,21 @@ export const authService = {
 
   updateUserSpent: async (userId: string, amount: number): Promise<void> => {
     await updateUserSpentAction(userId, amount);
+  },
+
+  getLoyaltyPoints: async () => {
+    return await getLoyaltyPointsAction();
+  },
+
+  redeemLoyaltyVoucher: async (code: string) => {
+    return await redeemLoyaltyVoucherAction(code);
+  },
+
+  logout: async (): Promise<void> => {
+    await logoutAction();
+    await authService.saveCurrentUser(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('novyn_redeemed_points');
+    }
   }
 };

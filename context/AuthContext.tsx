@@ -163,26 +163,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Initial Users Database Seed
-const DEFAULT_USERS: User[] = [
-  { id: 'usr-dir', name: 'Trần Quốc Bảo', email: 'director@novynwear.com', role: 'director', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop' },
-  { id: 'usr-mgr1', name: 'Nguyễn Huy Hoàng', email: 'manager.q1@novynwear.com', role: 'manager', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop', salary: 15000000 },
-  { id: 'usr-mgr2', name: 'Đỗ Thu Trang', email: 'manager.td@novynwear.com', role: 'manager', branch: 'Chi nhánh Thảo Điền', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop', salary: 16000000 },
-  { id: 'usr-emp1', name: 'Phạm Minh Đức', email: 'employee.q1@novynwear.com', role: 'employee', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop', salary: 8500000 },
-  { id: 'usr-emp2', name: 'Lê Quỳnh Chi', email: 'employee.td@novynwear.com', role: 'employee', branch: 'Chi nhánh Thảo Điền', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop', salary: 9000000 },
-  { id: 'usr-acc', name: 'Phạm Thu Thảo', email: 'accountant@novynwear.com', role: 'accountant', salary: 12000000, avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop' },
-  { id: 'usr-cskh', name: 'Mai An CSKH', email: 'cskh@novynwear.com', role: 'cskh', salary: 9500000, avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' },
-  { id: 'usr-cskh2', name: 'Lê Thùy Dương', email: 'duong.cskh@novynwear.com', role: 'cskh', salary: 9200000, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop' },
-  { id: 'usr-cust', name: 'Lâm Khánh Vy', email: 'customer@novynwear.com', role: 'customer', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop', totalSpent: 22500000 },
-  { id: 'usr-emp3', name: 'Trần Minh Tâm', email: 'tam.employee.q1@novynwear.com', role: 'employee', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop', salary: 8500000 },
-  { id: 'usr-emp4', name: 'Nguyễn Hoàng Nam', email: 'nam.employee.td@novynwear.com', role: 'employee', branch: 'Chi nhánh Thảo Điền', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop', salary: 8800000 },
-  { id: 'usr-cashier1', name: 'Nguyễn Thuỳ Lan', email: 'cashier.q1@novynwear.com', role: 'cashier', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop', salary: 8000000 },
-  { id: 'usr-stocker1', name: 'Trần Minh Hải', email: 'stocker.q1@novynwear.com', role: 'stocker', branch: 'Chi nhánh Quận 1', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop', salary: 8200000 },
-];
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [usersList, setUsersList] = useState<User[]>(DEFAULT_USERS);
+  const [usersList, setUsersList] = useState<User[]>([]);
   const [productsList, setProductsList] = useState<Product[]>([]);
   const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);

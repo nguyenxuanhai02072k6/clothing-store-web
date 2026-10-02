@@ -338,6 +338,7 @@ export async function submitDailyReportAction(
 
 export async function markReportAsReadAction(reportId: string) {
   try {
+    await verifySession(['director', 'manager']);
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
     await prisma.dailyReport.update({
       where: { id: reportId },
@@ -383,12 +384,18 @@ export async function requestShiftAction(
   shiftType: 'morning' | 'afternoon' | 'evening'
 ) {
   try {
+    const session = await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
+    const safeUserId = session.userId;
+    const safeName = session.name;
+    const safeRole = session.role;
+    const safeBranch = session.branch || branch || 'Chi nhánh Quận 1';
+
     const newRequest = await prisma.shiftRequest.create({
       data: {
-        userId,
-        name,
-        role,
-        branch,
+        userId: safeUserId,
+        name: safeName,
+        role: safeRole,
+        branch: safeBranch,
         date,
         shiftType,
         status: 'pending'
@@ -396,9 +403,9 @@ export async function requestShiftAction(
     });
 
     return { success: true, request: { ...newRequest, createdAt: newRequest.createdAt.toISOString(), shiftType } };
-  } catch (error) {
+  } catch (error: any) {
     console.error('requestShiftAction error:', error);
-    return { success: false, message: 'Lỗi đăng ký ca làm' };
+    return { success: false, message: error.message || 'Lỗi đăng ký ca làm' };
   }
 }
 
@@ -538,10 +545,14 @@ export async function requestShiftSwapAction(
   branch: string
 ) {
   try {
+    const session = await verifySession(['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker']);
+    const safeFromUserId = session.userId;
+    const safeFromUserName = session.name;
+
     const newReq = await prisma.shiftSwapRequest.create({
       data: {
-        fromUserId,
-        fromUserName,
+        fromUserId: safeFromUserId,
+        fromUserName: safeFromUserName,
         fromShiftId,
         fromShiftDate,
         fromShiftType,
@@ -550,7 +561,7 @@ export async function requestShiftSwapAction(
         toShiftId,
         toShiftDate,
         toShiftType,
-        branch,
+        branch: session.branch || branch || 'Chi nhánh Quận 1',
         status: 'pending'
       }
     });
@@ -559,8 +570,8 @@ export async function requestShiftSwapAction(
       success: true,
       request: {
         id: newReq.id,
-        fromUserId,
-        fromUserName,
+        fromUserId: safeFromUserId,
+        fromUserName: safeFromUserName,
         fromShiftId,
         fromShiftDate,
         fromShiftType,
@@ -569,14 +580,14 @@ export async function requestShiftSwapAction(
         toShiftId,
         toShiftDate,
         toShiftType,
-        branch,
+        branch: session.branch || branch || 'Chi nhánh Quận 1',
         status: 'pending' as const,
         createdAt: newReq.createdAt.toISOString()
       }
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('requestShiftSwapAction error:', error);
-    return { success: false, message: 'Lỗi gửi yêu cầu đổi ca' };
+    return { success: false, message: error.message || 'Lỗi gửi yêu cầu đổi ca' };
   }
 }
 
