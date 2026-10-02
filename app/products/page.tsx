@@ -1,5 +1,5 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect */
+ 
 
 import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';

@@ -420,7 +420,7 @@ export default function CartPage() {
               <p className="text-[10px] font-bold text-rose-600 mt-2">{promoError}</p>
             )}
 
-            {/* Quick Demo Coupons Selector */}
+            {/* Quick coupons selector */}
             {!appliedPromo && (
               <div className="mt-4 pt-4 border-t border-brand-border">
                 <span className="text-[10px] font-bold uppercase text-brand-muted block mb-2">Mã giảm giá có sẵn:</span>

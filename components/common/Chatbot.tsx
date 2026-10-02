@@ -1,5 +1,5 @@
 'use client';
-/* eslint-disable react-hooks/purity, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
+ 
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, Send, Sparkles, ArrowLeft, Loader2, CheckCheck, Clock } from 'lucide-react';
 import { MOCK_PRODUCTS } from '../../data/products';
 import { formatPrice } from '../../lib/utils';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 
@@ -23,8 +23,9 @@ interface Message {
 
 export const Chatbot: React.FC = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const { currentUser } = useAuth();
-  const { createChatSession, sendCustomerMessage, getSessionById, chatSessions } = useChat();
+  const { createChatSession, sendCustomerMessage, getSessionById, getCustomerSession } = useChat();
 
   const [isOpen, setIsOpen] = useState(false);
   const [chatMode, setChatMode] = useState<'ai' | 'connecting' | 'agent' | 'live'>('ai');
@@ -61,76 +62,91 @@ export const Chatbot: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping, chatMode]);
 
-  // Sync live chat session messages from ChatContext
+  // Sync live chat session messages from getCustomerSession (Customer side)
   useEffect(() => {
     if (!liveSessionId) return;
-    const session = getSessionById(liveSessionId);
-    if (!session) return;
 
-    const cskhMessages = session.messages;
-    if (cskhMessages.length !== prevMsgCountRef.current) {
-      prevMsgCountRef.current = cskhMessages.length;
+    let isMounted = true;
+    const pollSession = async () => {
+      try {
+        const session = await getCustomerSession(liveSessionId);
+        if (!session || !isMounted) return;
 
-      // Only add new CSKH messages (don't re-add customer ones)
-      const lastMsg = cskhMessages[cskhMessages.length - 1];
-      if (lastMsg?.sender === 'cskh') {
-        const agentMsg: Message = {
-          id: `live-${lastMsg.id}`,
-          sender: 'agent',
-          text: lastMsg.text,
-          timestamp: new Date(lastMsg.timestamp),
-          quickReplies: ['📦 Kiểm tra đơn hàng', '📍 Chi nhánh Showroom', '📐 Đổi trả & Hoàn tiền', '🤖 Quay lại Novyn AI'],
-        };
-        setMessages(prev => {
-          // Avoid duplicate
-          if (prev.find(m => m.id === `live-${lastMsg.id}`)) return prev;
-          return [...prev, agentMsg];
-        });
-        setIsTyping(false);
-      }
-    }
+        const cskhMessages = session.messages;
+        if (cskhMessages.length !== prevMsgCountRef.current) {
+          prevMsgCountRef.current = cskhMessages.length;
 
-    // If session is closed by CSKH
-    if (session.status === 'closed' && chatMode === 'live') {
-      setMessages(prev => [...prev, {
-        id: `closed-${Date.now()}`,
-        sender: 'system',
-        text: 'Phiên hỗ trợ đã kết thúc. Cảm ơn bạn đã liên hệ Novyn Wear!',
-        timestamp: new Date(),
-      }]);
-      setChatMode('ai');
-      setLiveSessionId(null);
-      setTimeout(resetToAIGreeting, 3000);
-    }
-
-    // Transition from connecting to live when CSKH accepts
-    if (session.status === 'active' && chatMode === 'connecting') {
-      setChatMode('live');
-      const time = new Date();
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `sys-${Math.random()}`,
-          sender: 'system',
-          text: `Nhân viên ${session.cskhName || 'CSKH'} đã tham gia hỗ trợ trực tuyến.`,
-          timestamp: time,
-        },
-        {
-          id: `agent-greet-${Math.random()}`,
-          sender: 'agent',
-          text: `Dạ, em chào anh/chị ạ! Em là ${session.cskhName || 'Mai An'} - chuyên viên CSKH hỗ trợ trực tuyến của Novyn Wear. Rất hân hạnh được trực tiếp tư vấn chi tiết cho mình. Anh/chị cần em giải đáp thông tin về đổi size, check đơn hàng hay cần lên đơn ship gấp hỏa tốc ạ? 🌸`,
-          timestamp: time,
-          quickReplies: ['📦 Kiểm tra đơn hàng', '📍 Chi nhánh Showroom', '📐 Đổi trả & Hoàn tiền', '🤖 Quay lại Novyn AI'],
+          // Only add new CSKH messages (don't re-add customer ones)
+          const lastMsg = cskhMessages[cskhMessages.length - 1];
+          if (lastMsg?.sender === 'cskh') {
+            const agentMsg: Message = {
+              id: `live-${lastMsg.id}`,
+              sender: 'agent',
+              text: lastMsg.text,
+              timestamp: new Date(lastMsg.timestamp),
+              quickReplies: ['📦 Kiểm tra đơn hàng', '📍 Chi nhánh Showroom', '📐 Đổi trả & Hoàn tiền', '🤖 Quay lại Novyn AI'],
+            };
+            setMessages(prev => {
+              if (prev.find(m => m.id === `live-${lastMsg.id}`)) return prev;
+              return [...prev, agentMsg];
+            });
+            setIsTyping(false);
+          }
         }
-      ]);
-    }
-  }, [chatSessions, liveSessionId, chatMode, getSessionById, resetToAIGreeting]);
+
+        // If session is closed by CSKH
+        if (session.status === 'closed' && chatMode === 'live') {
+          setMessages(prev => [...prev, {
+            id: `closed-${Date.now()}`,
+            sender: 'system',
+            text: 'Phiên hỗ trợ đã kết thúc. Cảm ơn bạn đã liên hệ Novyn Wear!',
+            timestamp: new Date(),
+          }]);
+          setChatMode('ai');
+          setLiveSessionId(null);
+          setTimeout(resetToAIGreeting, 3000);
+        }
+
+        // Transition from connecting to live when CSKH accepts
+        if (session.status === 'active' && chatMode === 'connecting') {
+          setChatMode('live');
+          const time = new Date();
+          setMessages(prev => [
+            ...prev,
+            {
+              id: `sys-${Math.random()}`,
+              sender: 'system',
+              text: `Nhân viên ${session.cskhName || 'CSKH'} đã tham gia hỗ trợ trực tuyến.`,
+              timestamp: time,
+            },
+            {
+              id: `agent-greet-${Math.random()}`,
+              sender: 'agent',
+              text: `Dạ, em chào anh/chị ạ! Em là ${session.cskhName || 'Mai An'} - chuyên viên CSKH hỗ trợ trực tuyến của Novyn Wear. Rất hân hạnh được trực tiếp tư vấn chi tiết cho mình. Anh/chị cần em giải đáp thông tin về đổi size, check đơn hàng hay cần lên đơn ship gấp hỏa tốc ạ? 🌸`,
+              timestamp: time,
+              quickReplies: ['📦 Kiểm tra đơn hàng', '📍 Chi nhánh Showroom', '📐 Đổi trả & Hoàn tiền', '🤖 Quay lại Novyn AI'],
+            }
+          ]);
+        }
+      } catch (e) {
+        console.error('Failed to sync customer chat session:', e);
+      }
+    };
+
+    pollSession();
+    const interval = setInterval(pollSession, 2000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [liveSessionId, chatMode, getCustomerSession, resetToAIGreeting]);
 
   const handleConnectToAgent = () => {
     setChatMode('connecting');
 
     const customerName = currentUser?.name || 'Khách';
-    const customerEmail = currentUser?.email || 'guest@example.com';
+    const customerEmail = currentUser?.email || 'guest@novynwear.com';
     const customerId = currentUser?.id || `guest-${Date.now()}`;
     const customerAvatar = currentUser?.avatar;
 
@@ -563,10 +579,10 @@ export const Chatbot: React.FC = () => {
                               resetToAIGreeting();
                             } else if (reply === '🛒 Xem giỏ hàng') {
                               setIsOpen(false);
-                              window.location.href = '/cart';
+                              router.push('/cart');
                             } else if (reply.includes('Showroom') || reply.includes('Chi nhánh')) {
                               setIsOpen(false);
-                              window.location.href = '/contact';
+                              router.push('/contact');
                             } else if (reply === '💬 Chat qua Zalo') {
                               window.open('https://zalo.me/', '_blank');
                             } else if (reply === '📞 Gọi Hotline 1900') {

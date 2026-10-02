@@ -1,5 +1,5 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect */
+ 
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
@@ -114,10 +114,13 @@ export const Header: React.FC = () => {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
               <div className="relative w-8 h-8 rounded-full overflow-hidden border border-neutral-200 bg-[#FFFBF8] flex items-center justify-center p-0.5 shadow-sm group-hover:border-neutral-400 transition-colors">
-                <img
+                <Image
                   src="/logo.png"
                   alt="NOVYN WEAR Monogram"
-                  className="w-full h-full object-contain scale-125 -translate-y-[1px]"
+                  fill
+                  sizes="32px"
+                  className="object-contain scale-125 -translate-y-[1px]"
+                  priority
                 />
               </div>
               <span className="text-xl md:text-2xl font-black tracking-wider text-neutral-900 font-sans group-hover:text-neutral-700 transition-colors">
@@ -295,10 +298,12 @@ export const Header: React.FC = () => {
                 <div className="flex items-center justify-between pb-6 border-b border-neutral-100">
                   <div className="flex items-center gap-2">
                     <div className="relative w-6 h-6 rounded-full overflow-hidden border border-neutral-200 bg-[#FFFBF8] flex items-center justify-center p-0.5 shadow-sm">
-                      <img
+                      <Image
                         src="/logo.png"
                         alt="NOVYN WEAR Monogram"
-                        className="w-full h-full object-contain scale-125 -translate-y-[1px]"
+                        fill
+                        sizes="24px"
+                        className="object-contain scale-125 -translate-y-[1px]"
                       />
                     </div>
                     <span className="text-base font-extrabold tracking-wider text-neutral-900">

@@ -1,5 +1,5 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-explicit-any */
+ 
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
@@ -11,6 +11,13 @@ import { formatPrice } from '../../lib/utils';
 import { calculatePIT } from '../../types';
 import { useCart } from '../../context/CartContext';
 import { getAuditLogsAction } from '../../lib/actions/staffActions';
+import {
+  getCRMClientsAction,
+  getCSKHTicketsAction,
+  getInventoryTransfersAction,
+  getDamagedGoodsAction,
+  getCashReconciliationsAction,
+} from '../../lib/actions/erpActions';
 import CampaignCopilot from '../../components/internal/CampaignCopilot';
 import FinancialSVGCharts from '../../components/internal/FinancialSVGCharts';
 import { ERPSubsystems } from '../../components/internal/ERPSubsystems';
@@ -90,6 +97,7 @@ const PermissionGuard = ({ allowedRoles, children, currentUser }: { allowedRoles
 export default function InternalDashboardPage() {
   const {
     currentUser,
+    isAuthLoaded,
     usersList,
     productsList,
     attendanceLogs,
@@ -98,6 +106,7 @@ export default function InternalDashboardPage() {
     dailyReports,
     branchStock,
     branchSizeStock,
+    refreshInventoryStocks,
     logout,
     checkIn,
     checkOut,
@@ -127,6 +136,7 @@ export default function InternalDashboardPage() {
     shiftRequests,
     announcements,
     sendAnnouncement,
+    deleteAnnouncement,
     addGlobalProduct,
     deleteGlobalProduct,
     addShiftDirectly,
@@ -159,11 +169,37 @@ export default function InternalDashboardPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const setCurrentSubTab = (id: string) => {
     if (activeTab === 'sales-orders') setSalesOrdersSubTab(id);
-    else if (activeTab === 'products-inventory') setProductsInventorySubTab(id);
+    else if (
+      activeTab === 'products-inventory' ||
+      activeTab === 'stocker-inventory' ||
+      activeTab === 'stocker-transfer' ||
+      activeTab === 'damaged-goods' ||
+      activeTab === 'restock' ||
+      activeTab === 'products-database'
+    ) {
+      setProductsInventorySubTab(id);
+      if (id === 'matrix') setActiveTab('stocker-inventory');
+      else if (id === 'transfer') setActiveTab('stocker-transfer');
+      else if (id === 'damaged') setActiveTab('damaged-goods');
+      else if (id === 'restock') setActiveTab('restock');
+      else if (id === 'list') setActiveTab('products-database');
+    }
     else if (activeTab === 'staff-schedule') setStaffScheduleSubTab(id);
+    else if (activeTab === 'attendance') setAttendanceSubTab(id);
     else if (activeTab === 'finance-profit') setFinanceProfitSubTab(id);
     else if (activeTab === 'promotions') setPromotionsSubTab(id);
-    else if (activeTab === 'settings-roles') setSettingsRolesSubTab(id);
+    else if (
+      activeTab === 'settings-roles' ||
+      activeTab === 'settings' ||
+      activeTab === 'announcements' ||
+      activeTab === 'audit-logs'
+    ) {
+      setSettingsRolesSubTab(id);
+      if (id === 'announcements') setActiveTab('announcements');
+      else if (id === 'brand') setActiveTab('settings');
+      else if (id === 'channels') setActiveTab('settings-roles');
+      else if (id === 'audit-logs') setActiveTab('audit-logs');
+    }
     else if (activeTab === 'customers') setCustomersSubTab(id);
   };
 
@@ -205,6 +241,15 @@ export default function InternalDashboardPage() {
   const [salesOrdersSubTab, setSalesOrdersSubTab] = useState('pos');
   const [productsInventorySubTab, setProductsInventorySubTab] = useState('list');
   const [staffScheduleSubTab, setStaffScheduleSubTab] = useState('shifts');
+  const [attendanceSubTab, setAttendanceSubTab] = useState('clock');
+  const [reviewRatingFilter, setReviewRatingFilter] = useState<'all' | '5' | '4' | 'low'>('all');
+  const [reviewSearchQuery, setReviewSearchQuery] = useState('');
+  const [reviewReplies, setReviewReplies] = useState<Record<string, string>>({
+    'rev-1': 'Cảm ơn quý khách đã tin tưởng và ủng hộ dòng sơ mi linen cao cấp của NOVYN!',
+    'rev-3': 'Dạ NOVYN cảm ơn quý khách đã đánh giá tốt ạ. Chúc quý khách luôn có những trải nghiệm tuyệt vời cùng thương hiệu!'
+  });
+  const [replyInput, setReplyInput] = useState<Record<string, string>>({});
+  const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
   const [financeProfitSubTab, setFinanceProfitSubTab] = useState('p-l');
   const [promotionsSubTab, setPromotionsSubTab] = useState('coupons');
   const [settingsRolesSubTab, setSettingsRolesSubTab] = useState('brand');
@@ -221,10 +266,31 @@ export default function InternalDashboardPage() {
   };
 
   useEffect(() => {
-    if (activeTab === 'settings-roles' && settingsRolesSubTab === 'audit-logs' && currentUser?.role === 'director') {
+    if ((activeTab === 'audit-logs' || (activeTab === 'settings-roles' && settingsRolesSubTab === 'audit-logs')) && currentUser?.role === 'director') {
       fetchAuditLogs();
     }
   }, [activeTab, settingsRolesSubTab, currentUser?.role]);
+
+  // Smart initial workspace routing based on role
+  const hasInitializedRoleTab = useRef(false);
+  useEffect(() => {
+    if (!currentUser?.role || hasInitializedRoleTab.current) return;
+    hasInitializedRoleTab.current = true;
+    if (activeTab === 'overview') {
+      if (['cashier', 'employee'].includes(currentUser.role)) {
+        setActiveTab('pos-sales');
+        setSalesOrdersSubTab('pos');
+      } else if (currentUser.role === 'cskh') {
+        setActiveTab('cskh-hub');
+      } else if (currentUser.role === 'stocker') {
+        setActiveTab('stocker-inventory');
+        setProductsInventorySubTab('matrix');
+      } else if (currentUser.role === 'accountant') {
+        setActiveTab('finance-costs');
+        setFinanceProfitSubTab('costs');
+      }
+    }
+  }, [currentUser?.role, activeTab]);
 
   const getSubTabs = () => {
     switch (activeTab) {
@@ -242,30 +308,47 @@ export default function InternalDashboardPage() {
         }
         return tabs;
       }
-      case 'products-inventory': {
+      case 'products-inventory':
+      case 'stocker-inventory':
+      case 'stocker-transfer':
+      case 'damaged-goods':
+      case 'restock':
+      case 'products-database': {
         const tabs = [
-          { id: 'list', name: 'Danh sách sản phẩm' },
           { id: 'matrix', name: 'Tồn kho chi nhánh' },
+          { id: 'transfer', name: 'Điều chuyển kho' },
+          { id: 'damaged', name: 'Biên bản hàng lỗi' },
         ];
-        if (['director', 'accountant', 'manager'].includes(currentUser?.role)) {
-          tabs.push({ id: 'restock', name: 'Nhập hàng & Restock' });
-        }
         if (['director', 'accountant', 'manager', 'stocker'].includes(currentUser?.role)) {
-          tabs.push({ id: 'transfer', name: 'Điều chuyển & Hàng lỗi' });
+          tabs.push({ id: 'restock', name: 'Phiếu nhập hàng (Restock)' });
         }
+        tabs.push({ id: 'list', name: 'Danh mục & Bảng giá' });
         return tabs;
+      }
+      case 'attendance': {
+        if (['director', 'manager', 'accountant'].includes(currentUser?.role)) {
+          return [
+            { id: 'approval', name: 'Duyệt phép & Nhật ký chấm công' },
+            { id: 'shifts', name: 'Lịch ca toàn chi nhánh' },
+            { id: 'clock', name: 'Trạm chấm công cá nhân' },
+          ];
+        }
+        return [
+          { id: 'clock', name: 'Chấm công & Ca trực' },
+          { id: 'requests', name: 'Đơn từ nghỉ phép' },
+        ];
       }
       case 'staff-schedule': {
         const tabs = [
           { id: 'shifts', name: 'Lịch ca làm việc' },
         ];
-        if (['director', 'manager'].includes(currentUser?.role)) {
+        if (['director', 'manager', 'accountant'].includes(currentUser?.role)) {
           tabs.push({ id: 'approval', name: 'Xếp lịch & Duyệt phép' });
         }
         if (['director', 'accountant'].includes(currentUser?.role)) {
           tabs.push({ id: 'payroll', name: 'Lương & Hoa hồng' });
         }
-        if (['employee', 'cashier', 'stocker'].includes(currentUser?.role)) {
+        if (['employee', 'cashier', 'stocker', 'cskh'].includes(currentUser?.role)) {
           tabs.push({ id: 'requests', name: 'Đơn từ yêu cầu' });
         }
         return tabs;
@@ -292,18 +375,20 @@ export default function InternalDashboardPage() {
         }
         return tabs;
       }
-      case 'settings-roles': {
-        const tabs = [
-          { id: 'brand', name: 'Cấu hình chi nhánh' },
-        ];
+      case 'settings-roles':
+      case 'settings':
+      case 'announcements':
+      case 'audit-logs': {
+        const tabs = [];
+        if (['director', 'manager'].includes(currentUser?.role)) {
+          tabs.push({ id: 'announcements', name: 'Thông báo & Chỉ đạo' });
+        }
+        tabs.push({ id: 'brand', name: 'Cấu hình chi nhánh' });
         if (['director', 'accountant'].includes(currentUser?.role)) {
           tabs.push({ id: 'channels', name: 'Đồng bộ đa kênh' });
         }
         if (['director'].includes(currentUser?.role)) {
-          tabs.push({ id: 'announcements', name: 'Thông báo & Chỉ đạo' });
           tabs.push({ id: 'audit-logs', name: 'Nhật ký hoạt động' });
-        } else if (['manager'].includes(currentUser?.role)) {
-          tabs.push({ id: 'announcements', name: 'Thông báo & Chỉ đạo' });
         }
         return tabs;
       }
@@ -312,7 +397,7 @@ export default function InternalDashboardPage() {
           { id: 'list', name: 'Danh sách khách' },
           { id: 'vip', name: 'Thành viên VIP' },
         ];
-        if (['director', 'cskh'].includes(currentUser?.role)) {
+        if (['director', 'manager', 'cskh'].includes(currentUser?.role)) {
           tabs.push({ id: 'reviews', name: 'Phản hồi đánh giá' });
         }
         return tabs;
@@ -403,79 +488,63 @@ export default function InternalDashboardPage() {
   const [aiCannedReplyOutput, setAiCannedReplyOutput] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
 
-  // ERP Seeds & Storage Load Effect
+  // ERP Seeds & Storage Load Effect (DB Persistence with LocalStorage Cache)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // 1. Load CRM clients
+      // 1. First populate immediately from localStorage cache for instant render
       const storedCrm = localStorage.getItem('novyn_crm_clients');
-      if (storedCrm) {
-        setCrmClients(JSON.parse(storedCrm));
-      } else {
-        const defaultClients = [
-          { id: 'crm-1', name: 'Lâm Khánh Vy', email: 'customer@novynwear.com', phone: '0912345678', totalSpent: 22500000, points: 225, tier: 'Gold', createdAt: '2026-05-10' },
-          { id: 'crm-2', name: 'Đoàn Phương Linh', email: 'linh.dp@gmail.com', phone: '0987654321', totalSpent: 35000000, points: 350, tier: 'Platinum', createdAt: '2026-05-12' },
-          { id: 'crm-3', name: 'Nguyễn Bích Thuỷ', email: 'thuy.nb@gmail.com', phone: '0909090909', totalSpent: 58000000, points: 580, tier: 'VVIP', createdAt: '2026-05-15' },
-          { id: 'crm-4', name: 'Hoàng Hải Nam', email: 'nam.hh@gmail.com', phone: '0933221100', totalSpent: 1200000, points: 12, tier: 'Regular', createdAt: '2026-05-18' }
-        ];
-        setCrmClients(defaultClients);
-        localStorage.setItem('novyn_crm_clients', JSON.stringify(defaultClients));
-      }
+      if (storedCrm) setCrmClients(JSON.parse(storedCrm));
 
-      // 2. Load CSKH Tickets
       const storedTickets = localStorage.getItem('novyn_cskh_tickets');
-      if (storedTickets) {
-        setCskhTickets(JSON.parse(storedTickets));
-      } else {
-        const defaultTickets = [
-          { id: 'tk-1', customerName: 'Lâm Khánh Vy', category: 'Đổi size', description: 'Đổi quần Linen size M sang size S do mặc bị rộng eo.', status: 'pending', createdAt: '2026-06-01 10:00' },
-          { id: 'tk-2', customerName: 'Đoàn Phương Linh', category: 'Trả hàng lỗi', description: 'Áo khoác Blazer tuyết mưa bị sứt chỉ cánh tay phải.', status: 'resolved', createdAt: '2026-05-28 14:30' }
-        ];
-        setCskhTickets(defaultTickets);
-        localStorage.setItem('novyn_cskh_tickets', JSON.stringify(defaultTickets));
-      }
+      if (storedTickets) setCskhTickets(JSON.parse(storedTickets));
 
-      // 3. Load Transfers
       const storedTransfers = localStorage.getItem('novyn_stock_transfers');
-      if (storedTransfers) {
-        setTransfers(JSON.parse(storedTransfers));
-      } else {
-        const defaultTransfers = [
-          { id: 'tr-1', productId: 'prod-01', productName: 'Áo Thun Premium Cotton', size: 'M', color: 'Trắng', fromBranch: 'Chi nhánh Quận 1', toBranch: 'Chi nhánh Thảo Điền', quantity: 10, status: 'received', createdAt: '2026-05-28 09:00' },
-          { id: 'tr-2', productId: 'prod-02', productName: 'Áo Khoác Blazer Relaxed', size: 'L', color: 'Nâu Oatmeal', fromBranch: 'Chi nhánh Quận 1', toBranch: 'Chi nhánh Thảo Điền', quantity: 5, status: 'shipping', createdAt: '2026-06-01 15:20' }
-        ];
-        setTransfers(defaultTransfers);
-        localStorage.setItem('novyn_stock_transfers', JSON.stringify(defaultTransfers));
-      }
+      if (storedTransfers) setTransfers(JSON.parse(storedTransfers));
 
-      // 4. Load Damaged Goods
       const storedDamages = localStorage.getItem('novyn_damaged_goods');
-      if (storedDamages) {
-        setDamagedGoods(JSON.parse(storedDamages));
-      } else {
-        const defaultDamages = [
-          { id: 'dm-1', productId: 'prod-03', productName: 'Áo Sơ Mi Linen Cao Cấp', size: 'S', color: 'Màu Cát', branch: 'Chi nhánh Quận 1', quantity: 2, issue: 'Bị ố vàng cổ áo', createdAt: '2026-05-30 11:15' }
-        ];
-        setDamagedGoods(defaultDamages);
-        localStorage.setItem('novyn_damaged_goods', JSON.stringify(defaultDamages));
-      }
+      if (storedDamages) setDamagedGoods(JSON.parse(storedDamages));
 
-      // 5. Load Cash Reconciliation
       const storedRecon = localStorage.getItem('novyn_cash_reconciliation');
-      if (storedRecon) {
-        setCashReconciliations(JSON.parse(storedRecon));
-      } else {
-        const defaultRecon = [
-          { id: 'rc-1', date: '2026-05-30', branch: 'Chi nhánh Quận 1', cashierName: 'Nguyễn Thuỳ Lan', expectedCash: 5200000, actualCash: 5200000, discrepancy: 0, notes: 'Đối soát két chuẩn khớp', status: 'approved', createdAt: '2026-05-30 22:30' }
-        ];
-        setCashReconciliations(defaultRecon);
-        localStorage.setItem('novyn_cash_reconciliation', JSON.stringify(defaultRecon));
-      }
+      if (storedRecon) setCashReconciliations(JSON.parse(storedRecon));
 
-      // 6. Load POS History
       const storedPosHist = localStorage.getItem('novyn_pos_history');
-      if (storedPosHist) {
-        setPosHistory(JSON.parse(storedPosHist));
-      }
+      if (storedPosHist) setPosHistory(JSON.parse(storedPosHist));
+
+      // 2. Fetch authoritative data from Database via Server Actions
+      (async () => {
+        try {
+          const [crmRes, ticketsRes, transfersRes, damagesRes, reconsRes] = await Promise.all([
+            getCRMClientsAction(),
+            getCSKHTicketsAction(),
+            getInventoryTransfersAction(),
+            getDamagedGoodsAction(),
+            getCashReconciliationsAction(),
+          ]);
+
+          if (crmRes.success && crmRes.data && crmRes.data.length > 0) {
+            setCrmClients(crmRes.data);
+            localStorage.setItem('novyn_crm_clients', JSON.stringify(crmRes.data));
+          }
+          if (ticketsRes.success && ticketsRes.data && ticketsRes.data.length > 0) {
+            setCskhTickets(ticketsRes.data);
+            localStorage.setItem('novyn_cskh_tickets', JSON.stringify(ticketsRes.data));
+          }
+          if (transfersRes.success && transfersRes.data && transfersRes.data.length > 0) {
+            setTransfers(transfersRes.data);
+            localStorage.setItem('novyn_stock_transfers', JSON.stringify(transfersRes.data));
+          }
+          if (damagesRes.success && damagesRes.data && damagesRes.data.length > 0) {
+            setDamagedGoods(damagesRes.data);
+            localStorage.setItem('novyn_damaged_goods', JSON.stringify(damagesRes.data));
+          }
+          if (reconsRes.success && reconsRes.data && reconsRes.data.length > 0) {
+            setCashReconciliations(reconsRes.data);
+            localStorage.setItem('novyn_cash_reconciliation', JSON.stringify(reconsRes.data));
+          }
+        } catch (error) {
+          console.error('Failed to sync ERP records from DB:', error);
+        }
+      })();
     }
   }, []);
 
@@ -531,10 +600,12 @@ export default function InternalDashboardPage() {
     fromShiftId: string;
   } | null>(null);
 
-  // Director announcements Form States
+  // Announcements Form & Filter States
   const [annTitle, setAnnTitle] = useState('');
   const [annContent, setAnnContent] = useState('');
   const [annRecipient, setAnnRecipient] = useState<'all' | 'accountant' | 'branch_q1' | 'branch_td'>('all');
+  const [annSearchQuery, setAnnSearchQuery] = useState('');
+  const [annRecipientFilter, setAnnRecipientFilter] = useState<string>('all');
 
   // Accountant Product CRUD States
   const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -757,10 +828,11 @@ export default function InternalDashboardPage() {
 
   // Redirect guest or customer users back to /account storefront
   useEffect(() => {
+    if (!isAuthLoaded) return;
     if (!currentUser || currentUser.role === 'customer') {
       router.push('/account');
     }
-  }, [currentUser, router]);
+  }, [currentUser, isAuthLoaded, router]);
 
   // Set default tab on role switch
   useEffect(() => {
@@ -803,7 +875,7 @@ export default function InternalDashboardPage() {
     }
   }, [waitingSessions, selectedChatSessionId, currentUser]);
 
-  if (!currentUser || currentUser.role === 'customer') {
+  if (!isAuthLoaded || !currentUser || currentUser.role === 'customer') {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
@@ -966,110 +1038,57 @@ export default function InternalDashboardPage() {
   const returnRate = '1.2%';
 
   // Sidebar active state mapping
-  const getSidebarActiveTab = () => {
-    if (activeTab === 'overview') return 'overview';
-    if (activeTab === 'customers') {
-      if (customersSubTab === 'list') return 'customers-list';
-      if (customersSubTab === 'vip') return 'customers-vip';
-      if (customersSubTab === 'reviews') return 'reviews';
-      return 'customers-list';
-    }
-    if (activeTab === 'sales-orders') {
-      if (salesOrdersSubTab === 'pos') return 'pos-sales';
-      if (salesOrdersSubTab === 'list') return 'sales-orders-list';
-      if (salesOrdersSubTab === 'returns') return 'returns-exchange';
-    }
-    if (activeTab === 'products-inventory') {
-      if (productsInventorySubTab === 'list') return 'products-database';
-      if (productsInventorySubTab === 'matrix') return 'stocker-inventory';
-      if (productsInventorySubTab === 'restock') return 'restock';
-      if (productsInventorySubTab === 'transfer') return 'stocker-transfer';
-    }
-    if (activeTab === 'staff-schedule') {
-      if (staffScheduleSubTab === 'payroll') return 'staff';
-      if (staffScheduleSubTab === 'shifts') return 'shifts';
-      if (staffScheduleSubTab === 'approval') return 'attendance';
-      if (staffScheduleSubTab === 'requests') return 'attendance';
-    }
-    if (activeTab === 'finance-profit') {
-      if (financeProfitSubTab === 'costs') return 'costs';
-      if (financeProfitSubTab === 'p-l') return 'finance-profit';
-      if (financeProfitSubTab === 'recon') return 'recon';
-    }
-    if (activeTab === 'settings-roles') {
-      if (settingsRolesSubTab === 'brand') return 'settings';
-      if (settingsRolesSubTab === 'announcements') return 'announcements';
-      if (settingsRolesSubTab === 'audit-logs') return 'audit-logs';
-      if (settingsRolesSubTab === 'directives') {
-        return currentUser.role === 'director' ? 'audit-logs' : 'announcements';
-      }
-    }
-    return activeTab;
-  };
+  const getSidebarActiveTab = () => activeTab;
 
   const handleSidebarChange = (tabId: string) => {
-    if (tabId === 'overview') {
-      setActiveTab('overview');
-    } else if (tabId === 'pos-sales') {
-      setActiveTab('sales-orders');
+    setActiveTab(tabId);
+    if (tabId === 'pos-sales') {
       setSalesOrdersSubTab('pos');
     } else if (tabId === 'sales-orders-list') {
-      setActiveTab('sales-orders');
       setSalesOrdersSubTab('list');
     } else if (tabId === 'returns-exchange') {
-      setActiveTab('sales-orders');
       setSalesOrdersSubTab('returns');
+    } else if (tabId === 'cskh-hub') {
+      setSalesOrdersSubTab('chat');
     } else if (tabId === 'customers-list') {
-      setActiveTab('customers');
       setCustomersSubTab('list');
     } else if (tabId === 'customers-vip') {
-      setActiveTab('customers');
       setCustomersSubTab('vip');
     } else if (tabId === 'reviews') {
-      setActiveTab('customers');
       setCustomersSubTab('reviews');
     } else if (tabId === 'products-database') {
-      setActiveTab('products-inventory');
       setProductsInventorySubTab('list');
     } else if (tabId === 'stocker-inventory') {
-      setActiveTab('products-inventory');
       setProductsInventorySubTab('matrix');
     } else if (tabId === 'restock') {
-      setActiveTab('products-inventory');
       setProductsInventorySubTab('restock');
     } else if (tabId === 'stocker-transfer') {
-      setActiveTab('products-inventory');
       setProductsInventorySubTab('transfer');
-    } else if (tabId === 'staff') {
-      setActiveTab('staff-schedule');
+    } else if (tabId === 'damaged-goods') {
+      setProductsInventorySubTab('damaged');
+    } else if (tabId === 'finance-costs' || tabId === 'costs') {
+      setFinanceProfitSubTab('costs');
+    } else if (tabId === 'finance-payroll' || tabId === 'staff') {
       setStaffScheduleSubTab('payroll');
-    } else if (tabId === 'shifts') {
-      setActiveTab('staff-schedule');
+    } else if (tabId === 'finance-recon' || tabId === 'recon') {
+      setFinanceProfitSubTab('recon');
+    } else if (tabId === 'finance-p-l' || tabId === 'finance-profit') {
+      setFinanceProfitSubTab('p-l');
+    } else if (tabId === 'staff-schedule' || tabId === 'shifts') {
       setStaffScheduleSubTab('shifts');
     } else if (tabId === 'attendance') {
-      setActiveTab('staff-schedule');
       if (['director', 'manager', 'accountant'].includes(currentUser?.role)) {
+        setAttendanceSubTab('approval');
         setStaffScheduleSubTab('approval');
       } else {
-        setStaffScheduleSubTab('requests');
+        setAttendanceSubTab('clock');
+        setStaffScheduleSubTab('shifts');
       }
-    } else if (tabId === 'costs') {
-      setActiveTab('finance-profit');
-      setFinanceProfitSubTab('costs');
-    } else if (tabId === 'finance-profit') {
-      setActiveTab('finance-profit');
-      setFinanceProfitSubTab('p-l');
-    } else if (tabId === 'recon') {
-      setActiveTab('finance-profit');
-      setFinanceProfitSubTab('recon');
     } else if (tabId === 'announcements') {
-      setActiveTab('settings-roles');
       setSettingsRolesSubTab('announcements');
     } else if (tabId === 'audit-logs') {
-      setActiveTab('settings-roles');
       setSettingsRolesSubTab('audit-logs');
     } else if (tabId === 'settings') {
-      setActiveTab('settings-roles');
       setSettingsRolesSubTab('brand');
     }
   };
@@ -1168,11 +1187,24 @@ export default function InternalDashboardPage() {
                 const subTabs = getSubTabs();
                 const currentSubTab = 
                   activeTab === 'sales-orders' ? salesOrdersSubTab :
-                  activeTab === 'products-inventory' ? productsInventorySubTab :
+                  (activeTab === 'products-inventory' || activeTab === 'stocker-inventory' || activeTab === 'stocker-transfer' || activeTab === 'damaged-goods' || activeTab === 'restock' || activeTab === 'products-database') ? (
+                    activeTab === 'stocker-inventory' ? 'matrix' :
+                    activeTab === 'stocker-transfer' ? 'transfer' :
+                    activeTab === 'damaged-goods' ? 'damaged' :
+                    activeTab === 'restock' ? 'restock' :
+                    activeTab === 'products-database' ? 'list' :
+                    productsInventorySubTab
+                  ) :
                   activeTab === 'staff-schedule' ? staffScheduleSubTab :
+                  activeTab === 'attendance' ? attendanceSubTab :
                   activeTab === 'finance-profit' ? financeProfitSubTab :
                   activeTab === 'promotions' ? promotionsSubTab :
-                  activeTab === 'settings-roles' ? settingsRolesSubTab :
+                  (activeTab === 'settings-roles' || activeTab === 'settings' || activeTab === 'announcements' || activeTab === 'audit-logs') ? (
+                    activeTab === 'announcements' ? 'announcements' :
+                    activeTab === 'audit-logs' ? 'audit-logs' :
+                    activeTab === 'settings' ? 'brand' :
+                    settingsRolesSubTab
+                  ) :
                   activeTab === 'customers' ? customersSubTab : '';
                 
                 if (subTabs.length === 0) return null;
@@ -1210,28 +1242,32 @@ export default function InternalDashboardPage() {
               {/* --- ERP SUBSYSTEMS INTEGRATION HUB --- */}
               <ERPSubsystems
                 activeTab={
-                  activeTab === 'customers' ? (
-                    customersSubTab === 'list' ? 'cskh-customers-list' :
-                    customersSubTab === 'vip' ? 'cskh-customers-vip' :
-                    'none'
-                  ) :
-                  activeTab === 'sales-orders' && salesOrdersSubTab === 'pos' ? 'pos-sales' :
-                  activeTab === 'sales-orders' && salesOrdersSubTab === 'returns' ? 'cskh-customers-tickets' :
-                  activeTab === 'products-inventory' && productsInventorySubTab === 'list' ? 'products-database' :
-                  activeTab === 'products-inventory' && productsInventorySubTab === 'matrix' ? 'stocker-inventory' :
-                  activeTab === 'products-inventory' && productsInventorySubTab === 'transfer' ? 'stocker-transfer' :
-                  activeTab === 'finance-profit' && financeProfitSubTab === 'recon' ? 'accountant-finance-recon' :
-                  activeTab === 'promotions' && promotionsSubTab === 'coupons' ? 'coupons-management' :
-                  activeTab === 'promotions' && promotionsSubTab === 'ai-marketing' ? 'ai-copilot' :
-                  activeTab === 'settings-roles' && settingsRolesSubTab === 'brand' ? 'settings-tab' :
+                  activeTab === 'pos-sales' || (activeTab === 'sales-orders' && salesOrdersSubTab === 'pos') ? 'pos-sales' :
+                  activeTab === 'stocker-inventory' || (activeTab === 'products-inventory' && productsInventorySubTab === 'matrix') ? 'stocker-inventory' :
+                  activeTab === 'stocker-transfer' || (activeTab === 'products-inventory' && productsInventorySubTab === 'transfer') ? 'stocker-transfer' :
+                  activeTab === 'damaged-goods' || (activeTab === 'products-inventory' && productsInventorySubTab === 'damaged') ? 'damaged-goods' :
+                  activeTab === 'products-database' || (activeTab === 'products-inventory' && productsInventorySubTab === 'list') ? 'products-database' :
+                  activeTab === 'returns-exchange' || (activeTab === 'sales-orders' && salesOrdersSubTab === 'returns') ? 'returns-exchange' :
+                  activeTab === 'customers-list' || activeTab === 'cskh-hub' || activeTab === 'customers' || activeTab === 'cskh-customers' ? 'customers-list' :
+                  activeTab === 'customers-vip' ? 'cskh-customers-vip' :
+                  activeTab === 'finance-recon' || activeTab === 'recon' || (activeTab === 'finance-profit' && financeProfitSubTab === 'recon') ? 'accountant-finance-recon' :
+                  activeTab === 'finance-payroll' ? 'accountant-kpi-payroll' :
+                  activeTab === 'ai-copilot' || (activeTab === 'promotions' && promotionsSubTab === 'ai-marketing') ? 'ai-copilot' :
+                  activeTab === 'coupons-management' || (activeTab === 'promotions' && promotionsSubTab === 'coupons') ? 'coupons-management' :
+                  activeTab === 'settings' || activeTab === 'settings-tab' || (activeTab === 'settings-roles' && settingsRolesSubTab === 'brand') ? 'settings-tab' :
                   activeTab === 'settings-roles' && settingsRolesSubTab === 'channels' ? 'omnichannel' :
-                  'none'
+                  activeTab
                 }
                 currentUser={currentUser}
                 usersList={usersList}
                 productsList={productsList}
                 branchStock={branchStock}
                 restockBranchProduct={restockBranchProduct}
+                refreshInventoryStocks={refreshInventoryStocks}
+                onSwitchToTransferTab={() => {
+                  setActiveTab('stocker-transfer');
+                  setProductsInventorySubTab('transfer');
+                }}
                 allOrders={allOrders}
                 createOrder={createOrder}
                 payrollRecords={payrollRecords}
@@ -1330,7 +1366,7 @@ export default function InternalDashboardPage() {
               />
 
               {/* --- MANAGER SHIFT WEEKLY OVERVIEW --- */}
-              {(activeTab === 'manager-shift-overview' || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'shifts')) && ['director', 'manager', 'accountant'].includes(currentUser.role) && (() => {
+              {(activeTab === 'manager-shift-overview' || activeTab === 'shifts' || (activeTab === 'attendance' && attendanceSubTab === 'shifts') || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'shifts')) && ['director', 'manager', 'accountant'].includes(currentUser.role) && (() => {
                 const today = new Date();
                 today.setDate(today.getDate() + schedWeekOffset * 7);
                 const startOfWeek = new Date(today);
@@ -2077,7 +2113,10 @@ export default function InternalDashboardPage() {
               )}
 
               {/* --- EMPLOYEE SHIFTS & CLOCK IN/OUT --- */}
-              {(activeTab === 'employee-shifts-clock' || (activeTab === 'overview' && ['employee', 'cashier', 'stocker'].includes(currentUser.role)) || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'shifts' && ['employee', 'cashier', 'stocker'].includes(currentUser.role))) && ['employee', 'cashier', 'stocker'].includes(currentUser.role) && (
+              {(activeTab === 'employee-shifts-clock' || 
+                (activeTab === 'attendance' && (attendanceSubTab === 'clock' || (!['director', 'manager', 'accountant'].includes(currentUser.role) && attendanceSubTab !== 'requests'))) || 
+                (activeTab === 'overview' && ['employee', 'cashier', 'stocker', 'cskh'].includes(currentUser.role)) || 
+                (activeTab === 'staff-schedule' && ['employee', 'cashier', 'stocker', 'cskh'].includes(currentUser.role) && staffScheduleSubTab === 'shifts')) && (
                 <div>
                   <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-2 uppercase">Ca làm việc & Điểm danh</h3>
                   <p className="text-xs text-neutral-400 mb-8">Theo dõi lịch làm việc chính thức do Quản lý phân công và thực hiện chấm công định kỳ.</p>
@@ -2103,8 +2142,9 @@ export default function InternalDashboardPage() {
                       const shiftLabel: Record<string, string> = { morning: 'Sáng', afternoon: 'Chiều', evening: 'Tối' };
                       const shiftTime: Record<string, string> = { morning: '08–13h', afternoon: '13–18h', evening: '18–23h' };
 
+                      const userBranch = currentUser.branch || (selectedBranch !== 'all' ? selectedBranch : 'Chi nhánh Quận 1');
                       const approvedShifts = shiftRequests.filter(
-                        (s: any) => s.branch === currentUser.branch && s.status === 'approved'
+                        (s: any) => (s.branch === userBranch || (!currentUser.branch && selectedBranch === 'all')) && s.status === 'approved'
                       );
 
                       const getShiftsForSlot = (date: Date, type: string) => {
@@ -2122,7 +2162,7 @@ export default function InternalDashboardPage() {
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
                             <div>
                               <h4 className="text-xs font-black text-neutral-900 uppercase tracking-wide">Tổng quan lịch làm toàn chi nhánh</h4>
-                              <p className="text-[10px] text-neutral-450 mt-1">Chi nhánh: <span className="font-bold text-neutral-700">{currentUser.branch}</span> • Rà soát lịch làm đồng nghiệp & Gửi yêu cầu đổi ca trực tiếp</p>
+                              <p className="text-[10px] text-neutral-450 mt-1">Chi nhánh: <span className="font-bold text-neutral-700">{currentUser.branch || userBranch}</span> • Rà soát lịch làm đồng nghiệp & Gửi yêu cầu đổi ca trực tiếp</p>
                             </div>
                             <div className="flex items-center gap-2">
                               <button onClick={() => setSchedWeekOffset(w => w - 1)} className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-white text-[10px] font-bold hover:bg-neutral-50 cursor-pointer">← Trước</button>
@@ -2949,8 +2989,8 @@ export default function InternalDashboardPage() {
                           {productsList
                             .filter((prod: any) => prod.name.toLowerCase().includes(stockSearch.toLowerCase()))
                             .map((prod: any) => {
-                              const stockCount = branchStock[prod.id]?.[currentUser.branch || ''] || 0;
-                              const sizeStock = branchSizeStock[prod.id]?.[currentUser.branch || ''] || {};
+                              const stockCount = branchStock?.[prod.id]?.[currentUser?.branch || ''] || 0;
+                              const sizeStock = branchSizeStock?.[prod.id]?.[currentUser?.branch || ''] || {};
                               const sizes = prod.sizes && prod.sizes.length > 0 ? prod.sizes : ['S', 'M', 'L', 'XL'];
                               return (
                                 <tr key={prod.id} className="hover:bg-neutral-50/20 transition-colors">
@@ -2990,7 +3030,7 @@ export default function InternalDashboardPage() {
               )}
 
               {/* --- EMPLOYEE HR REQUESTS (LEAVE & SALARY) --- */}
-              {(activeTab === 'employee-hr-requests' || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'requests')) && currentUser.role === 'employee' && (
+              {(activeTab === 'employee-hr-requests' || (activeTab === 'attendance' && attendanceSubTab === 'requests') || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'requests')) && ['employee', 'cashier', 'stocker', 'cskh'].includes(currentUser.role) && (
                 <div>
                   <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-2 uppercase">Đơn từ & Đề xuất hành chính</h3>
                   <p className="text-xs text-neutral-400 mb-8">Soạn đơn xin nghỉ phép gửi Quản lý chi nhánh duyệt hoặc gửi đề xuất xin tăng lương lên Ban giám đốc.</p>
@@ -3174,7 +3214,10 @@ export default function InternalDashboardPage() {
               )}
 
               {/* --- MANAGER STAFF & SHIFTS DIRECT CONSOLE --- */}
-              {(activeTab === 'manager-staff-console' || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'approval')) && ['director', 'manager'].includes(currentUser.role) && (
+              {(activeTab === 'manager-staff-console' || 
+                (activeTab === 'attendance' && (attendanceSubTab === 'approval' || (['director', 'manager', 'accountant'].includes(currentUser.role) && attendanceSubTab !== 'clock' && attendanceSubTab !== 'shifts'))) || 
+                (activeTab === 'staff-schedule' && staffScheduleSubTab === 'approval')) && 
+               ['director', 'manager', 'accountant'].includes(currentUser.role) && (
                 <div>
                   <h3 className="text-lg font-black text-neutral-950 tracking-tight mb-2 uppercase">Lập lịch Ca trực & Duyệt hành chính</h3>
                   <p className="text-xs text-neutral-400 mb-8">Chủ động phân công ca làm chính thức cho nhân viên chi nhánh (chốt ngay) và xét duyệt đơn xin nghỉ phép.</p>
@@ -3345,7 +3388,7 @@ export default function InternalDashboardPage() {
                   </div>
                 </div>
               )}
-              {(activeTab === 'manager-stock' || (activeTab === 'products-inventory' && productsInventorySubTab === 'restock')) && currentUser.role === 'manager' && (
+              {(activeTab === 'manager-stock' || activeTab === 'restock' || (activeTab === 'products-inventory' && productsInventorySubTab === 'restock')) && currentUser.role === 'manager' && (
                 <div>
                   <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-2 uppercase">Kiểm kê kho & Nhập hàng chi nhánh</h3>
                   <p className="text-xs text-neutral-400 mb-8">Theo dõi tình hình tồn kho tại cửa hàng trực thuộc và gửi đề xuất restock khẩn cấp gửi phòng Kế toán.</p>
@@ -3442,8 +3485,8 @@ export default function InternalDashboardPage() {
                           </thead>
                           <tbody className="divide-y divide-neutral-50 font-medium text-neutral-700">
                             {productsList.map((prod: any) => {
-                              const stockCount = branchStock[prod.id]?.[currentUser.branch || ''] || 0;
-                              const sizeStock = branchSizeStock[prod.id]?.[currentUser.branch || ''] || {};
+                              const stockCount = branchStock?.[prod.id]?.[currentUser?.branch || ''] || 0;
+                              const sizeStock = branchSizeStock?.[prod.id]?.[currentUser?.branch || ''] || {};
                               const sizes = prod.sizes && prod.sizes.length > 0 ? prod.sizes : ['S', 'M', 'L', 'XL'];
                               return (
                                 <tr key={prod.id} className="hover:bg-neutral-50/20 transition-colors">
@@ -3579,183 +3622,466 @@ export default function InternalDashboardPage() {
                 </div>
               )}
 
-              {/* --- DIRECTOR OPERATIONS & PRICE UPDATE & ANNOUNCEMENT SENDER --- */}
-              {(activeTab === 'director-operations' || (activeTab === 'settings-roles' && settingsRolesSubTab === 'announcements')) && currentUser.role === 'director' && (
-                <div>
-                  <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-2 uppercase">Vận hành & Gửi thông báo toàn cầu</h3>
-                  <p className="text-xs text-neutral-400 mb-8">Điều hành giá bán sản phẩm, sửa đổi thông tin chi tiết và gửi chỉ đạo khẩn cấp đến toàn hệ thống.</p>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* LEFT COLUMN: GLOBAL PRICE & PRODUCT UPDATER */}
-                    <div className="lg:col-span-2 space-y-8">
-                      <div className="bg-white rounded-3xl border border-neutral-100 p-6 shadow-sm">
-                        <h4 className="text-xs font-black text-neutral-950 tracking-wide mb-4">Danh sách sản phẩm & Sửa giá bán</h4>
-                        <div className="space-y-4 overflow-y-auto max-h-[500px] pr-1">
-                          {productsList.map((prod: any) => (
-                            <div key={prod.id} className="border border-neutral-150 p-4 rounded-2xl bg-neutral-50/40 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                              <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <div className="relative w-12 aspect-[4/5] rounded-xl bg-neutral-100 border overflow-hidden shrink-0">
-                                  <Image
-                                    src={prod.images[0]}
-                                    alt={prod.name}
-                                    fill
-                                    className="object-cover"
-                                    unoptimized
-                                  />
-                                </div>
-                                <div className="min-w-0">
-                                  <h5 className="text-xs font-black text-neutral-900 truncate">{prod.name}</h5>
-                                  <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-400 block mt-0.5">{prod.category}</span>
-                                  <span className="text-xs font-black text-neutral-900 mt-1 block">{formatPrice(prod.price)}</span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 shrink-0">
-                                {editingProductId === prod.id ? (
-                                  <div className="flex flex-col gap-2 bg-white p-3 rounded-xl border shadow-sm">
-                                    <div>
-                                      <label className="text-[8px] font-bold text-neutral-400 uppercase">Tên sản phẩm</label>
-                                      <input
-                                        type="text"
-                                        value={editName}
-                                        onChange={(e) => setEditName(e.target.value)}
-                                        className="w-full px-2 py-1 border text-xs font-bold rounded"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-[8px] font-bold text-neutral-400 uppercase">Giá bán (₫)</label>
-                                      <input
-                                        type="number"
-                                        value={editPrice}
-                                        onChange={(e) => setEditPrice(Number(e.target.value))}
-                                        className="w-full px-2 py-1 border text-xs font-bold rounded"
-                                      />
-                                    </div>
-                                    <div className="flex gap-2 pt-1">
-                                      <button
-                                        onClick={() => {
-                                          updateGlobalProductPrice(prod.id, editPrice);
-                                          updateGlobalProductDetails(prod.id, editName, editDesc, editCat);
-                                          setEditingProductId(null);
-                                        }}
-                                        className="bg-emerald-500 text-white text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded hover:bg-emerald-600 transition-colors"
-                                      >
-                                        Lưu
-                                      </button>
-                                      <button
-                                        onClick={() => setEditingProductId(null)}
-                                        className="bg-neutral-200 text-neutral-700 text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded hover:bg-neutral-300 transition-colors"
-                                      >
-                                        Hủy
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="flex gap-2">
-                                    <button
-                                      onClick={() => {
-                                        setEditingProductId(prod.id);
-                                        setEditPrice(prod.price);
-                                        setEditName(prod.name);
-                                        setEditDesc(prod.description);
-                                        setEditCat(prod.category);
-                                      }}
-                                      className="bg-neutral-950 text-white text-[9px] font-bold uppercase tracking-widest px-3.5 py-2 rounded-xl hover:bg-neutral-850 transition-colors flex items-center gap-1 active:scale-95 cursor-pointer shadow-sm shadow-neutral-950/10"
-                                    >
-                                      <Edit2 className="w-3 h-3" />
-                                      Sửa giá
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        if (confirm(`Bạn có chắc chắn muốn xóa sản phẩm ${prod.name} không?`)) {
-                                          deleteGlobalProduct(prod.id);
-                                        }
-                                      }}
-                                      className="bg-rose-50 text-rose-605 text-[9px] font-bold uppercase tracking-widest px-3.5 py-2 rounded-xl hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer active:scale-95"
-                                    >
-                                      Xóa
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+              {/* --- DEDICATED EXECUTIVE ANNOUNCEMENTS & DIRECTIVES HUB --- */}
+              {(activeTab === 'announcements' || (activeTab === 'settings-roles' && settingsRolesSubTab === 'announcements')) && ['director', 'manager', 'accountant'].includes(currentUser.role) && (
+                <div className="space-y-6">
+                  {/* Header */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-100 pb-5">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200/60">
+                          {currentUser.role === 'director' ? 'Hội Đồng Quản Trị • CEO' : `Quản Lý • ${currentUser.branch || 'Showroom'}`}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-neutral-400">
+                          <Megaphone className="w-3.5 h-3.5 text-amber-500" />
+                          Trung tâm điều hành
+                        </span>
                       </div>
+                      <h3 className="text-xl font-black text-neutral-900 tracking-tight uppercase">
+                        Thông báo điều hành & Chỉ đạo hệ thống
+                      </h3>
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        Phát hành chỉ thị, cập nhật chính sách nội bộ và truyền tải thông điệp nhanh chóng tới toàn thể nhân viên NOVYN WEAR.
+                      </p>
                     </div>
 
-                    {/* RIGHT COLUMN: ANNOUNCEMENT SENDER FORM */}
-                    <div className="lg:col-span-1">
-                      <div className="bg-neutral-950 text-white p-6 rounded-3xl border border-neutral-800 shadow-lg sticky top-6">
-                        <h4 className="text-xs font-black text-amber-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                          <Megaphone className="w-4 h-4 text-amber-450 animate-bounce" />
-                          Gửi thông báo toàn cục
-                        </h4>
-                        <p className="text-[11px] text-neutral-400 font-semibold mb-6 leading-relaxed">
-                          Giám đốc soạn văn bản chỉ thị trực tiếp đến các phòng ban và chi nhánh. Nội dung sẽ hiển thị ngay lập tức trên trang chủ quản trị của người nhận.
+                    <div className="flex items-center gap-2">
+                      <div className="px-3.5 py-2 bg-neutral-50 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-700 flex items-center gap-2">
+                        <Bell className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Tổng cộng: <strong className="text-neutral-900 font-black">{(announcements || []).length}</strong> thông tri</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4 Bento KPI Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200/80 shadow-sm flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-neutral-400">Toàn bộ thông báo</span>
+                        <div className="p-1.5 rounded-lg bg-neutral-200/60 text-neutral-700">
+                          <Megaphone className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-black text-neutral-900 tracking-tight">
+                        {(announcements || []).length}
+                      </div>
+                      <span className="text-[10px] text-neutral-400 font-medium mt-1">Đã lưu trữ trên hệ thống</span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 shadow-sm flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-700">Toàn hệ thống</span>
+                        <div className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700">
+                          <Layers className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-black text-indigo-950 tracking-tight">
+                        {(announcements || []).filter((a: any) => a.recipientType === 'all').length}
+                      </div>
+                      <span className="text-[10px] text-indigo-500 font-medium mt-1">Gửi tới tất cả nhân sự</span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100 shadow-sm flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-blue-700">Chi nhánh Quận 1</span>
+                        <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700">
+                          <MapPin className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-black text-blue-950 tracking-tight">
+                        {(announcements || []).filter((a: any) => a.recipientType === 'branch_q1').length}
+                      </div>
+                      <span className="text-[10px] text-blue-500 font-medium mt-1">Chỉ đạo Showroom Q.1</span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-100 shadow-sm flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-amber-700">Chi nhánh Thảo Điền</span>
+                        <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700">
+                          <MapPin className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-black text-amber-950 tracking-tight">
+                        {(announcements || []).filter((a: any) => a.recipientType === 'branch_td').length}
+                      </div>
+                      <span className="text-[10px] text-amber-600 font-medium mt-1">Chỉ đạo Showroom Thảo Điền</span>
+                    </div>
+                  </div>
+
+                  {/* Main 2-Column Section: Form + Announcement List */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    {/* LEFT COLUMN (lg:col-span-5): ANNOUNCEMENT SENDER FORM */}
+                    <div className="lg:col-span-5">
+                      <div className="bg-neutral-950 text-white p-6 rounded-3xl border border-neutral-800 shadow-xl sticky top-6">
+                        <div className="flex items-center justify-between mb-4 border-b border-neutral-800 pb-3">
+                          <h4 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                            <Megaphone className="w-4 h-4 text-amber-400" />
+                            Phát lệnh thông báo mới
+                          </h4>
+                          <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider bg-neutral-900 px-2 py-0.5 rounded-full border border-neutral-800">
+                            {currentUser.role === 'director' ? 'Giám Đốc' : 'Cửa Hàng Trưởng'}
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-neutral-400 font-medium mb-5 leading-relaxed">
+                          {currentUser.role === 'director'
+                            ? 'Giám đốc soạn chỉ thị trực tiếp đến các phòng ban và chi nhánh. Nội dung sẽ hiển thị ngay lập tức tới nhân sự được chỉ định.'
+                            : `Quản lý soạn văn bản chỉ đạo tác nghiệp, phân công nhiệm vụ hoặc thông báo nội bộ cho nhân sự thuộc chi nhánh.`}
                         </p>
+
                         <form
-                          onSubmit={(e) => {
+                          onSubmit={async (e) => {
                             e.preventDefault();
-                            if (annTitle && annContent) {
-                              sendAnnouncement(annTitle, annContent, annRecipient);
-                              setAnnTitle('');
-                              setAnnContent('');
+                            if (!annTitle.trim() || !annContent.trim()) {
+                              showToast('Vui lòng nhập đầy đủ tiêu đề và nội dung thông báo!', 'error');
+                              return;
                             }
+                            await sendAnnouncement(annTitle.trim(), annContent.trim(), annRecipient);
+                            setAnnTitle('');
+                            setAnnContent('');
                           }}
                           className="space-y-4"
                         >
                           <div>
-                            <label className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Gửi tới ai (Người nhận)</label>
+                            <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1.5 flex items-center gap-1.5">
+                              <UserIcon className="w-3 h-3 text-amber-400" />
+                              Phạm vi áp dụng (Đối tượng nhận)
+                            </label>
                             <select
                               value={annRecipient}
                               onChange={(e) => setAnnRecipient(e.target.value as any)}
-                              className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white focus:outline-none focus:border-neutral-600 font-bold"
+                              className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white focus:outline-none focus:border-amber-400 font-bold transition-all"
                             >
-                              <option value="all">Tất cả nhân sự (All Staff)</option>
-                              <option value="accountant">Phòng Kế toán (Accountant)</option>
-                              <option value="branch_q1">Chi nhánh Quận 1 (Branch Q.1)</option>
-                              <option value="branch_td">Chi nhánh Thảo Điền (Thảo Điền)</option>
+                              {currentUser.role === 'director' ? (
+                                <>
+                                  <option value="all">Toàn bộ nhân sự hệ thống (All Staff)</option>
+                                  <option value="accountant">Phòng Kế toán & Tài chính</option>
+                                  <option value="branch_q1">Chi nhánh Quận 1 (Showroom Q.1)</option>
+                                  <option value="branch_td">Chi nhánh Thảo Điền (Showroom Thảo Điền)</option>
+                                </>
+                              ) : (
+                                <>
+                                  <option value={currentUser.branch === 'Chi nhánh Thảo Điền' ? 'branch_td' : 'branch_q1'}>
+                                    Nội bộ {currentUser.branch || 'Chi nhánh hiện tại'}
+                                  </option>
+                                  <option value="accountant">Phòng Kế toán & Tài chính</option>
+                                  <option value="all">Báo cáo Ban Giám đốc & Toàn hệ thống</option>
+                                </>
+                              )}
                             </select>
                           </div>
+
                           <div>
-                            <label className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Tiêu đề thông báo</label>
+                            <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1.5 flex items-center gap-1.5">
+                              <Tag className="w-3 h-3 text-amber-400" />
+                              Tiêu đề chỉ đạo
+                            </label>
                             <input
                               type="text"
                               required
-                              placeholder="Tiêu đề khẩn cấp..."
+                              placeholder="Ví dụ: Chỉ tiêu doanh số cuối tuần / Lưu ý kiểm kê kho..."
                               value={annTitle}
                               onChange={(e) => setAnnTitle(e.target.value)}
-                              className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white focus:outline-none focus:border-neutral-600 font-semibold"
+                              className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white focus:outline-none focus:border-amber-400 font-semibold placeholder:text-neutral-600 transition-all"
                             />
                           </div>
+
                           <div>
-                            <label className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Nội dung thông báo</label>
+                            <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1.5 flex items-center gap-1.5">
+                              <FileText className="w-3 h-3 text-amber-400" />
+                              Nội dung chi tiết
+                            </label>
                             <textarea
                               required
-                              rows={5}
-                              placeholder="Nội dung chỉ đạo..."
+                              rows={6}
+                              placeholder="Nhập nội dung văn bản chỉ đạo cụ thể, lưu ý triển khai và thời hạn hoàn thành..."
                               value={annContent}
                               onChange={(e) => setAnnContent(e.target.value)}
-                              className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white focus:outline-none focus:border-neutral-600 resize-none font-medium"
+                              className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white focus:outline-none focus:border-amber-400 resize-none font-medium placeholder:text-neutral-600 transition-all leading-relaxed"
                             />
                           </div>
+
                           <button
                             type="submit"
-                            className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md cursor-pointer flex items-center justify-center gap-1.5 font-bold"
+                            className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-black uppercase tracking-widest transition-all active:scale-98 shadow-md cursor-pointer flex items-center justify-center gap-2 font-bold"
                           >
-                            <Megaphone className="w-3.5 h-3.5" />
-                            Phát lệnh chỉ đạo
+                            <Send className="w-3.5 h-3.5" />
+                            Phát lệnh chỉ đạo ngay
                           </button>
                         </form>
+                      </div>
+                    </div>
+
+                    {/* RIGHT COLUMN (lg:col-span-7): ANNOUNCEMENT FEED & HISTORY */}
+                    <div className="lg:col-span-7 space-y-4">
+                      {/* Search & Filter Toolbar */}
+                      <div className="bg-white rounded-2xl border border-neutral-200/80 p-4 shadow-sm flex flex-col sm:flex-row items-center gap-3">
+                        <div className="relative flex-1 w-full">
+                          <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Tìm kiếm theo tiêu đề, nội dung, người gửi..."
+                            value={annSearchQuery}
+                            onChange={(e) => setAnnSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-3.5 py-2 bg-neutral-50 rounded-xl border border-neutral-200 text-xs font-medium focus:outline-none focus:border-neutral-400"
+                          />
+                          {annSearchQuery && (
+                            <button
+                              onClick={() => setAnnSearchQuery('')}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                          <Filter className="w-3.5 h-3.5 text-neutral-400 shrink-0 hidden sm:block" />
+                          <select
+                            value={annRecipientFilter}
+                            onChange={(e) => setAnnRecipientFilter(e.target.value)}
+                            className="w-full sm:w-auto px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-700 focus:outline-none"
+                          >
+                            <option value="all">Tất cả đối tượng ({announcements?.length || 0})</option>
+                            <option value="system_all">Toàn hệ thống</option>
+                            <option value="branch_q1">Chi nhánh Q.1</option>
+                            <option value="branch_td">Chi nhánh Thảo Điền</option>
+                            <option value="accountant">Phòng Kế toán</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Announcement Feed Cards */}
+                      <div className="space-y-3">
+                        {(() => {
+                          const filtered = (announcements || []).filter((ann: any) => {
+                            // Recipient filter
+                            if (annRecipientFilter === 'system_all' && ann.recipientType !== 'all') return false;
+                            if (annRecipientFilter === 'branch_q1' && ann.recipientType !== 'branch_q1') return false;
+                            if (annRecipientFilter === 'branch_td' && ann.recipientType !== 'branch_td') return false;
+                            if (annRecipientFilter === 'accountant' && ann.recipientType !== 'accountant') return false;
+
+                            // Text query filter
+                            if (annSearchQuery.trim()) {
+                              const q = annSearchQuery.toLowerCase();
+                              const matchTitle = (ann.title || '').toLowerCase().includes(q);
+                              const matchContent = (ann.content || '').toLowerCase().includes(q);
+                              const matchSender = (ann.senderName || '').toLowerCase().includes(q);
+                              if (!matchTitle && !matchContent && !matchSender) return false;
+                            }
+                            return true;
+                          });
+
+                          if (filtered.length === 0) {
+                            return (
+                              <div className="bg-white rounded-3xl border border-neutral-200/80 p-12 text-center shadow-sm">
+                                <div className="w-12 h-12 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-3 text-neutral-400">
+                                  <Megaphone className="w-6 h-6" />
+                                </div>
+                                <h4 className="text-sm font-bold text-neutral-800 mb-1">
+                                  {annSearchQuery || annRecipientFilter !== 'all'
+                                    ? 'Không tìm thấy thông báo phù hợp'
+                                    : 'Chưa có thông báo điều hành nào'}
+                                </h4>
+                                <p className="text-xs text-neutral-400 max-w-sm mx-auto">
+                                  {annSearchQuery || annRecipientFilter !== 'all'
+                                    ? 'Thử thay đổi từ khóa hoặc bộ lọc đối tượng để tìm kiếm lại.'
+                                    : 'Sử dụng biểu mẫu bên cạnh để ban hành thông báo hoặc chỉ đạo đầu tiên.'}
+                                </p>
+                              </div>
+                            );
+                          }
+
+                          return filtered.map((ann: any) => {
+                            const recipientBadge =
+                              ann.recipientType === 'all'
+                                ? { text: 'Toàn hệ thống', bg: 'bg-indigo-50 text-indigo-700 border-indigo-200/60' }
+                                : ann.recipientType === 'branch_q1'
+                                ? { text: 'Showroom Quận 1', bg: 'bg-blue-50 text-blue-700 border-blue-200/60' }
+                                : ann.recipientType === 'branch_td'
+                                ? { text: 'Showroom Thảo Điền', bg: 'bg-amber-50 text-amber-700 border-amber-200/60' }
+                                : { text: 'Phòng Kế toán', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200/60' };
+
+                            const canDelete = currentUser.role === 'director' || ann.senderName === currentUser.name;
+
+                            return (
+                              <div
+                                key={ann.id}
+                                className="bg-white rounded-2xl border border-neutral-200/80 p-5 shadow-sm hover:shadow-md transition-all group"
+                              >
+                                <div className="flex items-start justify-between gap-3 mb-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${recipientBadge.bg}`}>
+                                      {recipientBadge.text}
+                                    </span>
+                                    <span className="text-[10px] text-neutral-400 font-medium flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      {(() => {
+                                        try {
+                                          const d = new Date(ann.createdAt);
+                                          return isNaN(d.getTime())
+                                            ? ann.createdAt
+                                            : d.toLocaleString('vi-VN', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric',
+                                              });
+                                        } catch {
+                                          return ann.createdAt;
+                                        }
+                                      })()}
+                                    </span>
+                                  </div>
+
+                                  {canDelete && (
+                                    <button
+                                      onClick={() => {
+                                        if (confirm(`Bạn có chắc chắn muốn xóa thông báo "${ann.title}" không?`)) {
+                                          deleteAnnouncement(ann.id);
+                                        }
+                                      }}
+                                      className="text-neutral-300 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                                      title="Xóa thông báo này"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+
+                                <h4 className="text-sm font-black text-neutral-900 mb-2 leading-snug">
+                                  {ann.title}
+                                </h4>
+
+                                <p className="text-xs text-neutral-600 leading-relaxed whitespace-pre-line mb-4 font-normal">
+                                  {ann.content}
+                                </p>
+
+                                <div className="flex items-center justify-between pt-3 border-t border-neutral-100 text-[11px] text-neutral-400">
+                                  <span className="flex items-center gap-1.5 font-semibold text-neutral-500">
+                                    <UserIcon className="w-3 h-3 text-neutral-400" />
+                                    Người ban hành: <strong className="text-neutral-800">{ann.senderName || 'Hệ thống'}</strong>
+                                  </span>
+                                  <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-400">
+                                    Mã ID: {ann.id.slice(0, 8)}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
                   </div>
                 </div>
               )}
 
+              {/* --- DIRECTOR OPERATIONS (PRODUCT PRICE UPDATER DEDICATED) --- */}
+              {activeTab === 'director-operations' && currentUser.role === 'director' && (
+                <div>
+                  <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-2 uppercase">Vận hành giá bán toàn cầu</h3>
+                  <p className="text-xs text-neutral-400 mb-8">Điều hành giá bán sản phẩm và sửa đổi thông tin chi tiết các mặt hàng trong hệ thống.</p>
+
+                  <div className="bg-white rounded-3xl border border-neutral-100 p-6 shadow-sm">
+                    <h4 className="text-xs font-black text-neutral-950 tracking-wide mb-4">Danh sách sản phẩm & Sửa giá bán</h4>
+                    <div className="space-y-4 overflow-y-auto max-h-[500px] pr-1">
+                      {productsList.map((prod: any) => (
+                        <div key={prod.id} className="border border-neutral-150 p-4 rounded-2xl bg-neutral-50/40 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="relative w-12 aspect-[4/5] rounded-xl bg-neutral-100 border overflow-hidden shrink-0">
+                              <Image
+                                src={prod.images[0]}
+                                alt={prod.name}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <h5 className="text-xs font-black text-neutral-900 truncate">{prod.name}</h5>
+                              <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-400 block mt-0.5">{prod.category}</span>
+                              <span className="text-xs font-black text-neutral-900 mt-1 block">{formatPrice(prod.price)}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {editingProductId === prod.id ? (
+                              <div className="flex flex-col gap-2 bg-white p-3 rounded-xl border shadow-sm">
+                                <div>
+                                  <label className="text-[8px] font-bold text-neutral-400 uppercase">Tên sản phẩm</label>
+                                  <input
+                                    type="text"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    className="w-full px-2 py-1 border text-xs font-bold rounded"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[8px] font-bold text-neutral-400 uppercase">Giá bán (₫)</label>
+                                  <input
+                                    type="number"
+                                    value={editPrice}
+                                    onChange={(e) => setEditPrice(Number(e.target.value))}
+                                    className="w-full px-2 py-1 border text-xs font-bold rounded"
+                                  />
+                                </div>
+                                <div className="flex gap-2 pt-1">
+                                  <button
+                                    onClick={() => {
+                                      updateGlobalProductPrice(prod.id, editPrice);
+                                      updateGlobalProductDetails(prod.id, editName, editDesc, editCat);
+                                      setEditingProductId(null);
+                                    }}
+                                    className="bg-emerald-500 text-white text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded hover:bg-emerald-600 transition-colors"
+                                  >
+                                    Lưu
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingProductId(null)}
+                                    className="bg-neutral-200 text-neutral-700 text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded hover:bg-neutral-300 transition-colors"
+                                  >
+                                    Hủy
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingProductId(prod.id);
+                                    setEditPrice(prod.price);
+                                    setEditName(prod.name);
+                                    setEditDesc(prod.description);
+                                    setEditCat(prod.category);
+                                  }}
+                                  className="bg-neutral-950 text-white text-[9px] font-bold uppercase tracking-widest px-3.5 py-2 rounded-xl hover:bg-neutral-850 transition-colors flex items-center gap-1 active:scale-95 cursor-pointer shadow-sm shadow-neutral-950/10"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                  Sửa giá
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (confirm(`Bạn có chắc chắn muốn xóa sản phẩm ${prod.name} không?`)) {
+                                      deleteGlobalProduct(prod.id);
+                                    }
+                                  }}
+                                  className="bg-rose-50 text-rose-605 text-[9px] font-bold uppercase tracking-widest px-3.5 py-2 rounded-xl hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer active:scale-95"
+                                >
+                                  Xóa
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* --- DIRECTOR AUDIT LOGS VIEW --- */}
-              {activeTab === 'settings-roles' && settingsRolesSubTab === 'audit-logs' && currentUser.role === 'director' && (
+              {(activeTab === 'audit-logs' || (activeTab === 'settings-roles' && settingsRolesSubTab === 'audit-logs')) && currentUser.role === 'director' && (
                 <div>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 mb-6">
                     <div>
@@ -3825,7 +4151,7 @@ export default function InternalDashboardPage() {
               )}
 
               {/* --- DIRECTOR HR & PAYROLL MANAGEMENT (READ-ONLY VIEW) --- */}
-              {(activeTab === 'director-hr-payroll' || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'payroll')) && currentUser.role === 'director' && (
+              {(activeTab === 'director-hr-payroll' || activeTab === 'finance-payroll' || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'payroll')) && currentUser.role === 'director' && (
                 <div>
                   <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-2 uppercase">Quản lý Nhân sự & Bảng lương toàn công ty</h3>
                   <p className="text-xs text-neutral-400 mb-8">Tra cứu danh sách nhân sự cấp cao, duyệt đề xuất tăng lương khẩn cấp và xem lịch sử giải ngân chi lương.</p>
@@ -3963,7 +4289,7 @@ export default function InternalDashboardPage() {
               )}
 
               {/* --- DIRECTOR GLOBAL FINANCE --- */}
-              {(activeTab === 'director-global-finance' || (activeTab === 'finance-profit' && financeProfitSubTab === 'p-l')) && currentUser.role === 'director' && (() => {
+              {(activeTab === 'director-global-finance' || activeTab === 'finance-p-l' || (activeTab === 'finance-profit' && financeProfitSubTab === 'p-l')) && currentUser.role === 'director' && (() => {
                 const totalRevenue = allOrders
                   .filter((o: any) => o.status === 'completed')
                   .reduce((sum: number, o: any) => sum + o.total, 0);
@@ -4247,7 +4573,7 @@ export default function InternalDashboardPage() {
               })()}
 
               {/* --- ACCOUNTANT HR & PAYROLL MANAGEMENT --- */}
-              {(activeTab === 'accountant-hr-payroll' || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'payroll')) && currentUser.role === 'accountant' && (
+              {(activeTab === 'accountant-hr-payroll' || activeTab === 'finance-payroll' || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'payroll')) && currentUser.role === 'accountant' && (
                 <div>
                   <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-2 uppercase">Nhân sự & Lương bổng toàn doanh nghiệp</h3>
                   <p className="text-xs text-neutral-400 mb-8">Đăng ký tài khoản cho nhân sự mới, cho nhân sự nghỉ việc, tạo bảng lương hàng tháng và phê duyệt thanh toán.</p>
@@ -4590,7 +4916,7 @@ export default function InternalDashboardPage() {
               )}
 
               {/* --- ACCOUNTANT GLOBAL FINANCE (EXPENSES & PRODUCT P&L & PRODUCT CRUD) --- */}
-              {(activeTab === 'accountant-global-finance' || (activeTab === 'finance-profit' && financeProfitSubTab === 'p-l')) && currentUser.role === 'accountant' && (() => {
+              {(activeTab === 'accountant-global-finance' || activeTab === 'finance-p-l' || (activeTab === 'finance-profit' && financeProfitSubTab === 'p-l')) && currentUser.role === 'accountant' && (() => {
                 const ledger = productsList.map((product: any) => {
                   const soldQty = allOrders
                     .filter((o: any) => o.status === 'completed')
@@ -5383,7 +5709,7 @@ export default function InternalDashboardPage() {
                 );
               })()}
 
-              {(activeTab === 'accountant-operations' || (activeTab === 'products-inventory' && productsInventorySubTab === 'restock')) && ['director', 'accountant'].includes(currentUser.role) && (() => {
+              {(activeTab === 'accountant-operations' || activeTab === 'restock' || (activeTab === 'products-inventory' && productsInventorySubTab === 'restock')) && ['director', 'accountant'].includes(currentUser.role) && (() => {
                 return (
                   <div>
                     <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-2 uppercase">Kiểm kho & Báo cáo vận hành</h3>
@@ -5493,10 +5819,10 @@ export default function InternalDashboardPage() {
                           </thead>
                           <tbody className="divide-y divide-neutral-50 font-medium text-neutral-700">
                             {productsList.map((p: any) => {
-                              const q1Stock = branchStock[p.id]?.['Chi nhánh Quận 1'] || 0;
-                              const tdStock = branchStock[p.id]?.['Chi nhánh Thảo Điền'] || 0;
-                              const q1Sizes = branchSizeStock[p.id]?.['Chi nhánh Quận 1'] || {};
-                              const tdSizes = branchSizeStock[p.id]?.['Chi nhánh Thảo Điền'] || {};
+                              const q1Stock = branchStock?.[p.id]?.['Chi nhánh Quận 1'] || 0;
+                              const tdStock = branchStock?.[p.id]?.['Chi nhánh Thảo Điền'] || 0;
+                              const q1Sizes = branchSizeStock?.[p.id]?.['Chi nhánh Quận 1'] || {};
+                              const tdSizes = branchSizeStock?.[p.id]?.['Chi nhánh Thảo Điền'] || {};
                               const sizes = p.sizes && p.sizes.length > 0 ? p.sizes : ['S', 'M', 'L', 'XL'];
                               const isLow = q1Stock < 5 || tdStock < 5;
                               return (
@@ -5663,7 +5989,7 @@ export default function InternalDashboardPage() {
               })()}
 
               {/* --- OPERATING EXPENSES CONSOLE --- */}
-              {((activeTab === 'finance-profit' && financeProfitSubTab === 'costs') || activeTab === 'costs') && ['director', 'accountant'].includes(currentUser.role) && (
+              {((activeTab === 'finance-profit' && financeProfitSubTab === 'costs') || activeTab === 'costs' || activeTab === 'finance-costs') && ['director', 'accountant', 'manager'].includes(currentUser.role) && (
                 <div>
                   <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-2 uppercase">Ghi nhận & Quản lý chi phí vận hành</h3>
                   <p className="text-xs text-neutral-400 mb-8">Khai báo các khoản chi tiêu thực tế của chuỗi cửa hàng, quản lý dòng tiền chi ra và đối soát hoá đơn vận hành.</p>
@@ -5777,7 +6103,7 @@ export default function InternalDashboardPage() {
 
               {/* --- CSKH CUSTOMERS & VIP TIER SEARCH --- */}
               {/* --- CSKH LIVE CHAT PANEL --- */}
-              {(activeTab === 'cskh-live-chat' || (activeTab === 'sales-orders' && salesOrdersSubTab === 'chat')) && currentUser.role === 'cskh' && (() => {
+              {(activeTab === 'cskh-hub' || activeTab === 'cskh-live-chat' || (activeTab === 'sales-orders' && salesOrdersSubTab === 'chat')) && ['cskh', 'director', 'manager'].includes(currentUser.role) && (() => {
                 const allActiveSessions = [...waitingSessions, ...activeSessions];
                 const selectedSession = selectedChatSessionId ? chatSessions.find(s => s.id === selectedChatSessionId) : null;
 
@@ -6033,7 +6359,7 @@ export default function InternalDashboardPage() {
                 );
               })()}
 
-              {(activeTab === 'cskh-customers' || (activeTab === 'customers' && customersSubTab === 'list' && ['director', 'manager', 'accountant', 'cskh'].includes(currentUser.role))) && (
+              {(activeTab === 'customers-list' || activeTab === 'cskh-customers' || (activeTab === 'customers' && customersSubTab === 'list')) && ['director', 'manager', 'accountant', 'cskh'].includes(currentUser.role) && (
                 <div>
                   <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-2 uppercase">Quản lý Khách hàng & Loyalty Tiers</h3>
                   <p className="text-xs text-neutral-400 mb-8">Tra cứu nhanh hồ sơ khách hàng, phân hạng VIP Loyalty Program và kích hoạt quyền lợi chăm sóc đặc biệt.</p>
@@ -6105,7 +6431,7 @@ export default function InternalDashboardPage() {
               )}
 
               {/* --- CSKH ORDERS STATUS UPDATE --- */}
-              {(activeTab === 'cskh-orders' || (activeTab === 'sales-orders' && salesOrdersSubTab === 'list')) && ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier'].includes(currentUser.role) && (
+              {(activeTab === 'sales-orders-list' || activeTab === 'cskh-orders' || (activeTab === 'sales-orders' && salesOrdersSubTab === 'list')) && ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier'].includes(currentUser.role) && (
                 <div>
                   <h3 className="text-lg font-black text-neutral-950 tracking-tight mb-2 uppercase">Quản lý Đơn hàng & Giao dịch</h3>
                   <p className="text-xs text-neutral-400 mb-8">Tra cứu, theo dõi và cập nhật trạng thái đơn giao nhận cho toàn hệ thống.</p>
@@ -6528,43 +6854,209 @@ export default function InternalDashboardPage() {
               )}
 
               {/* --- CSKH REVIEWS READER --- */}
-              {(activeTab === 'cskh-reviews' || (activeTab === 'customers' && customersSubTab === 'reviews')) && ['director', 'cskh'].includes(currentUser.role) && (
+              {(activeTab === 'reviews' || activeTab === 'cskh-reviews' || (activeTab === 'customers' && customersSubTab === 'reviews')) && ['director', 'manager', 'cskh'].includes(currentUser.role) && (
                 <div>
-                  <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-2 uppercase">Ý kiến & Phản hồi Khách hàng</h3>
-                  <p className="text-xs text-neutral-400 mb-8">Theo dõi đánh giá chất lượng sản phẩm và phản hồi của người mua thực tế để cải tiến chất lượng dịch vụ.</p>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                      <h3 className="text-lg font-black text-neutral-900 tracking-tight mb-1 uppercase">Ý kiến & Phản hồi Khách hàng</h3>
+                      <p className="text-xs text-neutral-400">Theo dõi đánh giá chất lượng sản phẩm và phản hồi của người mua thực tế để cải tiến chất lượng dịch vụ.</p>
+                    </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[
-                      { id: 'rev-1', user: 'Lâm Khánh Vy', rating: 5, date: '2026-05-28', product: 'Áo Sơ Mi Linen Cao Cấp', content: 'Vải mặc cực kỳ mát, thấm hút mồ hôi tốt. Phom dáng rộng rãi thoải mái cực kỳ sang trọng!', status: 'verified' },
-                      { id: 'rev-2', user: 'Trần Văn Mỹ', rating: 5, date: '2026-05-27', product: 'Áo Khoác Blazer Relaxed Fit', content: 'Blazer phom đẹp, đứng dáng. Đường may tỉ mỉ, chất lượng Quiet Luxury đúng nghĩa.', status: 'verified' },
-                      { id: 'rev-3', user: 'Nguyễn Thị Lan', rating: 4, date: '2026-05-26', product: 'Quần tây nam Linen', content: 'Chất vải linen dệt thô mộc đẹp, mặc nhẹ tênh. Màu sắc nhã nhặn dễ phối đồ.', status: 'verified' },
-                      { id: 'rev-4', user: 'Đỗ Hoàng Anh', rating: 5, date: '2026-05-25', product: 'Đầm lụa Premium Silk', content: 'Đầm mặc lên tôn dáng lắm ạ, lụa mềm mại cực mát mẻ. Thích hợp đi tiệc nhẹ.', status: 'verified' }
-                    ].map((rev) => (
-                      <div key={rev.id} className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-sm flex flex-col justify-between gap-4">
-                        <div>
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h4 className="text-xs font-black text-neutral-900">{rev.user}</h4>
-                              <p className="text-[9px] text-neutral-400 font-semibold">{rev.date} • {rev.product}</p>
-                            </div>
-                            <span className="bg-emerald-50 text-emerald-605 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border border-emerald-100">Đã mua hàng</span>
-                          </div>
-                          
-                          <div className="flex gap-0.5 mb-2.5">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`w-3.5 h-3.5 ${
-                                  i < rev.rating ? 'text-amber-400 fill-amber-400' : 'text-neutral-200'
-                                }`}
-                              />
-                            ))}
-                          </div>
-
-                          <p className="text-xs italic text-neutral-650 leading-relaxed font-medium bg-neutral-50/50 p-3 rounded-2xl border border-neutral-50">&ldquo;{rev.content}&rdquo;</p>
-                        </div>
+                    {/* Overall Metrics Pill */}
+                    <div className="flex items-center gap-3 bg-amber-50/60 border border-amber-200/80 px-4 py-2 rounded-2xl">
+                      <div className="flex items-center gap-1 text-amber-500">
+                        <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                        <span className="text-base font-black text-neutral-900">4.8</span>
+                        <span className="text-xs text-neutral-400 font-bold">/ 5.0</span>
                       </div>
-                    ))}
+                      <div className="h-6 w-px bg-amber-200" />
+                      <span className="text-xs font-bold text-neutral-700">98.2% Hài lòng</span>
+                    </div>
+                  </div>
+
+                  {/* Summary Bento Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-white p-4 rounded-2xl border border-neutral-100 shadow-sm">
+                      <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider block mb-1">Tổng lượt đánh giá</span>
+                      <span className="text-xl font-black text-neutral-900">248</span>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl border border-neutral-100 shadow-sm">
+                      <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider block mb-1">Đánh giá 5 sao</span>
+                      <span className="text-xl font-black text-emerald-600">216 <span className="text-xs font-normal text-neutral-400">(87%)</span></span>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl border border-neutral-100 shadow-sm">
+                      <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider block mb-1">Đã phản hồi CSKH</span>
+                      <span className="text-xl font-black text-sky-600">100%</span>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl border border-neutral-100 shadow-sm">
+                      <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider block mb-1">Tỷ lệ khiếu nại</span>
+                      <span className="text-xl font-black text-rose-500">0.8%</span>
+                    </div>
+                  </div>
+
+                  {/* Filter & Search Bar */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
+                    <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                      {[
+                        { id: 'all', label: 'Tất cả (248)' },
+                        { id: '5', label: '5 Sao ★★★★★' },
+                        { id: '4', label: '4 Sao ★★★★' },
+                        { id: 'low', label: '≤ 3 Sao' },
+                      ].map(f => (
+                        <button
+                          key={f.id}
+                          onClick={() => setReviewRatingFilter(f.id as any)}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                            reviewRatingFilter === f.id
+                              ? 'bg-neutral-900 text-white shadow-sm'
+                              : 'bg-white text-neutral-500 border border-neutral-200 hover:text-neutral-800'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="relative w-full sm:w-64">
+                      <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Tìm tên khách, sản phẩm..."
+                        value={reviewSearchQuery}
+                        onChange={(e) => setReviewSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-neutral-200 text-xs bg-white text-neutral-800 focus:outline-none focus:border-neutral-900"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Reviews Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {(() => {
+                      const allReviews = [
+                        { id: 'rev-1', user: 'Lâm Khánh Vy', rating: 5, date: '2026-05-28', product: 'Áo Sơ Mi Linen Cao Cấp', content: 'Vải mặc cực kỳ mát, thấm hút mồ hôi tốt. Phom dáng rộng rãi thoải mái cực kỳ sang trọng!', status: 'verified', branch: 'Chi nhánh Quận 1' },
+                        { id: 'rev-2', user: 'Trần Văn Mỹ', rating: 5, date: '2026-05-27', product: 'Áo Khoác Blazer Relaxed Fit', content: 'Blazer phom đẹp, đứng dáng. Đường may tỉ mỉ, chất lượng Quiet Luxury đúng nghĩa.', status: 'verified', branch: 'Chi nhánh Thảo Điền' },
+                        { id: 'rev-3', user: 'Nguyễn Thị Lan', rating: 4, date: '2026-05-26', product: 'Quần tây nam Linen', content: 'Chất vải linen dệt thô mộc đẹp, mặc nhẹ tênh. Màu sắc nhã nhặn dễ phối đồ.', status: 'verified', branch: 'Chi nhánh Quận 1' },
+                        { id: 'rev-4', user: 'Đỗ Hoàng Anh', rating: 5, date: '2026-05-25', product: 'Đầm lụa Premium Silk', content: 'Đầm mặc lên tôn dáng lắm ạ, lụa mềm mại cực mát mẻ. Thích hợp đi tiệc nhẹ.', status: 'verified', branch: 'Chi nhánh Thảo Điền' },
+                        { id: 'rev-5', user: 'Hoàng Minh Quân', rating: 4, date: '2026-05-24', product: 'Áo Polo Dệt Kim Silk Knit', content: 'Chất vải mát, dệt knit mịn đẹp. Giao hàng nhanh, đóng gói hộp cứng rất sang trọng.', status: 'verified', branch: 'Chi nhánh Quận 1' },
+                        { id: 'rev-6', user: 'Phạm Phương Thảo', rating: 5, date: '2026-05-23', product: 'Chân váy Midi Lụa Xếp Ly', content: 'Váy bay bổng nhẹ nhàng, màu be pastel cực kỳ dễ phối cùng blazer hoặc sơ mi.', status: 'verified', branch: 'Chi nhánh Thảo Điền' }
+                      ];
+
+                      const filtered = allReviews.filter(r => {
+                        if (reviewRatingFilter === '5' && r.rating !== 5) return false;
+                        if (reviewRatingFilter === '4' && r.rating !== 4) return false;
+                        if (reviewRatingFilter === 'low' && r.rating > 3) return false;
+                        if (reviewSearchQuery.trim()) {
+                          const q = reviewSearchQuery.toLowerCase();
+                          return r.user.toLowerCase().includes(q) || r.product.toLowerCase().includes(q) || r.content.toLowerCase().includes(q);
+                        }
+                        return true;
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="col-span-full bg-neutral-50 rounded-3xl p-10 text-center text-neutral-400">
+                            <Star className="w-8 h-8 text-neutral-300 mx-auto mb-2 opacity-50" />
+                            <p className="text-xs font-bold">Không tìm thấy đánh giá nào phù hợp với bộ lọc.</p>
+                          </div>
+                        );
+                      }
+
+                      return filtered.map((rev) => {
+                        const reply = reviewReplies[rev.id];
+                        const isReplying = activeReplyId === rev.id;
+
+                        return (
+                          <div key={rev.id} className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-sm flex flex-col justify-between gap-4 hover:border-neutral-200 transition-all">
+                            <div>
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <h4 className="text-xs font-black text-neutral-900">{rev.user}</h4>
+                                  <p className="text-[9px] text-neutral-400 font-semibold mt-0.5">{rev.date} • {rev.product} • <span className="text-neutral-500 font-medium">{rev.branch}</span></p>
+                                </div>
+                                <span className="bg-emerald-50 text-emerald-650 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border border-emerald-100">Đã mua hàng</span>
+                              </div>
+                              
+                              <div className="flex gap-0.5 mb-2.5">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`w-3.5 h-3.5 ${
+                                      i < rev.rating ? 'text-amber-400 fill-amber-400' : 'text-neutral-200'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+
+                              <p className="text-xs italic text-neutral-700 leading-relaxed font-medium bg-neutral-50/60 p-3 rounded-2xl border border-neutral-100">&ldquo;{rev.content}&rdquo;</p>
+
+                              {/* Official CSKH Reply Box */}
+                              {reply && (
+                                <div className="mt-3 bg-sky-50/60 border border-sky-100 p-3 rounded-2xl text-[11px] text-sky-950 font-medium flex items-start gap-2">
+                                  <MessageSquare className="w-3.5 h-3.5 text-sky-500 shrink-0 mt-0.5" />
+                                  <div>
+                                    <span className="font-bold text-[10px] text-sky-700 uppercase tracking-wider block mb-0.5">Phản hồi từ CSKH NOVYN:</span>
+                                    <span>{reply}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Reply Form */}
+                              {isReplying && (
+                                <div className="mt-3 space-y-2">
+                                  <textarea
+                                    rows={2}
+                                    placeholder="Nhập nội dung phản hồi chính thức từ CSKH..."
+                                    value={replyInput[rev.id] || ''}
+                                    onChange={(e) => setReplyInput(prev => ({ ...prev, [rev.id]: e.target.value }))}
+                                    className="w-full p-2.5 text-xs border border-neutral-200 rounded-xl focus:outline-none focus:border-neutral-900 bg-neutral-50 text-neutral-900"
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveReplyId(null)}
+                                      className="px-2.5 py-1 text-[10px] font-bold text-neutral-500 hover:text-neutral-800"
+                                    >
+                                      Hủy
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (replyInput[rev.id]?.trim()) {
+                                          setReviewReplies(prev => ({ ...prev, [rev.id]: replyInput[rev.id].trim() }));
+                                          setActiveReplyId(null);
+                                          showToast('Đã gửi phản hồi CSKH tới khách hàng!', 'success');
+                                        }
+                                      }}
+                                      className="px-3 py-1 bg-neutral-900 text-white rounded-lg text-[10px] font-bold hover:bg-neutral-800 transition-colors cursor-pointer"
+                                    >
+                                      Gửi phản hồi
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {!isReplying && (
+                              <div className="pt-2 border-t border-neutral-50 flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveReplyId(rev.id);
+                                    if (reply && !replyInput[rev.id]) {
+                                      setReplyInput(prev => ({ ...prev, [rev.id]: reply }));
+                                    }
+                                  }}
+                                  className="text-[10px] font-bold text-neutral-500 hover:text-neutral-900 flex items-center gap-1 cursor-pointer transition-colors"
+                                >
+                                  <MessageSquare className="w-3 h-3" />
+                                  <span>{reply ? 'Sửa phản hồi CSKH' : 'Viết phản hồi CSKH'}</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               )}

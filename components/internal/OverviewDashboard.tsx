@@ -521,15 +521,24 @@ export default function OverviewDashboard({
               <div className="space-y-4">
                 {announcements
                   .filter((ann: any) => {
+                    if (currentUser.role === 'director') return true;
                     if (ann.recipientType === 'all') return true;
-                    if (ann.recipientType === 'branch_q1' && currentUser.branch === 'Chi nhánh Quận 1') return true;
-                    if (ann.recipientType === 'branch_td' && currentUser.branch === 'Chi nhánh Thảo Điền') return true;
+                    if (ann.recipientType === 'accountant' && (currentUser.role === 'accountant' || currentUser.role === 'director')) return true;
+                    if (ann.recipientType === 'branch_q1' && (currentUser.branch === 'Chi nhánh Quận 1' || currentUser.role === 'director')) return true;
+                    if (ann.recipientType === 'branch_td' && (currentUser.branch === 'Chi nhánh Thảo Điền' || currentUser.role === 'director')) return true;
                     return false;
                   })
-                  .slice(0, 3)
+                  .slice(0, 5)
                   .map((ann: any) => (
                     <div key={ann.id} className="bg-brand-bg/50 border border-brand-border p-4 rounded-xl">
-                      <h4 className="text-xs font-bold text-brand-accent mb-1">{ann.title}</h4>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <h4 className="text-xs font-bold text-brand-accent">{ann.title}</h4>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">
+                          {ann.recipientType === 'all' ? 'Toàn hệ thống' :
+                           ann.recipientType === 'branch_q1' ? 'Showroom Q.1' :
+                           ann.recipientType === 'branch_td' ? 'Showroom Thảo Điền' : 'Phòng Kế toán'}
+                        </span>
+                      </div>
                       <p className="text-[11px] text-brand-muted leading-relaxed whitespace-pre-line">{ann.content}</p>
                       <span className="text-[8px] text-brand-muted font-bold block mt-2">
                         Người gửi: {ann.senderName} • {ann.createdAt}
@@ -537,9 +546,11 @@ export default function OverviewDashboard({
                     </div>
                   ))}
                 {announcements.filter((ann: any) => {
+                  if (currentUser.role === 'director') return true;
                   if (ann.recipientType === 'all') return true;
-                  if (ann.recipientType === 'branch_q1' && currentUser.branch === 'Chi nhánh Quận 1') return true;
-                  if (ann.recipientType === 'branch_td' && currentUser.branch === 'Chi nhánh Thảo Điền') return true;
+                  if (ann.recipientType === 'accountant' && (currentUser.role === 'accountant' || currentUser.role === 'director')) return true;
+                  if (ann.recipientType === 'branch_q1' && (currentUser.branch === 'Chi nhánh Quận 1' || currentUser.role === 'director')) return true;
+                  if (ann.recipientType === 'branch_td' && (currentUser.branch === 'Chi nhánh Thảo Điền' || currentUser.role === 'director')) return true;
                   return false;
                 }).length === 0 && (
                   <p className="text-xs text-brand-muted italic text-center py-6">Hôm nay không có thông tri mới.</p>

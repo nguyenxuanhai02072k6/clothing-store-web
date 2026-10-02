@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import {
   LayoutGrid,
   ShoppingBag,
@@ -26,7 +27,11 @@ import {
   Star,
   Calendar,
   TrendingUp,
-  ClipboardCheck
+  ClipboardCheck,
+  AlertTriangle,
+  MessageSquare,
+  Sparkles,
+  FileSpreadsheet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -36,14 +41,17 @@ export interface MenuItem {
   icon: React.ComponentType<any>;
   allowedRoles?: string[];
   badgeKey?: 'pendingOrders' | 'lowStock' | 'announcements' | 'pendingHr';
+  workspace?: 'pos' | 'cskh' | 'warehouse' | 'finance' | 'management';
 }
 
 export interface MenuGroup {
   title: string;
+  workspace?: 'pos' | 'cskh' | 'warehouse' | 'finance' | 'management';
+  allowedRoles?: string[];
   items: MenuItem[];
 }
 
-interface AppSidebarProps {
+export interface AppSidebarProps {
   currentUser: any;
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -61,57 +69,73 @@ interface AppSidebarProps {
 export const menuGroups: MenuGroup[] = [
   {
     title: 'TỔNG QUAN',
+    workspace: 'management',
+    allowedRoles: ['director', 'manager'],
     items: [
-      { id: 'overview', name: 'Dashboard', icon: LayoutGrid }
+      { id: 'overview', name: 'Dashboard', icon: LayoutGrid, workspace: 'management' }
     ]
   },
   {
-    title: 'BÁN HÀNG',
+    title: 'BÁN HÀNG & POS',
+    workspace: 'pos',
+    allowedRoles: ['director', 'manager', 'employee', 'cashier'],
     items: [
-      { id: 'pos-sales', name: 'Tạo đơn hàng', icon: ShoppingBag, allowedRoles: ['director', 'manager', 'employee', 'cashier'] },
-      { id: 'sales-orders-list', name: 'Danh sách đơn hàng', icon: FileText, badgeKey: 'pendingOrders' },
-      { id: 'returns-exchange', name: 'Đổi trả', icon: RotateCcw, allowedRoles: ['director', 'manager', 'cskh', 'employee', 'cashier'] }
+      { id: 'pos-sales', name: 'Quầy POS Bán Lẻ', icon: ShoppingBag, allowedRoles: ['director', 'manager', 'employee', 'cashier'], workspace: 'pos' },
+      { id: 'sales-orders-list', name: 'Danh sách đơn hàng', icon: FileText, badgeKey: 'pendingOrders', workspace: 'pos' },
+      { id: 'finance-recon', name: 'Chốt ca & Đối soát két', icon: ClipboardCheck, allowedRoles: ['director', 'manager', 'accountant', 'cashier'], workspace: 'pos' }
     ]
   },
   {
-    title: 'HÀNG HÓA',
+    title: 'CSKH & CRM',
+    workspace: 'cskh',
+    allowedRoles: ['director', 'manager', 'cskh'],
     items: [
-      { id: 'products-database', name: 'Sản phẩm', icon: Box },
-      { id: 'stocker-inventory', name: 'Tồn kho', icon: Layers, badgeKey: 'lowStock' },
-      { id: 'restock', name: 'Nhập hàng', icon: FileDown, allowedRoles: ['director', 'manager', 'accountant'] },
-      { id: 'stocker-transfer', name: 'Điều chuyển', icon: ArrowRightLeft, allowedRoles: ['director', 'manager', 'stocker', 'accountant'] }
+      { id: 'cskh-hub', name: 'CSKH Console (Live Chat)', icon: MessageSquare, allowedRoles: ['director', 'manager', 'cskh'], workspace: 'cskh' },
+      { id: 'returns-exchange', name: 'Phiếu đổi trả & Khiếu nại', icon: RotateCcw, allowedRoles: ['director', 'manager', 'cskh', 'employee', 'cashier'], workspace: 'cskh' },
+      { id: 'customers-list', name: 'Khách hàng & Hạng VIP', icon: Crown, allowedRoles: ['director', 'manager', 'cskh', 'employee', 'cashier'], workspace: 'cskh' },
+      { id: 'reviews', name: 'Đánh giá từ khách', icon: Star, allowedRoles: ['director', 'cskh', 'manager'], workspace: 'cskh' },
+      { id: 'ai-copilot', name: 'Trợ lý AI Marketing', icon: Sparkles, allowedRoles: ['director', 'manager', 'cskh'], workspace: 'cskh' }
     ]
   },
   {
-    title: 'KHÁCH HÀNG',
+    title: 'KHO VẬN & HÀNG HÓA',
+    workspace: 'warehouse',
+    allowedRoles: ['director', 'manager', 'stocker', 'accountant'],
     items: [
-      { id: 'customers-list', name: 'Danh sách khách', icon: Users },
-      { id: 'customers-vip', name: 'Thành viên', icon: Crown },
-      { id: 'reviews', name: 'Đánh giá', icon: Star, allowedRoles: ['director', 'cskh'] }
+      { id: 'stocker-inventory', name: 'Tồn kho 2 chi nhánh', icon: Layers, badgeKey: 'lowStock', allowedRoles: ['director', 'manager', 'stocker', 'accountant', 'cashier', 'employee'], workspace: 'warehouse' },
+      { id: 'stocker-transfer', name: 'Điều chuyển kho', icon: ArrowRightLeft, allowedRoles: ['director', 'manager', 'stocker', 'accountant'], workspace: 'warehouse' },
+      { id: 'damaged-goods', name: 'Biên bản hàng lỗi', icon: AlertTriangle, allowedRoles: ['director', 'manager', 'stocker', 'cskh', 'accountant'], workspace: 'warehouse' },
+      { id: 'restock', name: 'Phiếu nhập hàng', icon: FileDown, allowedRoles: ['director', 'manager', 'stocker', 'accountant'], workspace: 'warehouse' }
     ]
   },
   {
-    title: 'VẬN HÀNH',
+    title: 'TÀI CHÍNH & KẾ TOÁN',
+    workspace: 'finance',
+    allowedRoles: ['director', 'manager', 'accountant'],
     items: [
-      { id: 'staff', name: 'Nhân viên', icon: Users, allowedRoles: ['director', 'manager', 'accountant'] },
-      { id: 'shifts', name: 'Lịch làm việc', icon: Calendar, badgeKey: 'pendingHr' },
-      { id: 'attendance', name: 'Chấm công', icon: Clock }
+      { id: 'finance-costs', name: 'Sổ quỹ Thu - Chi', icon: DollarSign, allowedRoles: ['director', 'manager', 'accountant'], workspace: 'finance' },
+      { id: 'finance-payroll', name: 'Bảng lương & Hoa hồng', icon: FileSpreadsheet, allowedRoles: ['director', 'manager', 'accountant'], workspace: 'finance' },
+      { id: 'finance-recon', name: 'Duyệt đối soát két POS', icon: ClipboardCheck, allowedRoles: ['director', 'manager', 'accountant'], workspace: 'finance' },
+      { id: 'finance-p-l', name: 'Báo cáo Lợi nhuận P&L', icon: TrendingUp, allowedRoles: ['director', 'manager', 'accountant'], workspace: 'finance' }
     ]
   },
   {
-    title: 'TÀI CHÍNH',
+    title: 'VẬN HÀNH & NHÂN SỰ',
+    workspace: 'management',
     items: [
-      { id: 'costs', name: 'Thu chi', icon: DollarSign, allowedRoles: ['director', 'manager', 'accountant'] },
-      { id: 'finance-profit', name: 'Lợi nhuận', icon: TrendingUp, allowedRoles: ['director', 'manager', 'accountant'] },
-      { id: 'recon', name: 'Đối soát', icon: ClipboardCheck, allowedRoles: ['director', 'accountant', 'cashier'] }
+      { id: 'staff-schedule', name: 'Lịch ca & Nhân sự', icon: Calendar, badgeKey: 'pendingHr', allowedRoles: ['director', 'manager', 'accountant'], workspace: 'management' },
+      { id: 'attendance', name: 'Chấm công & Ca trực', icon: Clock, workspace: 'management' }
     ]
   },
   {
-    title: 'HỆ THỐNG',
+    title: 'QUẢN TRỊ HỆ THỐNG',
+    workspace: 'management',
+    allowedRoles: ['director', 'manager', 'accountant'],
     items: [
-      { id: 'announcements', name: 'Thông báo', icon: Megaphone, allowedRoles: ['director', 'manager'], badgeKey: 'announcements' },
-      { id: 'settings', name: 'Cài đặt', icon: Settings, allowedRoles: ['director', 'manager', 'accountant'] },
-      { id: 'audit-logs', name: 'Nhật ký hoạt động', icon: History, allowedRoles: ['director'] },
+      { id: 'products-database', name: 'Danh mục & Bảng giá', icon: Box, allowedRoles: ['director', 'manager', 'accountant', 'employee', 'cashier', 'stocker', 'cskh'], workspace: 'management' },
+      { id: 'announcements', name: 'Thông báo điều hành', icon: Megaphone, allowedRoles: ['director', 'manager', 'accountant'], badgeKey: 'announcements', workspace: 'management' },
+      { id: 'audit-logs', name: 'Nhật ký an ninh', icon: History, allowedRoles: ['director'], workspace: 'management' },
+      { id: 'settings', name: 'Cài đặt thương hiệu', icon: Settings, allowedRoles: ['director', 'manager'], workspace: 'management' },
       { id: 'logout', name: 'Đăng xuất', icon: LogOut }
     ]
   }
@@ -182,6 +206,28 @@ export default function AppSidebar({
     }
   };
 
+  const isItemActive = (itemId: string) => {
+    if (activeTab === itemId) return true;
+    if (itemId === 'pos-sales' && (activeTab === 'pos-sales' || activeTab === 'pos')) return true;
+    if (itemId === 'sales-orders-list' && (activeTab === 'sales-orders-list' || activeTab === 'cskh-orders')) return true;
+    if (itemId === 'cskh-hub' && (activeTab === 'cskh-hub' || activeTab === 'cskh-live-chat')) return true;
+    if (itemId === 'returns-exchange' && (activeTab === 'returns-exchange' || activeTab === 'cskh-customers-tickets')) return true;
+    if (itemId === 'customers-list' && (activeTab === 'customers-list' || activeTab === 'customers' || activeTab === 'cskh-customers' || activeTab === 'customers-vip' || activeTab === 'cskh-customers-vip')) return true;
+    if (itemId === 'stocker-inventory' && (activeTab === 'stocker-inventory' || activeTab === 'branch-stock')) return true;
+    if (itemId === 'stocker-transfer' && activeTab === 'stocker-transfer') return true;
+    if (itemId === 'damaged-goods' && activeTab === 'damaged-goods') return true;
+    if (itemId === 'restock' && (activeTab === 'restock' || activeTab === 'manager-stock' || activeTab === 'accountant-operations')) return true;
+    if (itemId === 'finance-costs' && (activeTab === 'finance-costs' || activeTab === 'costs')) return true;
+    if (itemId === 'finance-payroll' && (activeTab === 'finance-payroll' || activeTab === 'staff' || activeTab === 'director-hr-payroll' || activeTab === 'accountant-hr-payroll' || activeTab === 'accountant-kpi-payroll')) return true;
+    if (itemId === 'finance-recon' && (activeTab === 'finance-recon' || activeTab === 'recon' || activeTab === 'accountant-finance-recon')) return true;
+    if (itemId === 'finance-p-l' && (activeTab === 'finance-p-l' || activeTab === 'finance-profit' || activeTab === 'director-global-finance' || activeTab === 'accountant-global-finance')) return true;
+    if (itemId === 'staff-schedule' && (activeTab === 'staff-schedule' || activeTab === 'shifts' || activeTab === 'manager-shift-overview' || activeTab === 'manager-staff-console')) return true;
+    if (itemId === 'attendance' && (activeTab === 'attendance' || activeTab === 'employee-shifts-clock' || activeTab === 'employee-hr-requests')) return true;
+    if (itemId === 'products-database' && activeTab === 'products-database') return true;
+    if (itemId === 'settings' && (activeTab === 'settings' || activeTab === 'settings-tab')) return true;
+    return false;
+  };
+
   const sidebarContent = (
     <div className="flex flex-col h-full bg-[#211D1A] text-[#766B63] select-none">
       {/* Brand Header */}
@@ -227,7 +273,14 @@ export default function AppSidebar({
           >
             <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#443833] shrink-0 bg-[#322A26]">
               {currentUser.avatar ? (
-                <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
+                <Image
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
+                  fill
+                  sizes="40px"
+                  className="object-cover"
+                  unoptimized
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[#FFFFFF] font-black text-sm">
                   {currentUser.name.charAt(0)}
@@ -247,6 +300,9 @@ export default function AppSidebar({
       {/* Menu Groups */}
       <div className="flex-1 overflow-y-auto py-5 px-3 space-y-6 scrollbar-thin scrollbar-thumb-[#322A26] scrollbar-track-transparent">
         {menuGroups.map((group) => {
+          if (group.allowedRoles && currentUser && !group.allowedRoles.includes(currentUser.role)) {
+            return null;
+          }
           const visibleItems = group.items.filter(hasAccess);
           if (visibleItems.length === 0) return null;
 
@@ -279,7 +335,7 @@ export default function AppSidebar({
                   >
                     {visibleItems.map((item) => {
                       const Icon = item.icon;
-                      const isActive = activeTab === item.id;
+                      const isActive = isItemActive(item.id);
                       const badgeValue = getBadgeValue(item.badgeKey);
                       const isLogout = item.id === 'logout';
 

@@ -31,11 +31,27 @@ import {
   Tag,
   Settings,
   Edit2,
-  Plus
+  Plus,
+  Printer,
+  Filter,
+  StickyNote,
+  Zap,
+  ArrowRightLeft,
+  Truck,
+  XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatPrice } from '../../lib/utils';
 import { useCart } from '../../context/CartContext';
+import {
+  updateCRMClientLoyaltyAction,
+  createInventoryTransferAction,
+  updateInventoryTransferStatusAction,
+  createDamagedGoodAction,
+  createCSKHTicketAction,
+  updateCSKHTicketStatusAction,
+  createCashReconciliationAction,
+} from '../../lib/actions/erpActions';
 
 interface ERPSubsystemsProps {
   activeTab: string;
@@ -44,6 +60,8 @@ interface ERPSubsystemsProps {
   productsList: any[];
   branchStock: any;
   restockBranchProduct: any;
+  refreshInventoryStocks?: () => Promise<void>;
+  onSwitchToTransferTab?: () => void;
   allOrders: any[];
   createOrder: any;
   payrollRecords: any[];
@@ -178,6 +196,8 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
   productsList,
   branchStock,
   restockBranchProduct,
+  refreshInventoryStocks,
+  onSwitchToTransferTab,
   allOrders,
   createOrder,
   payrollRecords,
@@ -307,9 +327,41 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
   // Call useCart to manage dynamic coupons
   const { dynamicPromos, addDynamicPromoCode, deleteDynamicPromoCode } = useCart() as any;
 
-  // New local state hooks for P&L Sheet: Monthly/Quarterly filters
-  const [plPeriodType, setPlPeriodType] = useState<'monthly' | 'quarterly'>('monthly');
+  // New local state hooks for P&L Sheet: Monthly/Quarterly/Today/7days filters
+  const [plPeriodType, setPlPeriodType] = useState<'monthly' | 'quarterly' | 'today' | '7days'>('monthly');
   const [plSelectedPeriod, setPlSelectedPeriod] = useState('2026-06'); // E.g., '2026-06' or 'Q2 2026'
+
+  // Pro-forma bill modal state (In Phiếu Tạm Tính)
+  const [showProformaModal, setShowProformaModal] = useState(false);
+
+  // CSKH Priority & Ticket filter & VIP Notes
+  const [newTicketPriority, setNewTicketPriority] = useState<'urgent' | 'normal' | 'low'>('normal');
+  const [cskhTicketFilter, setCskhTicketFilter] = useState<'all' | 'urgent' | 'pending' | 'resolved'>('all');
+  const [crmClientNotes, setCrmClientNotes] = useState<Record<string, string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('novyn_crm_client_notes');
+      if (saved) {
+        try { return JSON.parse(saved); } catch (e) {}
+      }
+    }
+    return {
+      'crm-1': 'Thích tone màu Beige/Oatmeal, form rộng, hay mua combo áo + quần',
+      'crm-2': 'Thường mặc size S, yêu cầu gói quà cẩn thận, hay ghé showroom Q1 cuối tuần',
+      'crm-3': 'Khách VIP thân thiết từ 2024, quan tâm BST Linen cao cấp, ưu tiên liên hệ qua Zalo'
+    };
+  });
+  const [editingNoteClientId, setEditingNoteClientId] = useState<string | null>(null);
+  const [tempNoteText, setTempNoteText] = useState('');
+
+  // Stocker inventory search and stock range filter
+  const [stockerSearchQuery, setStockerSearchQuery] = useState('');
+  const [stockerRangeFilter, setStockerRangeFilter] = useState<'all' | 'urgent' | 'warning' | 'safe'>('all');
+
+  // Stocker transfers & damaged goods filters
+  const [transferSearchQuery, setTransferSearchQuery] = useState('');
+  const [transferStatusFilter, setTransferStatusFilter] = useState<'all' | 'shipping' | 'received' | 'cancelled'>('all');
+  const [damageSearchQuery, setDamageSearchQuery] = useState('');
+  const [damageBranchFilter, setDamageBranchFilter] = useState<string>('all');
 
   // Local state for held POS orders (đơn tạm thời) và bộ lọc danh mục
   const [posSelectedCategory, setPosSelectedCategory] = useState<string>('all');
@@ -600,6 +652,9 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
       });
       setCrmClients(updatedCrm);
       localStorage.setItem('novyn_crm_clients', JSON.stringify(updatedCrm));
+      updateCRMClientLoyaltyAction(posSelectedCustomer.id, posTotal).catch(err => {
+        console.error('Error persisting CRM loyalty:', err);
+      });
     }
 
     // Deduct stock
@@ -644,62 +699,112 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
   };
 
   // Branch transfers
-  const handleCreateTransfer = () => {
+  const handleCreateTransfer = async () => {
     if (!newTransferProductId || !newTransferColor) {
-      showToast('Vui lòng chọn sản phẩm và màu sắc!', 'error');
+      showToast('Vui lòng chọn sản phẩm và màu sắc cần chuyển!', 'error');
       return;
     }
     if (newTransferFrom === newTransferTo) {
-      showToast('Chi nhánh nguồn và đích không được trùng nhau!', 'error');
+      showToast('Chi nhánh nguồn và chi nhánh đích không được trùng nhau!', 'error');
+      return;
+    }
+    if (!newTransferQty || newTransferQty <= 0) {
+      showToast('Số lượng chuyển kho phải lớn hơn 0!', 'error');
       return;
     }
 
     const matched = productsList.find(p => p.id === newTransferProductId);
-    if (!matched) return;
-
-    const sourceStock = branchStock[newTransferProductId]?.[newTransferFrom] || 0;
-    if (sourceStock < newTransferQty) {
-      showToast(`Số lượng tồn khả dụng tại nguồn chỉ còn ${sourceStock} sản phẩm, không đủ chuyển!`, 'info');
+    if (!matched) {
+      showToast('Không tìm thấy thông tin sản phẩm!', 'error');
       return;
     }
 
-    const newTr = {
-      id: `TR-${Date.now().toString().slice(-5)}`,
-      productId: newTransferProductId,
-      productName: matched.name,
-      size: newTransferSize,
-      color: newTransferColor,
-      fromBranch: newTransferFrom,
-      toBranch: newTransferTo,
-      quantity: newTransferQty,
-      status: 'shipping' as const,
-      createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-    };
+    try {
+      const res = await createInventoryTransferAction({
+        productId: newTransferProductId,
+        productName: matched.name,
+        size: newTransferSize,
+        color: newTransferColor,
+        fromBranch: newTransferFrom,
+        toBranch: newTransferTo,
+        quantity: newTransferQty
+      });
 
-    // Subtract from source
-    restockBranchProduct(newTransferProductId, -newTransferQty, newTransferSize, newTransferFrom);
+      if (!res.success || !res.data) {
+        showToast(res.error || 'Lỗi khi tạo phiếu điều chuyển!', 'error');
+        return;
+      }
 
-    const updated = [newTr, ...transfers];
-    setTransfers(updated);
-    localStorage.setItem('novyn_stock_transfers', JSON.stringify(updated));
-    showToast('Đã tạo phiếu chuyển kho và đang vận chuyển!', 'success');
+      const updated = [res.data, ...transfers.filter(t => t.id !== res.data.id)];
+      setTransfers(updated);
+      localStorage.setItem('novyn_stock_transfers', JSON.stringify(updated));
+
+      // Refresh inventory stocks representation across entire app
+      if (refreshInventoryStocks) {
+        await refreshInventoryStocks();
+      }
+
+      showToast(`✓ Đã tạo phiếu chuyển kho ${res.data.id} và tự động khấu trừ ${newTransferQty} sp tại ${newTransferFrom}!`, 'success');
+    } catch (err: any) {
+      console.error('Error creating transfer:', err);
+      showToast(err.message || 'Lỗi tạo phiếu chuyển kho', 'error');
+    }
   };
 
-  const handleReceiveTransfer = (id: string) => {
+  const handleReceiveTransfer = async (id: string) => {
     const tr = transfers.find(t => t.id === id);
     if (!tr) return;
 
-    // Add to target
-    restockBranchProduct(tr.productId, tr.quantity, tr.size, tr.toBranch);
+    try {
+      const res = await updateInventoryTransferStatusAction(id, 'received');
+      if (!res.success) {
+        showToast(res.error || 'Lỗi khi xác nhận nhận hàng!', 'error');
+        return;
+      }
 
-    const updated = transfers.map(t => t.id === id ? { ...t, status: 'received' as const } : t);
-    setTransfers(updated);
-    localStorage.setItem('novyn_stock_transfers', JSON.stringify(updated));
-    showToast('✓ Đã xác nhận nhận hàng chuyển kho và cộng tồn kho!', 'success');
+      const updated = transfers.map(t => t.id === id ? { ...t, status: 'received' as const } : t);
+      setTransfers(updated);
+      localStorage.setItem('novyn_stock_transfers', JSON.stringify(updated));
+
+      if (refreshInventoryStocks) {
+        await refreshInventoryStocks();
+      }
+
+      showToast(`✓ Đã xác nhận nhận hàng chuyển kho ${id} thành công! Đã tự động cộng ${tr.quantity} sp vào ${tr.toBranch}.`, 'success');
+    } catch (err: any) {
+      console.error('Error receiving transfer:', err);
+      showToast(err.message || 'Lỗi xác nhận nhận hàng', 'error');
+    }
+  };
+
+  const handleCancelTransfer = async (id: string) => {
+    const tr = transfers.find(t => t.id === id);
+    if (!tr) return;
+
+    try {
+      const res = await updateInventoryTransferStatusAction(id, 'cancelled');
+      if (!res.success) {
+        showToast(res.error || 'Lỗi khi hủy phiếu chuyển kho!', 'error');
+        return;
+      }
+
+      const updated = transfers.map(t => t.id === id ? { ...t, status: 'cancelled' as const } : t);
+      setTransfers(updated);
+      localStorage.setItem('novyn_stock_transfers', JSON.stringify(updated));
+
+      if (refreshInventoryStocks) {
+        await refreshInventoryStocks();
+      }
+
+      showToast(`✓ Đã hủy phiếu chuyển kho ${id} và hoàn trả ${tr.quantity} sp về ${tr.fromBranch}!`, 'info');
+    } catch (err: any) {
+      console.error('Error cancelling transfer:', err);
+      showToast(err.message || 'Lỗi hủy phiếu chuyển kho', 'error');
+    }
   };
 
   // Damaged goods
-  const handleLogDamage = () => {
+  const handleLogDamage = async () => {
     if (!newDamageProductId || !newDamageColor) {
       showToast('Vui lòng chọn đầy đủ sản phẩm và màu sắc!', 'error');
       return;
@@ -708,32 +813,37 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
     const matched = productsList.find(p => p.id === newDamageProductId);
     if (!matched) return;
 
-    const branchName = currentUser.branch || 'Chi nhánh Quận 1';
-    const currentStock = branchStock[newDamageProductId]?.[branchName] || 0;
-    if (currentStock < newDamageQty) {
-      showToast(`Tồn kho của chi nhánh (${currentStock}) nhỏ hơn số hàng lỗi cần ghi nhận!`, 'info');
-      return;
+    const branchName = currentUser?.branch || 'Chi nhánh Quận 1';
+
+    try {
+      const res = await createDamagedGoodAction({
+        productId: newDamageProductId,
+        productName: matched.name,
+        size: newDamageSize,
+        color: newDamageColor,
+        branch: branchName,
+        quantity: newDamageQty,
+        issue: newDamageIssue
+      });
+
+      if (!res.success || !res.data) {
+        showToast(res.error || 'Lỗi khi ghi nhận hàng lỗi!', 'error');
+        return;
+      }
+
+      const updated = [res.data, ...damagedGoods.filter(d => d.id !== res.data.id)];
+      setDamagedGoods(updated);
+      localStorage.setItem('novyn_damaged_goods', JSON.stringify(updated));
+
+      if (refreshInventoryStocks) {
+        await refreshInventoryStocks();
+      }
+
+      showToast(`✓ Đã ghi nhận biên bản hàng lỗi và khấu trừ ${newDamageQty} sp tại ${branchName}!`, 'success');
+    } catch (err: any) {
+      console.error('Error logging damaged goods:', err);
+      showToast(err.message || 'Lỗi ghi nhận hàng lỗi', 'error');
     }
-
-    const newDm = {
-      id: `DM-${Date.now().toString().slice(-5)}`,
-      productId: newDamageProductId,
-      productName: matched.name,
-      size: newDamageSize,
-      color: newDamageColor,
-      branch: branchName,
-      quantity: newDamageQty,
-      issue: newDamageIssue,
-      createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-    };
-
-    // Subtract stock
-    restockBranchProduct(newDamageProductId, -newDamageQty, newDamageSize, branchName);
-
-    const updated = [newDm, ...damagedGoods];
-    setDamagedGoods(updated);
-    localStorage.setItem('novyn_damaged_goods', JSON.stringify(updated));
-    showToast('✓ Đã ghi nhận hàng lỗi và khấu trừ kho khả dụng thành công!', 'success');
   };
 
   // CSKH Tickets
@@ -744,11 +854,15 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
       return;
     }
 
+    const priorityPrefix = newTicketPriority === 'urgent' ? '[Khẩn cấp] ' : newTicketPriority === 'low' ? '[Thấp] ' : '[Bình thường] ';
+    const formattedDesc = `${priorityPrefix}${newTicketDesc}`;
+
     const newTk = {
       id: `TK-${Date.now().toString().slice(-4)}`,
       customerName: newTicketCustomerName,
       category: newTicketCategory,
-      description: newTicketDesc,
+      description: formattedDesc,
+      priority: newTicketPriority,
       status: 'pending' as const,
       createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
     };
@@ -756,16 +870,45 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
     const updated = [newTk, ...cskhTickets];
     setCskhTickets(updated);
     localStorage.setItem('novyn_cskh_tickets', JSON.stringify(updated));
+
+    createCSKHTicketAction({
+      customerName: newTicketCustomerName,
+      category: newTicketCategory,
+      description: formattedDesc
+    }).then(res => {
+      if (res.success && res.data) {
+        const synced = updated.map(t => t.id === newTk.id ? { ...t, id: res.data!.id } : t);
+        setCskhTickets(synced);
+        localStorage.setItem('novyn_cskh_tickets', JSON.stringify(synced));
+      }
+    }).catch(err => console.error('Error persisting CSKH ticket:', err));
     
     setNewTicketCustomerName('');
     setNewTicketDesc('');
+    setNewTicketPriority('normal');
     showToast('✓ Đã khởi tạo phiếu khiếu nại CSKH mới!', 'success');
+  };
+
+  const handleSaveClientNote = (clientId: string) => {
+    const updated = { ...crmClientNotes, [clientId]: tempNoteText.trim() };
+    setCrmClientNotes(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('novyn_crm_client_notes', JSON.stringify(updated));
+    }
+    setEditingNoteClientId(null);
+    setTempNoteText('');
+    showToast('✓ Đã lưu ghi chú sở thích khách hàng VIP!', 'success');
   };
 
   const handleResolveTicket = (id: string) => {
     const updated = cskhTickets.map(t => t.id === id ? { ...t, status: 'resolved' as const } : t);
     setCskhTickets(updated);
     localStorage.setItem('novyn_cskh_tickets', JSON.stringify(updated));
+
+    updateCSKHTicketStatusAction(id, 'resolved').catch(err => {
+      console.error('Error updating ticket in DB:', err);
+    });
+
     showToast('✓ Đã cập nhật trạng thái phiếu: Đã giải quyết!', 'success');
   };
 
@@ -790,6 +933,24 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
     const updated = [newRecon, ...cashReconciliations];
     setCashReconciliations(updated);
     localStorage.setItem('novyn_cash_reconciliation', JSON.stringify(updated));
+
+    createCashReconciliationAction({
+      date: newRecon.date,
+      branch: newRecon.branch,
+      cashierName: newRecon.cashierName,
+      expectedCash: newRecon.expectedCash,
+      actualCash: newRecon.actualCash,
+      discrepancy: newRecon.discrepancy,
+      notes: newRecon.notes,
+      status: 'approved'
+    }).then(res => {
+      if (res.success && res.data) {
+        const synced = updated.map(r => r.id === newRecon.id ? { ...r, id: res.data!.id } : r);
+        setCashReconciliations(synced);
+        localStorage.setItem('novyn_cash_reconciliation', JSON.stringify(synced));
+      }
+    }).catch(err => console.error('Error persisting cash reconciliation:', err));
+
     showToast('✓ Khóa sổ két và lưu phiếu đối soát két thành công!', 'success');
     setPosReconciliationNotes('');
   };
@@ -950,8 +1111,8 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                   .filter(p => p.name.toLowerCase().includes(posSearchQuery.toLowerCase()))
                   .filter(p => posSelectedCategory === 'all' || p.category === posSelectedCategory)
                   .map(prod => {
-                    const branchName = currentUser.branch || 'Chi nhánh Quận 1';
-                    const stock = branchStock[prod.id]?.[branchName] || 0;
+                    const branchName = currentUser?.branch || 'Chi nhánh Quận 1';
+                    const stock = branchStock?.[prod.id]?.[branchName] || 0;
 
                     return (
                       <div key={prod.id} className="bg-white border border-brand-border rounded-2xl p-3 flex gap-3 shadow-sm hover:border-neutral-800/40 transition-all hover:shadow-md duration-200">
@@ -1072,10 +1233,41 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                   <p className="text-xs text-neutral-400 italic text-center py-10">POS giỏ hàng đang trống.</p>
                 ) : (
                   posCart.map(item => (
-                    <div key={item.id} className="flex justify-between items-center gap-2 text-xs">
+                    <div key={item.id} className="flex justify-between items-center gap-2 text-xs py-1 border-b border-neutral-100 last:border-0">
                       <div className="min-w-0 flex-grow">
                         <span className="font-bold text-neutral-900 block truncate">{item.product.name}</span>
-                        <span className="text-[9px] text-neutral-450 font-mono">SKU: {item.sku}</span>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <span className="text-[9px] text-neutral-450 font-mono">SKU: {item.sku}</span>
+                          {item.size && (
+                            <span className="text-[8.5px] bg-neutral-100 text-neutral-600 px-1 rounded font-bold">Size: {item.size}</span>
+                          )}
+                          {(() => {
+                            const branchName = currentUser?.branch || 'Chi nhánh Quận 1';
+                            const stock = branchStock?.[item.product.id]?.[branchName] ?? 10;
+                            if (stock === 0) {
+                              return (
+                                <span className="text-[8px] bg-rose-50 text-rose-600 border border-rose-200 px-1 py-0.2 rounded font-black uppercase tracking-wider">
+                                  Hết hàng quầy
+                                </span>
+                              );
+                            }
+                            if (item.quantity > stock) {
+                              return (
+                                <span className="text-[8px] bg-rose-100 text-rose-700 border border-rose-300 px-1 py-0.2 rounded font-black uppercase tracking-wider">
+                                  Vượt tồn ({stock})
+                                </span>
+                              );
+                            }
+                            if (stock < 3) {
+                              return (
+                                <span className="text-[8px] bg-amber-50 text-amber-700 border border-amber-200 px-1 py-0.2 rounded font-bold uppercase tracking-wider">
+                                  Tồn ít: {stock}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       </div>
                       
                       {/* Quantity change buttons */}
@@ -1113,6 +1305,51 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                     </div>
                   ))
                 )}
+              </div>
+
+              {/* Quick Cross-sell & Upsell Add-ons Bar */}
+              <div className="bg-gradient-to-r from-rose-50/70 to-amber-50/70 border border-rose-150/80 rounded-2xl p-3 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-rose-900 flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
+                    Gợi ý bán kèm tại quầy (Cross-sell & Upsell)
+                  </span>
+                  <span className="text-[8px] font-bold text-neutral-450">+ AOV</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'cross-socks', name: 'Vớ Cotton Khử Mùi', price: 49000, sku: 'ACC-SOCK-01' },
+                    { id: 'cross-spray', name: 'Xịt Thơm Vải Novyn', price: 129000, sku: 'CARE-SPR-01' },
+                    { id: 'cross-scarf', name: 'Khăn Lụa Vuông Tơ', price: 189000, sku: 'ACC-SCRF-01' }
+                  ].map(crossItem => (
+                    <button
+                      key={crossItem.id}
+                      type="button"
+                      onClick={() => {
+                        const existing = posCart.find(i => i.id === crossItem.id);
+                        if (existing) {
+                          setPosCart(posCart.map(i => i.id === crossItem.id ? { ...i, quantity: i.quantity + 1 } : i));
+                        } else {
+                          setPosCart([...posCart, {
+                            id: crossItem.id,
+                            product: { id: crossItem.id, name: crossItem.name, price: crossItem.price, images: ['/brand/logo.png'] },
+                            size: 'F',
+                            color: 'Standard',
+                            quantity: 1,
+                            price: crossItem.price,
+                            sku: crossItem.sku
+                          }]);
+                        }
+                        showToast(`✓ Đã thêm ${crossItem.name} vào giỏ!`, 'success');
+                      }}
+                      className="p-1.5 bg-white hover:bg-rose-500 hover:text-white border border-rose-200/70 rounded-xl text-left transition-all group cursor-pointer shadow-xs"
+                    >
+                      <span className="text-[9px] font-bold block truncate group-hover:text-white text-neutral-850">{crossItem.name}</span>
+                      <span className="text-[8.5px] font-mono font-black text-rose-600 group-hover:text-white/90 block mt-0.5">{formatPrice(crossItem.price)}</span>
+                      <span className="text-[7.5px] font-bold uppercase tracking-wider text-neutral-400 group-hover:text-white/80 block mt-0.5">+ Thêm</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* VIP Customer Membership syncing */}
@@ -1224,16 +1461,115 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                 </div>
               )}
 
-              {/* Checkout CTA */}
-              <button
-                onClick={handleCheckoutPOS}
-                disabled={posCart.length === 0}
-                className="w-full py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black uppercase text-xs tracking-wider transition-all disabled:opacity-40 shadow-md shadow-rose-500/10 active:scale-95 cursor-pointer mt-2"
-              >
-                ✓ Chốt đơn & In hóa đơn lẻ
-              </button>
+              {/* Checkout & Pro-forma CTAs */}
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowProformaModal(true)}
+                  disabled={posCart.length === 0}
+                  className="w-full py-2.5 rounded-xl border border-neutral-300 hover:border-neutral-900 text-neutral-850 font-bold uppercase text-[11px] tracking-wider transition-all disabled:opacity-40 hover:bg-neutral-50 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Printer className="w-4 h-4 text-neutral-600" />
+                  In Phiếu Tạm Tính (Pro-forma Bill)
+                </button>
+                <button
+                  onClick={handleCheckoutPOS}
+                  disabled={posCart.length === 0}
+                  className="w-full py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black uppercase text-xs tracking-wider transition-all disabled:opacity-40 shadow-md shadow-rose-500/10 active:scale-95 cursor-pointer"
+                >
+                  ✓ Chốt đơn & In hóa đơn lẻ
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Pro-forma Pre-checkout Bill Modal */}
+          <AnimatePresence>
+            {showProformaModal && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="bg-white rounded-3xl border shadow-2xl p-6 w-full max-w-sm overflow-hidden text-neutral-800"
+                >
+                  <div className="border-b-2 border-dashed pb-4 text-center space-y-1">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+                      Phiếu Tạm Tính (Chưa thanh toán)
+                    </span>
+                    <h2 className="text-lg font-black tracking-widest text-neutral-900 uppercase mt-1">NOVYN WEAR</h2>
+                    <p className="text-[10px] text-neutral-500 font-medium">Phiếu đối chiếu sản phẩm & số tiền tại quầy</p>
+                    <p className="text-[9px] font-mono text-neutral-450 mt-1">{currentUser.branch || 'Chi nhánh Quận 1'}</p>
+                    <p className="text-[8px] text-neutral-450 font-mono">Thời gian: {new Date().toLocaleString('vi-VN')}</p>
+                  </div>
+
+                  <div className="py-3 border-b-2 border-dashed space-y-2 text-xs max-h-56 overflow-y-auto">
+                    {posCart.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-start font-medium leading-relaxed">
+                        <div className="min-w-0 pr-2">
+                          <span className="font-bold text-neutral-900 block truncate">{item.product.name}</span>
+                          <span className="text-[9px] text-neutral-450 font-mono">Size {item.size} • SKU: {item.sku}</span>
+                        </div>
+                        <span className="font-mono text-neutral-450 shrink-0">{item.quantity} x</span>
+                        <span className="font-bold font-mono text-neutral-900 shrink-0 text-right w-20">
+                          {formatPrice(item.price * item.quantity)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="py-3 border-b-2 border-dashed space-y-1 text-xs">
+                    <div className="flex justify-between font-medium text-neutral-600">
+                      <span>Cộng tiền hàng</span>
+                      <span className="font-mono">{formatPrice(posSubtotal)}</span>
+                    </div>
+                    {vipDiscountAmt > 0 && (
+                      <div className="flex justify-between text-amber-700 font-bold">
+                        <span>Chiết khấu VIP ({posSelectedCustomer?.tier})</span>
+                        <span className="font-mono">-{formatPrice(vipDiscountAmt)}</span>
+                      </div>
+                    )}
+                    {promoDiscountAmt > 0 && (
+                      <div className="flex justify-between text-rose-600 font-bold">
+                        <span>Mã giảm giá ({posPromoCode})</span>
+                        <span className="font-mono">-{formatPrice(promoDiscountAmt)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-black text-neutral-900 text-sm pt-1">
+                      <span>TỔNG TẠM TÍNH</span>
+                      <span className="font-mono text-rose-650">{formatPrice(posTotal)}</span>
+                    </div>
+                  </div>
+
+                  <div className="py-3 text-center text-[10px] text-neutral-500 font-medium space-y-0.5">
+                    <p>Khách hàng: <span className="font-bold text-neutral-800">{posSelectedCustomer?.name || posCustomerPhone || 'Khách vãng lai'}</span></p>
+                    <p>Thu ngân: <span className="font-bold text-neutral-800">{currentUser.name}</span></p>
+                    <p className="italic text-neutral-400 text-[9px] mt-2">* Quý khách vui lòng kiểm tra sản phẩm trước khi thanh toán *</p>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        showToast('✓ Đã gửi lệnh in phiếu tạm tính ra máy in nhiệt!', 'success');
+                      }}
+                      className="flex-1 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      In phiếu
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowProformaModal(false)}
+                      className="px-4 py-2.5 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Đóng
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
           {/* POS Receipt roll Modal */}
           <AnimatePresence>
@@ -1350,7 +1686,7 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
               <Box className="w-5 h-5 text-blue-500" />
               Quản lý kho & Cảnh báo tồn thấp
             </h3>
-            <p className="text-xs text-neutral-450 mt-1">Stocker: <span className="font-bold text-neutral-850">{currentUser.name}</span> • Chi nhánh: <span className="font-bold text-neutral-850">{currentUser.branch || 'Chi nhánh Quận 1'}</span></p>
+            <p className="text-xs text-neutral-450 mt-1">Stocker: <span className="font-bold text-neutral-850">{currentUser?.name}</span> • Chi nhánh: <span className="font-bold text-neutral-850">{currentUser?.branch || 'Chi nhánh Quận 1'}</span></p>
           </div>
 
           {/* Low stock alerts dashboard */}
@@ -1359,12 +1695,12 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
               <AlertTriangle className="w-4 h-4 text-rose-600 animate-bounce" />
               Cảnh báo tồn kho thấp (Low-Stock Alerts)
             </h4>
-            <p className="text-[10px] text-rose-700 font-semibold">• Hệ thống tự động đánh dấu đỏ các biến thể có số lượng tồn dưới 3 sản phẩm tại {currentUser.branch}.</p>
+            <p className="text-[10px] text-rose-700 font-semibold">• Hệ thống tự động đánh dấu đỏ các biến thể có số lượng tồn dưới 3 sản phẩm tại {currentUser?.branch || 'chi nhánh'}.</p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {productsList.map(prod => {
-                const branchName = currentUser.branch || 'Chi nhánh Quận 1';
-                const totalStock = branchStock[prod.id]?.[branchName] || 0;
+                const branchName = currentUser?.branch || 'Chi nhánh Quận 1';
+                const totalStock = branchStock?.[prod.id]?.[branchName] || 0;
                 
                 // Variants simulation
                 const isLow = totalStock < 8; // Simulate variant alert if total stock is low
@@ -1383,52 +1719,157 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                   </div>
                 );
               })}
-              {productsList.every(prod => (branchStock[prod.id]?.[currentUser.branch || 'Chi nhánh Quận 1'] || 0) >= 8) && (
+              {productsList.every(prod => (branchStock?.[prod.id]?.[currentUser?.branch || 'Chi nhánh Quận 1'] || 0) >= 8) && (
                 <p className="text-xs text-emerald-700 italic font-semibold">Tất cả sản phẩm tại chi nhánh đang ở mức tồn an toàn (&gt;= 8 cái).</p>
               )}
             </div>
           </div>
 
           {/* Standard stock tracking table */}
-          <div className="bg-white border rounded-3xl p-5 shadow-sm">
-            <h4 className="text-xs font-black uppercase text-neutral-850 tracking-wider mb-4">Danh sách tồn kho chi tiết sản phẩm</h4>
-            <div className="overflow-x-auto max-h-[350px]">
+          <div className="bg-white border rounded-3xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+              <div>
+                <h4 className="text-xs font-black uppercase text-neutral-850 tracking-wider">Danh sách tồn kho chi tiết sản phẩm</h4>
+                <p className="text-[10px] text-neutral-450 mt-0.5">Theo dõi số lượng tồn quầy thực tế, ngưỡng cảnh báo an toàn (&lt; 5 chiếc).</p>
+              </div>
+
+              {/* Filters bar */}
+              <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Tìm theo tên hoặc SKU..."
+                    value={stockerSearchQuery}
+                    onChange={(e) => setStockerSearchQuery(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 border rounded-xl text-xs bg-white text-neutral-800 focus:outline-none focus:border-blue-400 w-full sm:w-48"
+                  />
+                  <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                </div>
+                <div className="flex gap-1 overflow-x-auto no-scrollbar">
+                  {[
+                    { key: 'all', label: 'Tất cả' },
+                    { key: 'urgent', label: '🚨 Gấp (< 3)' },
+                    { key: 'warning', label: '⚠️ Dưới ngưỡng (< 5)' },
+                    { key: 'safe', label: '✅ An toàn (≥ 5)' }
+                  ].map(f => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => setStockerRangeFilter(f.key as any)}
+                      className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
+                        stockerRangeFilter === f.key
+                          ? 'bg-neutral-900 text-white border-neutral-900'
+                          : 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto max-h-[380px]">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-neutral-50 border-b text-neutral-450 font-bold uppercase tracking-wider text-[9px]">
                     <th className="p-3">Sản phẩm</th>
                     <th className="p-3">Danh mục</th>
                     <th className="p-3 text-center">Tồn kho hiện có</th>
-                    <th className="p-3 text-center">Trạng thái kho</th>
+                    <th className="p-3 text-center">Trạng thái kho & Ngưỡng an toàn</th>
+                    <th className="p-3 text-right">Thao tác kho</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-neutral-700 font-medium">
-                  {productsList.map(prod => {
-                    const branchName = currentUser.branch || 'Chi nhánh Quận 1';
-                    const stock = branchStock[prod.id]?.[branchName] || 0;
-                    const status = stock < 3 ? 'low' : stock < 10 ? 'medium' : 'safe';
-                    return (
-                      <tr key={prod.id} className="hover:bg-neutral-50/20">
-                        <td className="p-3 flex items-center gap-2">
-                          <div className="relative w-8 h-10 rounded overflow-hidden bg-neutral-100 shrink-0">
-                            <Image src={prod.images[0]} alt={prod.name} fill className="object-cover" unoptimized />
-                          </div>
-                          <span className="font-bold text-neutral-900">{prod.name}</span>
-                        </td>
-                        <td className="p-3">{categoryLabel[prod.category] || prod.category}</td>
-                        <td className="p-3 text-center font-bold font-mono">{stock} chiếc</td>
-                        <td className="p-3 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
-                            status === 'low' ? 'bg-rose-50 text-rose-600 border border-rose-200' :
-                            status === 'medium' ? 'bg-amber-50 text-amber-600 border border-amber-200' :
-                            'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                          }`}>
-                            {status === 'low' ? 'Cần nhập gấp' : status === 'medium' ? 'Tồn vừa phải' : 'An toàn'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {productsList
+                    .filter(prod => {
+                      const q = stockerSearchQuery.toLowerCase();
+                      const matchQuery = prod.name.toLowerCase().includes(q) || prod.id.toLowerCase().includes(q) || prod.category.toLowerCase().includes(q);
+                      if (!matchQuery) return false;
+
+                      const branchName = currentUser?.branch || 'Chi nhánh Quận 1';
+                      const stock = branchStock?.[prod.id]?.[branchName] || 0;
+
+                      if (stockerRangeFilter === 'urgent') return stock < 3;
+                      if (stockerRangeFilter === 'warning') return stock < 5;
+                      if (stockerRangeFilter === 'safe') return stock >= 5;
+                      return true;
+                    })
+                    .map(prod => {
+                      const branchName = currentUser?.branch || 'Chi nhánh Quận 1';
+                      const stock = branchStock?.[prod.id]?.[branchName] || 0;
+                      const isOutOfStock = stock === 0;
+                      const isUrgent = stock > 0 && stock < 3;
+                      const isWarning = stock >= 3 && stock < 5;
+                      const isMedium = stock >= 5 && stock < 10;
+                      const isSafe = stock >= 10;
+
+                      return (
+                        <tr key={prod.id} className="hover:bg-neutral-50/20">
+                          <td className="p-3 flex items-center gap-2">
+                            <div className="relative w-8 h-10 rounded overflow-hidden bg-neutral-100 shrink-0 border border-neutral-150">
+                              <Image src={prod.images[0]} alt={prod.name} fill className="object-cover" unoptimized />
+                            </div>
+                            <div>
+                              <span className="font-bold text-neutral-900 block truncate max-w-xs">{prod.name}</span>
+                              <span className="text-[9px] text-neutral-400 font-mono block">SKU: NOVYN-{prod.category.toUpperCase()}-{prod.id.slice(-4).toUpperCase()}</span>
+                            </div>
+                          </td>
+                          <td className="p-3">{categoryLabel[prod.category] || prod.category}</td>
+                          <td className="p-3 text-center font-black font-mono text-sm text-neutral-850">{stock} chiếc</td>
+                          <td className="p-3 text-center">
+                            {isOutOfStock ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-300 animate-pulse">
+                                Hết hàng quầy
+                              </span>
+                            ) : isUrgent ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
+                                🚨 Cần nhập gấp (&lt; 3)
+                              </span>
+                            ) : isWarning ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
+                                ⚠️ Dưới ngưỡng an toàn (&lt; 5)
+                              </span>
+                            ) : isMedium ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                Tồn vừa phải ({stock})
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                An toàn dồi dào ({stock})
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right">
+                            {stock < 5 ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewTransferProductId(prod.id);
+                                  if (Array.isArray(prod?.colors) && prod.colors.length > 0) {
+                                    setNewTransferColor(prod.colors[0]?.name || prod.colors[0] || 'Oatmeal');
+                                  }
+                                  setNewTransferQty(Math.max(1, 10 - stock));
+                                  const currentBranch = currentUser?.branch || 'Chi nhánh Quận 1';
+                                  const otherBranch = currentBranch === 'Chi nhánh Quận 1' ? 'Chi nhánh Thảo Điền' : 'Chi nhánh Quận 1';
+                                  setNewTransferTo(currentBranch);
+                                  setNewTransferFrom(otherBranch);
+                                  if (onSwitchToTransferTab) {
+                                    onSwitchToTransferTab();
+                                  }
+                                  showToast(`✓ Đã chọn ${prod.name} (đề xuất chuyển ${Math.max(1, 10 - stock)} sp từ ${otherBranch})!`, 'success');
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200 text-[9px] font-bold transition-all cursor-pointer whitespace-nowrap"
+                              >
+                                + Đề xuất chuyển kho
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-neutral-400 font-mono">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
@@ -1436,306 +1877,618 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
         </div>
       )}
 
-      {/* 3. STOCKER TRANSFER & DAMAGED GOODS TAB */}
-      {activeTab === 'stocker-transfer' && (
-        <div className="space-y-6">
-          <div className="border-b pb-4">
-            <h3 className="text-lg font-black text-neutral-950 uppercase tracking-tight flex items-center gap-2">
-              <RefreshCw className="w-5 h-5 text-blue-500" />
-              Phiếu chuyển kho liên chi nhánh & Hàng lỗi
-            </h3>
-            <p className="text-xs text-neutral-450 mt-1">Quyền hạn: <span className="font-bold text-neutral-850">Stocker & Manager</span></p>
-          </div>
+      {/* 3A. STOCKER TRANSFER TAB (ĐIỀU CHUYỂN KHO LIÊN CHI NHÁNH) */}
+      {activeTab === 'stocker-transfer' && (() => {
+        const shippingCount = transfers.filter(t => t.status === 'shipping').length;
+        const receivedCount = transfers.filter(t => t.status === 'received').length;
+        const cancelledCount = transfers.filter(t => t.status === 'cancelled').length;
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
-            {/* Chuyển kho Panel */}
-            <div className="lg:col-span-6 bg-white border rounded-3xl p-5 shadow-sm space-y-4">
-              <h4 className="text-xs font-black uppercase tracking-wider text-neutral-850 flex items-center gap-1">
-                <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" style={{ animationDuration: '3s' }} />
-                Yêu cầu chuyển kho liên chi nhánh (Inventory Transfer)
-              </h4>
+        const filteredTransfers = transfers.filter(t => {
+          const matchStatus = transferStatusFilter === 'all' || t.status === transferStatusFilter;
+          const query = transferSearchQuery.toLowerCase();
+          const matchQuery = !query || 
+            (t.productName && t.productName.toLowerCase().includes(query)) ||
+            (t.id && t.id.toLowerCase().includes(query)) ||
+            (t.fromBranch && t.fromBranch.toLowerCase().includes(query)) ||
+            (t.toBranch && t.toBranch.toLowerCase().includes(query));
+          return matchStatus && matchQuery;
+        });
 
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Chọn sản phẩm cần chuyển</label>
-                  <select
-                    value={newTransferProductId}
-                    onChange={(e) => {
-                      setNewTransferProductId(e.target.value);
-                      const p = productsList.find(item => item.id === e.target.value);
-                      if (p && p.colors) {
-                        setNewTransferColor(p.colors[0]?.name || p.colors[0] || 'Oatmeal');
-                      }
-                    }}
-                    className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
-                  >
-                    <option value="">-- Chọn sản phẩm --</option>
-                    {productsList.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+        return (
+          <div className="space-y-6 animate-fade-in">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
+              <div>
+                <h3 className="text-lg font-black text-neutral-950 uppercase tracking-tight flex items-center gap-2">
+                  <ArrowRightLeft className="w-5 h-5 text-blue-600" />
+                  Điều chuyển kho liên chi nhánh (Stock Transfer)
+                </h3>
+                <p className="text-xs text-neutral-450 mt-1">
+                  Luân chuyển hàng hóa giữa các showroom, theo dõi trạng thái giao nhận và tự động điều chỉnh tồn kho hai đầu.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5" />
+                  Đang giao: <strong className="font-mono">{shippingCount}</strong>
+                </span>
+              </div>
+            </div>
+
+            {/* Quick KPI Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="p-4 bg-white border border-neutral-100 rounded-2xl shadow-xs">
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1">Tổng phiếu chuyển</span>
+                <span className="text-2xl font-black text-neutral-900 font-mono">{transfers.length}</span>
+              </div>
+              <div className="p-4 bg-amber-50/60 border border-amber-200/70 rounded-2xl shadow-xs">
+                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-amber-600" />
+                  Đang vận chuyển
+                </span>
+                <span className="text-2xl font-black text-amber-900 font-mono">{shippingCount}</span>
+              </div>
+              <div className="p-4 bg-emerald-50/60 border border-emerald-200/70 rounded-2xl shadow-xs">
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  Đã nhận thành công
+                </span>
+                <span className="text-2xl font-black text-emerald-900 font-mono">{receivedCount}</span>
+              </div>
+              <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-2xl shadow-xs">
+                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                  <XCircle className="w-3 h-3 text-neutral-400" />
+                  Đã hủy / Hoàn trả
+                </span>
+                <span className="text-2xl font-black text-neutral-700 font-mono">{cancelledCount}</span>
+              </div>
+            </div>
+
+            {/* Main Content Grid: Form on Left, History Table on Right */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              
+              {/* Form tạo phiếu chuyển (col-span-5) */}
+              <div className="lg:col-span-5 bg-white border border-neutral-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="border-b pb-3">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-neutral-900 flex items-center gap-2">
+                    <Plus className="w-4 h-4 text-blue-600" />
+                    Tạo phiếu chuyển kho mới
+                  </h4>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">Tự động trừ tồn nguồn ngay khi xuất và cộng kho đích khi nhận.</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-3.5 text-xs">
                   <div>
-                    <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Size</label>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                      Sản phẩm cần chuyển <span className="text-rose-500">*</span>
+                    </label>
                     <select
-                      value={newTransferSize}
-                      onChange={(e) => setNewTransferSize(e.target.value)}
-                      className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
+                      value={newTransferProductId}
+                      onChange={(e) => {
+                        const prodId = e.target.value;
+                        setNewTransferProductId(prodId);
+                        const p = productsList.find(item => item.id === prodId);
+                        if (p && Array.isArray(p.colors) && p.colors.length > 0) {
+                          setNewTransferColor(p.colors[0]?.name || p.colors[0] || 'Oatmeal');
+                        }
+                      }}
+                      className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none focus:border-blue-500 font-medium"
                     >
-                      {['S', 'M', 'L', 'XL'].map(s => <option key={s} value={s}>{s}</option>)}
+                      <option value="">-- Chọn sản phẩm --</option>
+                      {productsList.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                      ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Màu sắc</label>
-                    <select
-                      value={newTransferColor}
-                      onChange={(e) => setNewTransferColor(e.target.value)}
-                      className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
-                    >
-                      <option value="">-- Chọn màu --</option>
-                      {productsList.find(p => p.id === newTransferProductId)?.colors?.map((c: any) => {
-                        const name = c.name || c;
-                        return <option key={name} value={name}>{name}</option>;
-                      })}
-                    </select>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                  {newTransferProductId && (
+                    <div className="p-2.5 bg-blue-50/70 border border-blue-100 rounded-xl text-[11px] text-blue-900 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                        Tồn kho khả dụng tại <strong className="text-neutral-900">{newTransferFrom}</strong>:
+                      </span>
+                      <span className={`font-mono font-black ${(branchStock?.[newTransferProductId]?.[newTransferFrom] || 0) > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                        {branchStock?.[newTransferProductId]?.[newTransferFrom] || 0} sp
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">Kích cỡ (Size)</label>
+                      <select
+                        value={newTransferSize}
+                        onChange={(e) => setNewTransferSize(e.target.value)}
+                        className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none focus:border-blue-500"
+                      >
+                        {['S', 'M', 'L', 'XL'].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">Màu sắc</label>
+                      <select
+                        value={newTransferColor}
+                        onChange={(e) => setNewTransferColor(e.target.value)}
+                        className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="">-- Chọn màu --</option>
+                        {(() => {
+                          const prod = productsList.find(p => p.id === newTransferProductId);
+                          const colors = Array.isArray(prod?.colors) ? prod.colors : [];
+                          return colors.map((c: any) => {
+                            const name = c?.name || c;
+                            return <option key={name} value={name}>{name}</option>;
+                          });
+                        })()}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">Chi nhánh xuất (Nguồn)</label>
+                      <select
+                        value={newTransferFrom}
+                        onChange={(e) => setNewTransferFrom(e.target.value)}
+                        className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none focus:border-blue-500 font-semibold"
+                      >
+                        <option value="Chi nhánh Quận 1">Chi nhánh Quận 1</option>
+                        <option value="Chi nhánh Thảo Điền">Chi nhánh Thảo Điền</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">Chi nhánh nhập (Đích)</label>
+                      <select
+                        value={newTransferTo}
+                        onChange={(e) => setNewTransferTo(e.target.value)}
+                        className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none focus:border-blue-500 font-semibold"
+                      >
+                        <option value="Chi nhánh Thảo Điền">Chi nhánh Thảo Điền</option>
+                        <option value="Chi nhánh Quận 1">Chi nhánh Quận 1</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Số lượng chuyển</label>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">Số lượng chuyển</label>
                     <input
                       type="number"
                       min={1}
                       value={newTransferQty}
-                      onChange={(e) => setNewTransferQty(parseInt(e.target.value) || 1)}
-                      className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
+                      onChange={(e) => setNewTransferQty(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none focus:border-blue-500 font-bold font-mono text-sm"
                     />
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCreateTransfer}
+                    className="w-full py-3 rounded-xl bg-neutral-950 hover:bg-neutral-850 active:scale-95 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 mt-3"
+                  >
+                    <ArrowRightLeft className="w-4 h-4" />
+                    Tạo phiếu chuyển kho ngay
+                  </button>
+                </div>
+              </div>
+
+              {/* Bảng nhật ký phiếu chuyển kho (col-span-7) */}
+              <div className="lg:col-span-7 bg-white border border-neutral-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
                   <div>
-                    <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Từ chi nhánh</label>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-900">
+                      Nhật ký phiếu điều chuyển
+                    </h4>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">Lịch sử xuất chuyển và nhận hàng giữa 2 chi nhánh.</p>
+                  </div>
+
+                  {/* Tabs lọc trạng thái */}
+                  <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-xl text-[10px] font-bold">
+                    {(['all', 'shipping', 'received', 'cancelled'] as const).map(st => (
+                      <button
+                        key={st}
+                        onClick={() => setTransferStatusFilter(st)}
+                        className={`px-2.5 py-1 rounded-lg transition-all capitalize ${
+                          transferStatusFilter === st
+                            ? 'bg-white text-neutral-900 shadow-xs font-black'
+                            : 'text-neutral-500 hover:text-neutral-800'
+                        }`}
+                      >
+                        {st === 'all' ? 'Tất cả' : st === 'shipping' ? 'Đang giao' : st === 'received' ? 'Đã nhận' : 'Đã hủy'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Thanh tìm kiếm */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Tìm theo mã phiếu, tên sản phẩm, chi nhánh..."
+                    value={transferSearchQuery}
+                    onChange={(e) => setTransferSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border rounded-xl text-xs bg-neutral-50 focus:bg-white focus:outline-none focus:border-neutral-400"
+                  />
+                  <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto max-h-[480px]">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-neutral-50 border-b text-neutral-450 font-bold uppercase tracking-wider text-[8px] sticky top-0 bg-neutral-50">
+                        <th className="p-3">Sản phẩm</th>
+                        <th className="p-3">Biến thể</th>
+                        <th className="p-3">Lộ trình</th>
+                        <th className="p-3 text-center">SL</th>
+                        <th className="p-3">Trạng thái</th>
+                        <th className="p-3 text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-neutral-700">
+                      {filteredTransfers.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-8 text-neutral-400 italic">
+                            Không có phiếu điều chuyển nào phù hợp.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredTransfers.map(t => {
+                          const isDestination = t.toBranch === currentUser?.branch;
+                          const isPending = t.status === 'shipping';
+                          const isReceived = t.status === 'received';
+                          const isCancelled = t.status === 'cancelled';
+                          const canReceive = isPending && (
+                            currentUser?.role === 'director' ||
+                            currentUser?.role === 'manager' ||
+                            currentUser?.role === 'accountant' ||
+                            isDestination
+                          );
+                          const canCancel = isPending && (
+                            currentUser?.role === 'director' ||
+                            currentUser?.role === 'manager' ||
+                            t.fromBranch === currentUser?.branch
+                          );
+
+                          return (
+                            <tr key={t.id} className="hover:bg-neutral-50/50 transition-colors">
+                              <td className="p-3 font-bold text-neutral-900">
+                                <div className="line-clamp-1">{t.productName}</div>
+                                <div className="text-[10px] text-neutral-400 font-mono font-normal">#{t.id}</div>
+                              </td>
+                              <td className="p-3 whitespace-nowrap">
+                                <span className="font-semibold text-neutral-700">{t.size}</span> / <span className="text-neutral-500">{t.color}</span>
+                              </td>
+                              <td className="p-3 whitespace-nowrap">
+                                <div className="flex items-center gap-1 text-[11px] font-semibold text-neutral-600">
+                                  <span>{(t.fromBranch || '').replace('Chi nhánh ', '')}</span>
+                                  <span className="text-neutral-400">➔</span>
+                                  <span className="text-blue-700 font-bold">{(t.toBranch || '').replace('Chi nhánh ', '')}</span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-center font-black font-mono whitespace-nowrap">{t.quantity} sp</td>
+                              <td className="p-3 whitespace-nowrap">
+                                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                                  isPending ? 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse' :
+                                  isReceived ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                  'bg-neutral-100 text-neutral-500 border border-neutral-200'
+                                }`}>
+                                  {isPending ? 'Đang giao' : isReceived ? 'Đã nhận' : 'Đã hủy'}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {canReceive && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReceiveTransfer(t.id)}
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+                                    >
+                                      Nhận hàng
+                                    </button>
+                                  )}
+                                  {canCancel && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCancelTransfer(t.id)}
+                                      className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer active:scale-95"
+                                    >
+                                      Hủy
+                                    </button>
+                                  )}
+                                  {!canReceive && !canCancel && (
+                                    <span className="text-[10px] text-neutral-400 font-bold">—</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 3B. DAMAGED GOODS TAB (BIÊN BẢN HÀNG LỖI & XUẤT HỦY KHO) */}
+      {activeTab === 'damaged-goods' && (() => {
+        const totalDamagedQty = damagedGoods.reduce((sum, d) => sum + (d.quantity || 0), 0);
+        const currentBranchName = currentUser?.branch || 'Chi nhánh Quận 1';
+        const currentBranchDamagedQty = damagedGoods
+          .filter(d => d.branch === currentBranchName)
+          .reduce((sum, d) => sum + (d.quantity || 0), 0);
+
+        const filteredDamagedGoods = damagedGoods.filter(d => {
+          const matchBranch = damageBranchFilter === 'all' || d.branch === damageBranchFilter;
+          const query = damageSearchQuery.toLowerCase();
+          const matchQuery = !query ||
+            (d.productName && d.productName.toLowerCase().includes(query)) ||
+            (d.id && d.id.toLowerCase().includes(query)) ||
+            (d.issue && d.issue.toLowerCase().includes(query)) ||
+            (d.branch && d.branch.toLowerCase().includes(query));
+          return matchBranch && matchQuery;
+        });
+
+        return (
+          <div className="space-y-6 animate-fade-in">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
+              <div>
+                <h3 className="text-lg font-black text-neutral-950 uppercase tracking-tight flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-rose-500" />
+                  Biên bản hàng lỗi & Xuất hủy kho (Damaged Goods)
+                </h3>
+                <p className="text-xs text-neutral-450 mt-1">
+                  Khai báo và lập biên bản xử lý sản phẩm lỗi, rách bẩn, hư hỏng trong quá trình vận hành; tự động trừ kho khả dụng.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Tổng xuất hủy: <strong className="font-mono">{totalDamagedQty} sp</strong>
+                </span>
+              </div>
+            </div>
+
+            {/* Quick KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 bg-white border border-neutral-100 rounded-2xl shadow-xs">
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1">Tổng số biên bản lập</span>
+                <span className="text-2xl font-black text-neutral-900 font-mono">{damagedGoods.length}</span>
+              </div>
+              <div className="p-4 bg-rose-50/60 border border-rose-200/70 rounded-2xl shadow-xs">
+                <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3 text-rose-600" />
+                  Tổng sản phẩm lỗi / hỏng
+                </span>
+                <span className="text-2xl font-black text-rose-900 font-mono">{totalDamagedQty} sp</span>
+              </div>
+              <div className="p-4 bg-amber-50/60 border border-amber-200/70 rounded-2xl shadow-xs">
+                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-amber-600" />
+                  Lỗi tại {currentBranchName.replace('Chi nhánh ', '')}
+                </span>
+                <span className="text-2xl font-black text-amber-900 font-mono">{currentBranchDamagedQty} sp</span>
+              </div>
+            </div>
+
+            {/* Main Content Grid: Form on Left, History Table on Right */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              
+              {/* Form lập biên bản hàng lỗi (col-span-5) */}
+              <div className="lg:col-span-5 bg-white border border-neutral-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="border-b pb-3">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-neutral-900 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-500" />
+                    Lập biên bản hàng lỗi mới
+                  </h4>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">Hệ thống sẽ lập tức trừ tồn kho khả dụng tương ứng tại chi nhánh.</p>
+                </div>
+
+                <div className="space-y-3.5 text-xs">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                      Chọn sản phẩm bị lỗi <span className="text-rose-500">*</span>
+                    </label>
                     <select
-                      value={newTransferFrom}
-                      onChange={(e) => setNewTransferFrom(e.target.value)}
-                      className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
+                      value={newDamageProductId}
+                      onChange={(e) => {
+                        setNewDamageProductId(e.target.value);
+                        const p = productsList.find(item => item.id === e.target.value);
+                        if (p && Array.isArray(p.colors) && p.colors.length > 0) {
+                          setNewDamageColor(p.colors[0]?.name || p.colors[0] || 'Oatmeal');
+                        }
+                      }}
+                      className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none focus:border-rose-400 font-medium"
                     >
+                      <option value="">-- Chọn sản phẩm --</option>
+                      {productsList.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">Kích cỡ (Size)</label>
+                      <select
+                        value={newDamageSize}
+                        onChange={(e) => setNewDamageSize(e.target.value)}
+                        className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none focus:border-rose-400"
+                      >
+                        {['S', 'M', 'L', 'XL'].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">Màu sắc</label>
+                      <select
+                        value={newDamageColor}
+                        onChange={(e) => setNewDamageColor(e.target.value)}
+                        className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none focus:border-rose-400"
+                      >
+                        <option value="">-- Chọn màu --</option>
+                        {(() => {
+                          const prod = productsList.find(p => p.id === newDamageProductId);
+                          const colors = Array.isArray(prod?.colors) ? prod.colors : [];
+                          return colors.map((c: any) => {
+                            const name = c?.name || c;
+                            return <option key={name} value={name}>{name}</option>;
+                          });
+                        })()}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">Chi nhánh phát hiện</label>
+                      <input
+                        type="text"
+                        disabled
+                        value={currentBranchName}
+                        className="w-full p-2.5 border rounded-xl bg-neutral-100 text-neutral-600 font-medium cursor-not-allowed text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">Số lượng lỗi</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={newDamageQty}
+                        onChange={(e) => setNewDamageQty(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none focus:border-rose-400 font-bold font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">Tình trạng lỗi chi tiết</label>
+                    <select
+                      value={newDamageIssue}
+                      onChange={(e) => setNewDamageIssue(e.target.value)}
+                      className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none focus:border-rose-400"
+                    >
+                      <option value="Rách vải / sứt chỉ may">Rách vải / sứt chỉ may</option>
+                      <option value="Bẩn vải / ố màu khi trưng bày">Bẩn vải / ố màu khi trưng bày</option>
+                      <option value="Mất tem mác tag / hỏng phụ liệu">Mất tem mác tag / hỏng phụ liệu</option>
+                      <option value="Lỗi khóa kéo button / hỏng nút">Lỗi khóa kéo button / hỏng nút</option>
+                      <option value="Lỗi sợi dệt / loang màu vải">Lỗi sợi dệt / loang màu vải</option>
+                      <option value="Hư hỏng trong quá trình vận chuyển">Hư hỏng trong quá trình vận chuyển</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleLogDamage}
+                    className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 mt-3"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    ✓ Ghi nhận & xuất hủy trừ kho
+                  </button>
+                </div>
+              </div>
+
+              {/* Bảng danh sách biên bản hàng lỗi (col-span-7) */}
+              <div className="lg:col-span-7 bg-white border border-neutral-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-900">
+                      Danh sách biên bản hàng lỗi
+                    </h4>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">Các mặt hàng đã được ghi nhận xuất hủy và trừ kho khả dụng.</p>
+                  </div>
+
+                  {/* Bộ lọc chi nhánh */}
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <select
+                      value={damageBranchFilter}
+                      onChange={(e) => setDamageBranchFilter(e.target.value)}
+                      className="px-3 py-1.5 border rounded-xl bg-neutral-50 text-neutral-700 text-xs font-semibold focus:outline-none focus:border-neutral-400"
+                    >
+                      <option value="all">Tất cả chi nhánh</option>
                       <option value="Chi nhánh Quận 1">Chi nhánh Quận 1</option>
                       <option value="Chi nhánh Thảo Điền">Chi nhánh Thảo Điền</option>
                     </select>
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Đến chi nhánh</label>
-                  <select
-                    value={newTransferTo}
-                    onChange={(e) => setNewTransferTo(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
-                  >
-                    <option value="Chi nhánh Thảo Điền">Chi nhánh Thảo Điền</option>
-                    <option value="Chi nhánh Quận 1">Chi nhánh Quận 1</option>
-                  </select>
+                {/* Thanh tìm kiếm */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Tìm theo mã biên bản, tên sản phẩm, lỗi..."
+                    value={damageSearchQuery}
+                    onChange={(e) => setDamageSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border rounded-xl text-xs bg-neutral-50 focus:bg-white focus:outline-none focus:border-neutral-400"
+                  />
+                  <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 </div>
 
-                <button
-                  onClick={handleCreateTransfer}
-                  className="w-full py-2.5 rounded-xl bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-black uppercase tracking-wider transition-colors active:scale-95 cursor-pointer mt-2"
-                >
-                  Tạo phiếu chuyển kho ngay
-                </button>
-              </div>
-            </div>
-
-            {/* Quản lý hàng lỗi Panel */}
-            <div className="lg:col-span-6 bg-white border rounded-3xl p-5 shadow-sm space-y-4">
-              <h4 className="text-xs font-black uppercase tracking-wider text-neutral-850 flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-rose-500 animate-pulse" />
-                Khai báo ghi nhận sản phẩm lỗi (Damaged Goods)
-              </h4>
-
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Chọn sản phẩm lỗi</label>
-                  <select
-                    value={newDamageProductId}
-                    onChange={(e) => {
-                      setNewDamageProductId(e.target.value);
-                      const p = productsList.find(item => item.id === e.target.value);
-                      if (p && p.colors) {
-                        setNewDamageColor(p.colors[0]?.name || p.colors[0] || 'Oatmeal');
-                      }
-                    }}
-                    className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
-                  >
-                    <option value="">-- Chọn sản phẩm --</option>
-                    {productsList.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Size</label>
-                    <select
-                      value={newDamageSize}
-                      onChange={(e) => setNewDamageSize(e.target.value)}
-                      className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
-                    >
-                      {['S', 'M', 'L', 'XL'].map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Màu</label>
-                    <select
-                      value={newDamageColor}
-                      onChange={(e) => setNewDamageColor(e.target.value)}
-                      className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
-                    >
-                      <option value="">-- Chọn màu --</option>
-                      {productsList.find(p => p.id === newDamageProductId)?.colors?.map((c: any) => {
-                        const name = c.name || c;
-                        return <option key={name} value={name}>{name}</option>;
-                      })}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Số lượng lỗi</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={newDamageQty}
-                      onChange={(e) => setNewDamageQty(parseInt(e.target.value) || 1)}
-                      className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Tình trạng lỗi chi tiết</label>
-                  <select
-                    value={newDamageIssue}
-                    onChange={(e) => setNewDamageIssue(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
-                  >
-                    <option value="Rách vải / sứt chỉ">Rách vải / sứt chỉ</option>
-                    <option value="Bẩn vải / ố màu">Bẩn vải / ố màu</option>
-                    <option value="Mất tem mác tag">Mất tem mác tag</option>
-                    <option value="Lỗi khóa kéo button">Lỗi khóa kéo button</option>
-                  </select>
-                </div>
-
-                <button
-                  onClick={handleLogDamage}
-                  className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black uppercase tracking-wider transition-colors active:scale-95 cursor-pointer mt-2"
-                >
-                  ✓ Ghi nhận & tự động trừ kho khả dụng
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Transfers and Damage history tables */}
-          <div className="bg-white border rounded-3xl p-5 shadow-sm space-y-6">
-            <div>
-              <h4 className="text-xs font-black uppercase text-neutral-850 tracking-wider mb-3">Nhật ký chuyển kho liên chi nhánh</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-neutral-50 border-b text-neutral-450 font-bold uppercase tracking-wider text-[8px]">
-                      <th className="p-3">Sản phẩm</th>
-                      <th className="p-3">Biến thể</th>
-                      <th className="p-3">Từ</th>
-                      <th className="p-3">Đến</th>
-                      <th className="p-3 text-center">Số lượng</th>
-                      <th className="p-3">Trạng thái</th>
-                      <th className="p-3 text-right">Hành động</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y text-neutral-700">
-                    {transfers.length === 0 ? (
-                      <tr><td colSpan={7} className="text-center py-6 text-neutral-400 italic">Chưa phát sinh phiếu chuyển kho.</td></tr>
-                    ) : (
-                      transfers.map(t => {
-                        const isDestination = t.toBranch === currentUser.branch;
-                        const isPending = t.status === 'shipping';
-                        return (
-                          <tr key={t.id} className="hover:bg-neutral-50/20">
-                            <td className="p-3 font-bold text-neutral-900">{t.productName}</td>
-                            <td className="p-3">{t.size} / {t.color}</td>
-                            <td className="p-3 font-semibold text-neutral-600">{t.fromBranch.replace('Chi nhánh ', '')}</td>
-                            <td className="p-3 font-semibold text-neutral-600">{t.toBranch.replace('Chi nhánh ', '')}</td>
-                            <td className="p-3 text-center font-bold font-mono">{t.quantity} chiếc</td>
+                {/* Table */}
+                <div className="overflow-x-auto max-h-[480px]">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-neutral-50 border-b text-neutral-450 font-bold uppercase tracking-wider text-[8px] sticky top-0 bg-neutral-50">
+                        <th className="p-3">Sản phẩm</th>
+                        <th className="p-3">Biến thể</th>
+                        <th className="p-3">Chi nhánh</th>
+                        <th className="p-3">Tình trạng lỗi</th>
+                        <th className="p-3 text-center">SL lỗi</th>
+                        <th className="p-3 text-right">Ngày ghi nhận</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-neutral-700">
+                      {filteredDamagedGoods.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-8 text-neutral-400 italic">
+                            Chưa có biên bản hàng lỗi nào.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredDamagedGoods.map(d => (
+                          <tr key={d.id} className="hover:bg-neutral-50/50 transition-colors">
+                            <td className="p-3 font-bold text-neutral-900">
+                              <div className="line-clamp-1">{d.productName}</div>
+                              <div className="text-[10px] text-neutral-400 font-mono font-normal">#{d.id}</div>
+                            </td>
+                            <td className="p-3 whitespace-nowrap">
+                              <span className="font-semibold text-neutral-700">{d.size}</span> / <span className="text-neutral-500">{d.color}</span>
+                            </td>
+                            <td className="p-3 whitespace-nowrap font-medium text-neutral-600">
+                              {(d.branch || '').replace('Chi nhánh ', '')}
+                            </td>
                             <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                                isPending ? 'bg-amber-50 text-amber-600 border border-amber-100 animate-pulse' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                              }`}>
-                                {isPending ? 'Đang giao' : 'Đã nhận'}
+                              <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-100 font-bold text-[10px] inline-block">
+                                {d.issue}
                               </span>
                             </td>
-                            <td className="p-3 text-right">
-                              {isPending && isDestination ? (
-                                <button
-                                  onClick={() => handleReceiveTransfer(t.id)}
-                                  className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
-                                >
-                                  Nhận hàng
-                                </button>
-                              ) : (
-                                <span className="text-[10px] text-neutral-400 font-bold">—</span>
-                              )}
+                            <td className="p-3 text-center font-black font-mono whitespace-nowrap text-rose-600">
+                              {d.quantity} sp
+                            </td>
+                            <td className="p-3 text-right font-mono text-[10px] text-neutral-400 whitespace-nowrap">
+                              {d.createdAt ? (
+                                typeof d.createdAt === 'object' && 'toISOString' in d.createdAt
+                                  ? (d.createdAt as Date).toLocaleDateString('vi-VN')
+                                  : String(d.createdAt).split('T')[0]
+                              ) : '—'}
                             </td>
                           </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="border-t pt-6">
-              <h4 className="text-xs font-black uppercase text-neutral-850 tracking-wider mb-3">Danh sách hàng lỗi đã tiêu hủy / trừ kho</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-neutral-50 border-b text-neutral-450 font-bold uppercase tracking-wider text-[8px]">
-                      <th className="p-3">Sản phẩm</th>
-                      <th className="p-3">Biến thể</th>
-                      <th className="p-3">Cửa hàng</th>
-                      <th className="p-3">Tình trạng lỗi</th>
-                      <th className="p-3 text-center">Số lượng</th>
-                      <th className="p-3 text-right">Ngày ghi nhận</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y text-neutral-700">
-                    {damagedGoods.length === 0 ? (
-                      <tr><td colSpan={6} className="text-center py-6 text-neutral-400 italic">Chưa ghi nhận hàng lỗi rách bẩn.</td></tr>
-                    ) : (
-                      damagedGoods.map(d => (
-                        <tr key={d.id} className="hover:bg-neutral-50/20 text-neutral-600">
-                          <td className="p-3 font-bold text-neutral-900">{d.productName}</td>
-                          <td className="p-3">{d.size} / {d.color}</td>
-                          <td className="p-3">{d.branch.replace('Chi nhánh ', '')}</td>
-                          <td className="p-3 text-rose-700 font-bold">{d.issue}</td>
-                          <td className="p-3 text-center font-bold font-mono">{d.quantity} chiếc</td>
-                          <td className="p-3 text-right font-mono text-[10px] text-neutral-400">{d.createdAt}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 4. KPI & AUTOMATED PAYROLL TAB */}
-      {activeTab === 'accountant-kpi-payroll' && (
+      {(activeTab === 'accountant-kpi-payroll' || activeTab === 'finance-payroll') && (
         <div className="space-y-6">
           <div className="border-b pb-4">
             <h3 className="text-lg font-black text-neutral-950 uppercase tracking-tight flex items-center gap-2">
@@ -1875,23 +2628,23 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
       )}
 
       {/* 5. CRM VIP CLIENTS & CSKH TICKET TABS */}
-      {(activeTab === 'cskh-customers' || activeTab === 'cskh-customers-vip' || activeTab === 'cskh-customers-tickets') && (
+      {(activeTab === 'cskh-customers' || activeTab === 'cskh-customers-vip' || activeTab === 'cskh-customers-tickets' || activeTab === 'customers-list' || activeTab === 'returns-exchange' || activeTab === 'cskh-hub') && (
         <div className="space-y-6">
           <div className="border-b pb-4">
             <h3 className="text-lg font-black text-neutral-950 uppercase tracking-tight flex items-center gap-2">
               <UserCheck className="w-5 h-5 text-purple-500" />
-              {activeTab === 'cskh-customers-tickets' ? 'Đổi trả & Khiếu nại (CSKH Tickets)' : 'Khách hàng & Hệ thống khiếu nại CRM'}
+              {activeTab === 'cskh-customers-tickets' || activeTab === 'returns-exchange' ? 'Đổi trả & Khiếu nại (CSKH Tickets)' : 'Khách hàng & Hệ thống khiếu nại CRM'}
             </h3>
             <p className="text-xs text-neutral-450 mt-1">
-              {activeTab === 'cskh-customers-tickets' ? 'Ghi nhận sự vụ đổi trả hàng lỗi, chật size hoặc khiếu nại dịch vụ.' : 'Đồng bộ hoá tích luỹ chi tiêu, tự động tính điểm loyalty và xếp hạng VIP.'}
+              {activeTab === 'cskh-customers-tickets' || activeTab === 'returns-exchange' ? 'Ghi nhận sự vụ đổi trả hàng lỗi, chật size hoặc khiếu nại dịch vụ.' : 'Đồng bộ hoá tích luỹ chi tiêu, tự động tính điểm loyalty và xếp hạng VIP.'}
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* VIP Loyalty list */}
-            {(activeTab === 'cskh-customers' || activeTab === 'cskh-customers-vip') && (
-              <div className={`${activeTab === 'cskh-customers-vip' ? 'lg:col-span-12' : 'lg:col-span-7'} bg-white border rounded-3xl p-5 shadow-sm space-y-4`}>
+            {(activeTab === 'cskh-customers' || activeTab === 'cskh-customers-vip' || activeTab === 'customers-list' || activeTab === 'cskh-hub') && (
+              <div className={`${activeTab === 'cskh-customers-vip' || activeTab === 'customers-list' ? 'lg:col-span-12' : 'lg:col-span-7'} bg-white border rounded-3xl p-5 shadow-sm space-y-4`}>
               <h4 className="text-xs font-black uppercase text-neutral-850 tracking-wider">Hồ sơ khách hàng thành viên VIP</h4>
               
               <div className="overflow-x-auto max-h-[350px]">
@@ -1903,6 +2656,7 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                       <th className="p-3 text-center">Tích luỹ chi tiêu</th>
                       <th className="p-3 text-center">Điểm</th>
                       <th className="p-3 text-center">Chiết khấu đặc quyền</th>
+                      <th className="p-3">Sở thích & Ghi chú VIP</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y text-neutral-700">
@@ -1927,6 +2681,47 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                         <td className="p-3 text-center font-bold text-rose-650">
                           {client.tier === 'VVIP' ? '-15%' : client.tier === 'Platinum' ? '-10%' : client.tier === 'Gold' ? '-5%' : 'Freeship'}
                         </td>
+                        <td className="p-3 min-w-[200px] max-w-[260px]">
+                          {editingNoteClientId === client.id ? (
+                            <div className="flex gap-1 items-center">
+                              <input
+                                type="text"
+                                value={tempNoteText}
+                                onChange={(e) => setTempNoteText(e.target.value)}
+                                placeholder="Ghi chú sở thích..."
+                                className="px-2 py-1 border rounded-lg text-[10px] bg-white text-neutral-800 w-full focus:outline-none"
+                              />
+                              <button
+                                onClick={() => handleSaveClientNote(client.id)}
+                                className="px-2 py-1 bg-neutral-900 text-white rounded-lg text-[9px] font-bold shrink-0 cursor-pointer"
+                              >
+                                Lưu
+                              </button>
+                              <button
+                                onClick={() => setEditingNoteClientId(null)}
+                                className="px-1.5 py-1 text-neutral-500 hover:text-neutral-800 text-[9px] shrink-0 cursor-pointer"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between gap-1 group">
+                              <span className="text-[10px] text-neutral-600 italic block truncate">
+                                {crmClientNotes[client.id] || <span className="text-neutral-400 not-italic">Chưa có ghi chú</span>}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setEditingNoteClientId(client.id);
+                                  setTempNoteText(crmClientNotes[client.id] || '');
+                                }}
+                                className="text-neutral-400 hover:text-neutral-800 p-1 opacity-60 hover:opacity-100 transition-opacity cursor-pointer shrink-0"
+                                title="Chỉnh sửa ghi chú sở thích khách hàng"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1936,8 +2731,8 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
             )}
 
             {/* Ticket center */}
-            {(activeTab === 'cskh-customers' || activeTab === 'cskh-customers-tickets') && (
-              <div className={`${activeTab === 'cskh-customers-tickets' ? 'lg:col-span-12' : 'lg:col-span-5'} bg-white border rounded-3xl p-5 shadow-sm space-y-4`}>
+            {(activeTab === 'cskh-customers' || activeTab === 'cskh-customers-tickets' || activeTab === 'returns-exchange' || activeTab === 'cskh-hub') && (
+              <div className={`${activeTab === 'cskh-customers-tickets' || activeTab === 'returns-exchange' ? 'lg:col-span-12' : 'lg:col-span-5'} bg-white border rounded-3xl p-5 shadow-sm space-y-4`}>
               <h4 className="text-xs font-black uppercase tracking-wider text-neutral-850">Ghi nhận phiếu đổi trả / khiếu nại mới</h4>
               
               <form onSubmit={handleCreateTicket} className="space-y-3 text-xs">
@@ -1950,6 +2745,31 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                     onChange={(e) => setNewTicketCustomerName(e.target.value)}
                     className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
                   />
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Mức độ ưu tiên xử lý</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: 'urgent', label: '🔴 Khẩn cấp', desc: 'Sự cố / VIP' },
+                      { key: 'normal', label: '🔵 Bình thường', desc: 'Đổi size' },
+                      { key: 'low', label: '⚪ Thấp', desc: 'Tư vấn' }
+                    ].map(p => (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => setNewTicketPriority(p.key as any)}
+                        className={`p-2 rounded-xl text-left border cursor-pointer transition-all ${
+                          newTicketPriority === p.key
+                            ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
+                            : 'bg-white hover:bg-neutral-50 text-neutral-700 border-neutral-200'
+                        }`}
+                      >
+                        <span className="text-[10px] font-bold block">{p.label}</span>
+                        <span className={`text-[8px] block mt-0.5 ${newTicketPriority === p.key ? 'text-neutral-300' : 'text-neutral-400'}`}>{p.desc}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
@@ -1988,14 +2808,38 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
           </div>
 
           {/* Tickets lists history */}
-          {(activeTab === 'cskh-customers' || activeTab === 'cskh-customers-tickets') && (
-            <div className="bg-white border rounded-3xl p-5 shadow-sm">
-            <h4 className="text-xs font-black uppercase text-neutral-850 tracking-wider mb-4">Hộp thư phiếu xử lý khiếu nại (Customer Tickets Center)</h4>
+          {(activeTab === 'cskh-customers' || activeTab === 'cskh-customers-tickets' || activeTab === 'returns-exchange' || activeTab === 'cskh-hub') && (
+            <div className="bg-white border rounded-3xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <h4 className="text-xs font-black uppercase text-neutral-850 tracking-wider">Hộp thư phiếu xử lý khiếu nại (Customer Tickets Center)</h4>
+              <div className="flex gap-1.5 flex-wrap">
+                {[
+                  { key: 'all', label: `Tất cả (${cskhTickets.length})` },
+                  { key: 'urgent', label: `🔴 Khẩn cấp (${cskhTickets.filter(t => t.priority === 'urgent' || t.description?.includes('[Khẩn cấp]')).length})` },
+                  { key: 'pending', label: `⏳ Đang xử lý (${cskhTickets.filter(t => t.status === 'pending').length})` },
+                  { key: 'resolved', label: `✓ Đã xong (${cskhTickets.filter(t => t.status === 'resolved').length})` }
+                ].map(f => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setCskhTicketFilter(f.key as any)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                      cskhTicketFilter === f.key
+                        ? 'bg-neutral-900 text-white border-neutral-900'
+                        : 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-neutral-50 border-b text-neutral-450 font-bold uppercase tracking-wider text-[8px]">
                     <th className="p-3">Khách hàng</th>
+                    <th className="p-3">Mức ưu tiên</th>
                     <th className="p-3">Phân loại</th>
                     <th className="p-3">Mô tả chi tiết</th>
                     <th className="p-3">Trạng thái</th>
@@ -2003,43 +2847,67 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y text-neutral-700">
-                  {cskhTickets.map(t => {
-                    const isPending = t.status === 'pending';
-                    return (
-                      <tr key={t.id} className="hover:bg-neutral-50/15">
-                        <td className="p-3 font-bold text-neutral-900">{t.customerName}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                            t.category === 'Trả hàng lỗi' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                            t.category === 'Đổi size' ? 'bg-sky-50 text-sky-600 border border-sky-100' :
-                            'bg-amber-50 text-amber-700 border border-amber-100'
-                          }`}>
-                            {t.category}
-                          </span>
-                        </td>
-                        <td className="p-3 max-w-xs truncate">{t.description}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                            isPending ? 'bg-amber-50 text-amber-600 border border-amber-100 animate-pulse' : 'bg-emerald-50 text-emerald-600 border border-emerald-150'
-                          }`}>
-                            {isPending ? 'Đang xử lý' : 'Đã giải quyết'}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right">
-                          {isPending ? (
-                            <button
-                              onClick={() => handleResolveTicket(t.id)}
-                              className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
-                            >
-                              Giải quyết xong
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-neutral-450 font-bold">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {cskhTickets
+                    .filter(t => {
+                      if (cskhTicketFilter === 'urgent') return t.priority === 'urgent' || t.description?.includes('[Khẩn cấp]');
+                      if (cskhTicketFilter === 'pending') return t.status === 'pending';
+                      if (cskhTicketFilter === 'resolved') return t.status === 'resolved';
+                      return true;
+                    })
+                    .map(t => {
+                      const isPending = t.status === 'pending';
+                      const isUrgent = t.priority === 'urgent' || t.description?.includes('[Khẩn cấp]');
+                      const isLow = t.priority === 'low' || t.description?.includes('[Thấp]');
+                      return (
+                        <tr key={t.id} className="hover:bg-neutral-50/15">
+                          <td className="p-3 font-bold text-neutral-900">{t.customerName}</td>
+                          <td className="p-3">
+                            {isUrgent ? (
+                              <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-300 animate-pulse">
+                                🔴 Khẩn cấp
+                              </span>
+                            ) : isLow ? (
+                              <span className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-neutral-100 text-neutral-600 border border-neutral-200">
+                                ⚪ Thấp
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
+                                🔵 Bình thường
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                              t.category === 'Trả hàng lỗi' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                              t.category === 'Đổi size' ? 'bg-sky-50 text-sky-600 border border-sky-100' :
+                              'bg-amber-50 text-amber-700 border border-amber-100'
+                            }`}>
+                              {t.category}
+                            </span>
+                          </td>
+                          <td className="p-3 max-w-xs truncate">{t.description}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                              isPending ? 'bg-amber-50 text-amber-600 border border-amber-100 animate-pulse' : 'bg-emerald-50 text-emerald-600 border border-emerald-150'
+                            }`}>
+                              {isPending ? 'Đang xử lý' : 'Đã giải quyết'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            {isPending ? (
+                              <button
+                                onClick={() => handleResolveTicket(t.id)}
+                                className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
+                              >
+                                Giải quyết xong
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-neutral-450 font-bold">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
@@ -2049,7 +2917,7 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
       )}
 
       {/* 6. ACCOUNTANT FINANCE RECON & LEDGER AUDIT */}
-      {activeTab === 'accountant-finance-recon' && (
+      {(activeTab === 'accountant-finance-recon' || activeTab === 'finance-recon' || activeTab === 'recon') && (
         <div className="space-y-6">
           <div className="border-b pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -2149,17 +3017,20 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                   <select
                     value={plPeriodType}
                     onChange={(e) => {
-                      const newType = e.target.value as 'monthly' | 'quarterly';
+                      const newType = e.target.value as 'monthly' | 'quarterly' | 'today' | '7days';
                       setPlPeriodType(newType);
-                      setPlSelectedPeriod(newType === 'monthly' ? '2026-06' : 'Q2 2026');
+                      if (newType === 'monthly') setPlSelectedPeriod('2026-06');
+                      if (newType === 'quarterly') setPlSelectedPeriod('Q2 2026');
                     }}
                     className="p-1.5 border rounded-lg text-xs font-bold text-neutral-800 bg-[#FAF7F2] focus:outline-none"
                   >
-                    <option value="monthly">Tháng</option>
-                    <option value="quarterly">Quý</option>
+                    <option value="today">Hôm nay</option>
+                    <option value="7days">7 ngày qua</option>
+                    <option value="monthly">Theo tháng</option>
+                    <option value="quarterly">Theo quý</option>
                   </select>
 
-                  {plPeriodType === 'monthly' ? (
+                  {plPeriodType === 'monthly' && (
                     <select
                       value={plSelectedPeriod}
                       onChange={(e) => setPlSelectedPeriod(e.target.value)}
@@ -2169,7 +3040,8 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                       <option value="2026-05">Tháng 5, 2026</option>
                       <option value="2026-04">Tháng 4, 2026</option>
                     </select>
-                  ) : (
+                  )}
+                  {plPeriodType === 'quarterly' && (
                     <select
                       value={plSelectedPeriod}
                       onChange={(e) => setPlSelectedPeriod(e.target.value)}
@@ -2186,6 +3058,13 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                 const plFilterByPeriod = (itemDateStr: string) => {
                   if (!itemDateStr) return false;
                   const dateOnly = itemDateStr.split(' ')[0]; // YYYY-MM-DD
+                  if (plPeriodType === 'today') {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    return dateOnly === todayStr || dateOnly === '2026-06-15' || dateOnly === '2026-06-14';
+                  }
+                  if (plPeriodType === '7days') {
+                    return dateOnly >= '2026-06-08';
+                  }
                   if (plPeriodType === 'monthly') {
                     return dateOnly.startsWith(plSelectedPeriod);
                   } else {
@@ -2271,6 +3150,7 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                 const expenses = filteredDailyList.reduce((sum, d) => sum + d.expenses, 0);
 
                 const grossProfit = totalRev - totalCogs;
+                const grossMarginPct = totalRev > 0 ? ((grossProfit / totalRev) * 100).toFixed(1) : '0';
                 const ebt = grossProfit - salaries - expenses - restock;
                 const tax = ebt > 0 ? ebt * 0.2 : 0;
                 const net = ebt - tax;
@@ -2278,19 +3158,26 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
 
                 return (
                   <div className="space-y-4 text-xs font-medium text-neutral-700">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                      <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 shadow-xs">
                         <span className="text-[9px] text-neutral-450 uppercase tracking-wide block font-black mb-1">Doanh thu gộp POS</span>
                         <span className="text-base font-black text-emerald-800 font-mono block">+{formatPrice(totalRev)}</span>
-                        <span className="text-[8px] text-emerald-600 block mt-1 font-bold">100% Thu nhập kỳ này</span>
+                        <span className="text-[8px] text-emerald-600 block mt-1 font-bold">100% Thu nhập toàn kỳ</span>
                       </div>
-                      <div className={`p-4 rounded-2xl border ${isNegative ? 'bg-rose-50 border-rose-100' : 'bg-amber-50 border-amber-100'}`}>
+                      <div className="p-4 bg-sky-50 rounded-2xl border border-sky-100 shadow-xs">
+                        <span className="text-[9px] text-neutral-450 uppercase tracking-wide block font-black mb-1">Lợi nhuận gộp (Gross Profit)</span>
+                        <span className="text-base font-black text-sky-900 font-mono block">+{formatPrice(grossProfit)}</span>
+                        <span className="text-[8px] text-sky-700 block mt-1 font-bold">
+                          Tỷ suất gộp: <span className="font-mono font-black text-sky-900">{grossMarginPct}%</span> (Doanh thu - COGS)
+                        </span>
+                      </div>
+                      <div className={`p-4 rounded-2xl border shadow-xs ${isNegative ? 'bg-rose-50 border-rose-100' : 'bg-amber-50 border-amber-100'}`}>
                         <span className="text-[9px] text-neutral-450 uppercase tracking-wide block font-black mb-1">Lợi nhuận ròng sau thuế</span>
                         <span className={`text-base font-black font-mono block ${isNegative ? 'text-rose-650' : 'text-neutral-900'}`}>
                           {net >= 0 ? '+' : ''}{formatPrice(net)}
                         </span>
                         <span className="text-[8px] text-neutral-500 block mt-1 font-bold">
-                          Biên ròng: {totalRev > 0 ? ((net / totalRev) * 100).toFixed(1) : 0}%
+                          Biên ròng: {totalRev > 0 ? ((net / totalRev) * 100).toFixed(1) : 0}% (Net Margin)
                         </span>
                       </div>
                     </div>
@@ -2876,10 +3763,13 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                       <tr key={prod.id} className="hover:bg-neutral-50/20 transition-colors">
                         <td className="p-3">
                           <div className="relative w-10 h-12 rounded-lg overflow-hidden border">
-                            <img
+                            <Image
                               src={prod.images && prod.images[0] ? prod.images[0] : 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=100'}
                               alt={prod.name}
-                              className="w-full h-full object-cover"
+                              fill
+                              sizes="40px"
+                              className="object-cover"
+                              unoptimized
                             />
                           </div>
                         </td>
@@ -3378,7 +4268,7 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
       )}
 
       {/* 11. SETTINGS TAB */}
-      {activeTab === 'settings-tab' && ['director', 'accountant', 'manager'].includes(currentUser.role) && (
+      {(activeTab === 'settings-tab' || activeTab === 'settings') && ['director', 'accountant', 'manager'].includes(currentUser.role) && (
         <div className="space-y-6">
           <div className="border-b pb-4">
             <h3 className="text-lg font-black text-neutral-900 tracking-tight flex items-center gap-2">

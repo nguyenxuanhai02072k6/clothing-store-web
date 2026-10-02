@@ -1,8 +1,9 @@
 'use client';
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { chatService, ChatSession, ChatMessage } from '../lib/services/chatService';
+import { useAuth } from './AuthContext';
 
 interface ChatContextType {
   chatSessions: ChatSession[];
@@ -14,6 +15,7 @@ interface ChatContextType {
   acceptSession: (sessionId: string, cskhName: string) => void;
   closeSession: (sessionId: string) => void;
   getSessionById: (sessionId: string) => ChatSession | undefined;
+  getCustomerSession: (sessionId: string) => Promise<ChatSession | null>;
   unreadCount: number;
 }
 
@@ -21,27 +23,33 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
+  const { currentUser } = useAuth();
+  const isStaff = currentUser && ['director', 'manager', 'cskh'].includes(currentUser.role);
 
-  // Load from localStorage on mount via service
+  // Load and poll staff chat sessions ONLY if user has CSKH staff privileges
   useEffect(() => {
-    chatService.getChatSessions().then(setChatSessions);
-  }, []);
+    if (!isStaff) {
+      setChatSessions([]);
+      return;
+    }
 
-  // Poll for external changes (simulates real-time between tabs)
-  useEffect(() => {
+    // Initial load for staff
+    chatService.getChatSessions().then(setChatSessions).catch(() => {});
+
+    // Poll for changes
     const interval = setInterval(() => {
       chatService.getChatSessions().then(parsed => {
-        // Only update if data actually changed
         setChatSessions(prev => {
           const prevStr = JSON.stringify(prev);
           const newStr = JSON.stringify(parsed);
           if (prevStr !== newStr) return parsed;
           return prev;
         });
-      });
-    }, 1500);
+      }).catch(() => {});
+    }, 2500);
+
     return () => clearInterval(interval);
-  }, []);
+  }, [isStaff]);
 
   const createChatSession = (
     customerId: string,
@@ -104,6 +112,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         acceptSession,
         closeSession,
         getSessionById,
+        getCustomerSession: (sessionId: string) => chatService.getCustomerSession(sessionId),
         unreadCount,
       }}
     >

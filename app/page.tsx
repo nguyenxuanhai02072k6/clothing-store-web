@@ -16,10 +16,11 @@ export default function HomePage() {
   const { productsList } = useAuth();
   const activeProducts = productsList.length > 0 ? productsList : MOCK_PRODUCTS;
 
-  // Get 4 products marked with "Best Seller" or just take the first 4 products
-  const bestSellers = activeProducts.filter((product) =>
+  // Get 4 products marked with "Best Seller" or fallback to first 4 active products
+  const filteredBestSellers = activeProducts.filter((product) =>
     product.badges?.includes('Best Seller')
   ).slice(0, 4);
+  const bestSellers = filteredBestSellers.length > 0 ? filteredBestSellers : activeProducts.slice(0, 4);
 
   const categories = [
     {

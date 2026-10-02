@@ -66,7 +66,7 @@ export default function ContactPage() {
       tempErrors.email = 'Địa chỉ email không đúng định dạng.';
     }
 
-    const phoneRegex = /^(0[3|5|7|8|9])([0-9]{8})$/;
+    const phoneRegex = /^(0[35789])([0-9]{8})$/;
     if (phone.trim() && !phoneRegex.test(phone.replace(/\s/g, ''))) {
       tempErrors.phone = 'Số điện thoại không hợp lệ (gồm 10 chữ số).';
     }
@@ -192,7 +192,7 @@ export default function ContactPage() {
                       <input
                         id="contact-email"
                         type="email"
-                        placeholder="name@example.com..."
+                        placeholder="name@novynwear.com..."
                         value={email}
                         onChange={(e) => {
                           setEmail(e.target.value);

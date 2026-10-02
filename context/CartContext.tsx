@@ -1,5 +1,5 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect */
+ 
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { CartItem, Product, ColorOption } from '../types';

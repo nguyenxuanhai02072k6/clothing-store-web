@@ -8,14 +8,6 @@ import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { Chatbot } from '../components/common/Chatbot';
 import { LuckyWheel } from '../components/common/LuckyWheel';
-import { Inter } from 'next/font/google';
-
-const inter = Inter({
-  subsets: ['vietnamese'],
-  weight: ['300', '400', '500', '600', '700', '800', '900'],
-  variable: '--font-inter',
-  display: 'swap',
-});
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -64,7 +56,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`h-full antialiased ${inter.variable}`}>
+    <html lang="vi" className="h-full antialiased">
       <body className="min-h-full flex flex-col font-sans bg-brand-bg text-brand-text bg-grid-lines relative">
         
         {/* Elegant Ambient Glowing Mesh Orbs (Background Art) */}

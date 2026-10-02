@@ -44,8 +44,7 @@ export const LuckyWheel: React.FC = () => {
     if (typeof window !== 'undefined') {
       const spun = localStorage.getItem('novyn_lucky_spun');
       if (spun) {
-        // For demo purposes, we let them spin if they refresh, but in production we persist
-        // We can allow bypass for demo
+        setHasSpun(true);
       }
     }
   }, []);
@@ -59,7 +58,7 @@ export const LuckyWheel: React.FC = () => {
 
     setIsSpinning(true);
     
-    // Choose a random winning option (Jackpot 20% has slightly lower probability, but we do random for demo)
+    // Choose a random winning option for the seasonal campaign.
     const prizeIndex = Math.floor(Math.random() * wheelOptions.length);
     const selectedPrize = wheelOptions[prizeIndex];
 
@@ -259,21 +258,6 @@ export const LuckyWheel: React.FC = () => {
                   </>
                 )}
               </button>
-
-              {/* Reset shortcut (strictly for demo and testing convenience) */}
-              {hasSpun && (
-                <button
-                  onClick={() => {
-                    setHasSpun(false);
-                    setRotation(0);
-                    setPrize(null);
-                    setHasApplied(false);
-                  }}
-                  className="mt-3 text-[9px] font-black text-neutral-400 uppercase tracking-wider hover:text-neutral-600 transition-colors"
-                >
-                  [ Bỏ chặn để quay lại (Demo Bypass) ]
-                </button>
-              )}
 
             </motion.div>
           </div>

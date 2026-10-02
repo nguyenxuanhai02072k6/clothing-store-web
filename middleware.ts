@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { decryptSession } from './lib/session';
+import { decryptSession } from './backend/security/sessionCrypto';
 
 const STAFF_ROLES = ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker'];
 

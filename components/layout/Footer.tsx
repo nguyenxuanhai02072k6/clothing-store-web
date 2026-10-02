@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Mail, Phone, MapPin, ArrowRight, Check } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { usePathname } from 'next/navigation';
@@ -108,10 +109,12 @@ export const Footer: React.FC = () => {
           <div className="lg:col-span-4 border-b border-neutral-900 md:border-b-0 pb-8 md:pb-0">
             <Link href="/" className="flex items-center gap-2.5 mb-6 group w-fit">
               <div className="relative w-9 h-9 rounded-full overflow-hidden border border-neutral-800 bg-[#FFFBF8] flex items-center justify-center p-0.5 shadow-sm group-hover:border-neutral-750 transition-colors">
-                <img
+                <Image
                   src="/logo.png"
                   alt="NOVYN WEAR Monogram"
-                  className="w-full h-full object-contain scale-125 -translate-y-[1px]"
+                  fill
+                  sizes="36px"
+                  className="object-contain scale-125 -translate-y-[1px]"
                 />
               </div>
               <span className="text-2xl font-black tracking-wider text-white group-hover:text-neutral-300 transition-colors">

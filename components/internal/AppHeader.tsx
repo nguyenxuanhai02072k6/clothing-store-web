@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import {
   Search,
   Plus,
@@ -14,7 +15,10 @@ import {
   FileDown,
   DollarSign,
   UserPlus,
-  ArrowRight
+  ArrowRight,
+  MessageSquare,
+  Layers,
+  LayoutGrid
 } from 'lucide-react';
 import { menuGroups, MenuItem } from './AppSidebar';
 
@@ -105,8 +109,35 @@ export default function AppHeader({
     });
   }, [searchQuery, allOrders, productsList, crmClients]);
 
+  const workspaces = [
+    { id: 'management', label: 'Tổng Chỉ Huy', icon: LayoutGrid, defaultTab: 'overview' },
+    { id: 'pos', label: 'Quầy POS', icon: ShoppingBag, defaultTab: 'pos-sales' },
+    { id: 'cskh', label: 'CSKH Hub', icon: MessageSquare, defaultTab: 'cskh-hub' },
+    { id: 'warehouse', label: 'Kho Vận', icon: Layers, defaultTab: 'stocker-inventory' },
+    { id: 'finance', label: 'Kế Toán', icon: DollarSign, defaultTab: 'finance-costs' },
+  ];
+
+  const getActiveWorkspace = (tab: string) => {
+    if (['pos-sales', 'pos', 'sales-orders-list'].includes(tab)) return 'pos';
+    if (['cskh-hub', 'cskh-live-chat', 'returns-exchange', 'customers-list', 'customers', 'reviews', 'ai-copilot'].includes(tab)) return 'cskh';
+    if (['stocker-inventory', 'stocker-transfer', 'damaged-goods', 'restock'].includes(tab)) return 'warehouse';
+    if (['finance-costs', 'costs', 'finance-payroll', 'finance-recon', 'recon', 'finance-p-l', 'finance-profit'].includes(tab)) return 'finance';
+    return 'management';
+  };
+
+  const currentWorkspace = getActiveWorkspace(activeTab);
+
   // Find page title from menuGroups
   const getPageTitle = () => {
+    if (activeTab === 'cskh-hub' || activeTab === 'cskh-live-chat') return 'CSKH Console (Live Chat)';
+    if (activeTab === 'sales-orders-list' || activeTab === 'cskh-orders') return 'Danh sách đơn hàng';
+    if (activeTab === 'finance-costs' || activeTab === 'costs') return 'Sổ quỹ Thu - Chi';
+    if (activeTab === 'finance-payroll' || activeTab === 'staff') return 'Bảng lương & Hoa hồng';
+    if (activeTab === 'finance-recon' || activeTab === 'recon') return 'Chốt ca & Đối soát két';
+    if (activeTab === 'finance-p-l' || activeTab === 'finance-profit') return 'Báo cáo Lợi nhuận P&L';
+    if (activeTab === 'staff-schedule' || activeTab === 'shifts') return 'Lịch ca & Nhân sự';
+    if (activeTab === 'damaged-goods') return 'Biên bản hàng lỗi';
+
     let title = 'Hệ thống vận hành';
     menuGroups.forEach((g) => {
       const match = g.items.find((i) => i.id === activeTab);
@@ -138,26 +169,53 @@ export default function AppHeader({
     } else if (type === 'product') {
       setActiveTab('products-database');
     } else if (type === 'customer') {
-      setActiveTab('customers');
+      setActiveTab('customers-list');
     }
   };
 
   const isGlobalView = ['director', 'accountant'].includes(currentUser?.role);
+  const isExecutive = ['director', 'manager'].includes(currentUser?.role);
 
   return (
-    <header className="bg-white border-b border-brand-border py-4 px-6 sticky top-0 z-20 flex flex-col md:flex-row md:items-center justify-between gap-4 select-none text-brand-text">
-      {/* Title & Breadcrumbs */}
-      <div>
-        <div className="flex items-center gap-1.5 text-[10px] text-brand-muted font-bold uppercase tracking-wider mb-1">
-          {getBreadcrumbs().map((b, i) => (
-            <React.Fragment key={b}>
-              {i > 0 && <span className="opacity-50">/</span>}
-              <span>{b}</span>
-            </React.Fragment>
-          ))}
+    <header className="bg-white border-b border-brand-border py-3.5 px-6 sticky top-0 z-20 flex flex-col gap-3 select-none text-brand-text">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Title & Breadcrumbs */}
+        <div className="shrink-0">
+          <div className="flex items-center gap-1.5 text-[10px] text-brand-muted font-bold uppercase tracking-wider mb-1">
+            {getBreadcrumbs().map((b, i) => (
+              <React.Fragment key={b}>
+                {i > 0 && <span className="opacity-50">/</span>}
+                <span>{b}</span>
+              </React.Fragment>
+            ))}
+          </div>
+          <h1 className="text-lg font-black text-brand-accent uppercase tracking-tight leading-none">{getPageTitle()}</h1>
         </div>
-        <h1 className="text-lg font-black text-brand-accent uppercase tracking-tight leading-none">{getPageTitle()}</h1>
-      </div>
+
+        {/* Executive Workspace Switcher (Desktop XL) */}
+        {isExecutive && (
+          <div className="hidden xl:flex items-center gap-1 bg-[#211D1A]/5 p-1 rounded-2xl border border-brand-border/80">
+            {workspaces.map((ws) => {
+              const Icon = ws.icon;
+              const isWsActive = currentWorkspace === ws.id;
+              return (
+                <button
+                  key={ws.id}
+                  onClick={() => setActiveTab(ws.defaultTab)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    isWsActive
+                      ? 'bg-[#211D1A] text-white shadow-sm shadow-[#211D1A]/20 scale-[1.02]'
+                      : 'text-brand-muted hover:text-brand-text hover:bg-white/60'
+                  }`}
+                  title={`Chuyển sang không gian ${ws.label}`}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${isWsActive ? 'text-[#B19C89]' : 'text-inherit'}`} />
+                  <span>{ws.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
       {/* Middle/Right Widgets */}
       <div className="flex flex-wrap items-center gap-4">
@@ -320,9 +378,16 @@ export default function AppHeader({
             onClick={() => setShowUserMenu(!showUserMenu)}
             className="flex items-center gap-2 bg-brand-bg hover:bg-brand-border rounded-xl border border-brand-border p-1.5 transition-colors cursor-pointer"
           >
-            <div className="w-7 h-7 rounded-full overflow-hidden border border-brand-border bg-white shrink-0">
+            <div className="relative w-7 h-7 rounded-full overflow-hidden border border-brand-border bg-white shrink-0">
               {currentUser?.avatar ? (
-                <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
+                <Image
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
+                  fill
+                  sizes="28px"
+                  className="object-cover"
+                  unoptimized
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-brand-accent font-black text-xs">
                   {currentUser?.name?.charAt(0)}
@@ -355,6 +420,31 @@ export default function AppHeader({
           )}
         </div>
       </div>
+    </div>
+
+      {/* Mobile/Tablet Workspace Quick Switcher */}
+      {isExecutive && (
+        <div className="xl:hidden flex items-center gap-1.5 overflow-x-auto w-full pb-1 scrollbar-none">
+          {workspaces.map((ws) => {
+            const Icon = ws.icon;
+            const isWsActive = currentWorkspace === ws.id;
+            return (
+              <button
+                key={ws.id}
+                onClick={() => setActiveTab(ws.defaultTab)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 transition-all cursor-pointer ${
+                  isWsActive
+                    ? 'bg-[#211D1A] text-white shadow-sm'
+                    : 'bg-brand-bg text-brand-muted border border-brand-border'
+                }`}
+              >
+                <Icon className={`w-3 h-3 ${isWsActive ? 'text-[#B19C89]' : 'text-inherit'}`} />
+                <span>{ws.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </header>
   );
 }
