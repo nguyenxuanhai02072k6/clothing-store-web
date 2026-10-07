@@ -29,9 +29,16 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
  */
 export async function withDbRetry<T>(
   operation: () => Promise<T>,
-  maxRetries = 3,
-  delayMs = 150
+  optionsOrMaxRetries: number | { maxRetries?: number; delayMs?: number; baseDelayMs?: number } = 3,
+  delayMsParam = 150
 ): Promise<T> {
+  const maxRetries = typeof optionsOrMaxRetries === 'number'
+    ? optionsOrMaxRetries
+    : (optionsOrMaxRetries?.maxRetries ?? 3);
+  const delayMs = typeof optionsOrMaxRetries === 'object'
+    ? (optionsOrMaxRetries?.delayMs ?? optionsOrMaxRetries?.baseDelayMs ?? 150)
+    : delayMsParam;
+
   let attempt = 0;
   while (true) {
     try {
@@ -41,7 +48,8 @@ export async function withDbRetry<T>(
       const isLockError =
         err?.message?.includes('SQLITE_BUSY') ||
         err?.message?.includes('database is locked') ||
-        err?.code === 'P2034'; // Prisma write conflict
+        err?.code === 'P2034' ||
+        err?.code === 'SQLITE_BUSY';
 
       if (isLockError && attempt < maxRetries) {
         await new Promise((r) => setTimeout(r, delayMs * Math.pow(2, attempt - 1)));
