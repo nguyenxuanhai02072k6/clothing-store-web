@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { UserRole } from '@/types';
 import { setSessionCookie, clearSessionCookie, getSessionUser, verifySession } from '@/backend/security/session';
 import { formatPrice } from '@/lib/utils';
+import { authRateLimiter } from '@/backend/security/rateLimiter';
 
 const passwordSchema = z
   .string()
@@ -61,23 +62,6 @@ export async function getUsersAction() {
   }
 }
 
-// Rate limiter for brute force prevention: email -> { count: number, lockedUntil: number, firstAttemptAt: number }
-const loginAttemptMap = new Map<string, { count: number; lockedUntil: number; firstAttemptAt: number }>();
-const MAX_FAILED_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
-const ATTEMPT_WINDOW_MS = 5 * 60 * 1000;   // 5 minutes
-
-function recordFailedAttempt(email: string): number {
-  const now = Date.now();
-  const rec = loginAttemptMap.get(email) || { count: 0, lockedUntil: 0, firstAttemptAt: now };
-  rec.count += 1;
-  if (rec.count >= MAX_FAILED_LOGIN_ATTEMPTS) {
-    rec.lockedUntil = now + LOCKOUT_DURATION_MS;
-  }
-  loginAttemptMap.set(email, rec);
-  return rec.count;
-}
-
 export async function loginAction(email: string, password: string) {
   const parsed = z.object({
     email: emailSchema,
@@ -89,17 +73,12 @@ export async function loginAction(email: string, password: string) {
   }
 
   const cleanEmail = parsed.data.email.toLowerCase();
-  const now = Date.now();
-  const attemptRecord = loginAttemptMap.get(cleanEmail);
 
-  if (attemptRecord) {
-    if (attemptRecord.lockedUntil > now) {
-      const remainingSecs = Math.ceil((attemptRecord.lockedUntil - now) / 1000);
-      throw new Error(`Tài khoản tạm thời bị khóa do thử sai quá nhiều lần. Vui lòng thử lại sau ${remainingSecs} giây.`);
-    }
-    if (now - attemptRecord.firstAttemptAt > ATTEMPT_WINDOW_MS) {
-      loginAttemptMap.delete(cleanEmail);
-    }
+  // Check if account is currently locked out by sliding window limiter
+  const lockStatus = await authRateLimiter.isLocked(cleanEmail);
+  if (lockStatus.locked) {
+    const remainingSecs = Math.ceil(lockStatus.retryAfterMs / 1000);
+    throw new Error(`Tài khoản tạm thời bị khóa do thử sai quá nhiều lần. Vui lòng thử lại sau ${remainingSecs} giây.`);
   }
 
   try {
@@ -108,29 +87,41 @@ export async function loginAction(email: string, password: string) {
     });
 
     if (!user || !user.isActive) {
-      recordFailedAttempt(cleanEmail);
+      const attempt = await authRateLimiter.check(cleanEmail);
+      if (!attempt.success) {
+        await prisma.auditLog.create({
+          data: {
+            action: 'LOGIN_LOCKOUT',
+            details: `Tài khoản ${cleanEmail} bị tạm khóa do đăng nhập sai 5 lần liên tiếp.`,
+            performedByName: cleanEmail
+          }
+        }).catch(() => {});
+        const waitMins = Math.ceil(attempt.retryAfterMs / 60000);
+        throw new Error(`Đăng nhập sai quá 5 lần. Tài khoản tạm thời bị khóa ${waitMins} phút để bảo vệ an toàn.`);
+      }
       return null;
     }
 
     // Verify password
     const isValid = bcrypt.compareSync(password, user.password);
     if (!isValid) {
-      const failedCount = recordFailedAttempt(cleanEmail);
-      if (failedCount >= MAX_FAILED_LOGIN_ATTEMPTS) {
+      const attempt = await authRateLimiter.check(cleanEmail);
+      if (!attempt.success) {
         await prisma.auditLog.create({
           data: {
             action: 'LOGIN_LOCKOUT',
-            details: `Tài khoản ${cleanEmail} bị tạm khóa 5 phút do đăng nhập sai 5 lần liên tiếp.`,
+            details: `Tài khoản ${cleanEmail} bị tạm khóa do đăng nhập sai 5 lần liên tiếp.`,
             performedByName: cleanEmail
           }
         }).catch(() => {});
-        throw new Error('Đăng nhập sai quá 5 lần. Tài khoản tạm thời bị khóa 5 phút để bảo vệ an toàn.');
+        const waitMins = Math.ceil(attempt.retryAfterMs / 60000);
+        throw new Error(`Đăng nhập sai quá 5 lần. Tài khoản tạm thời bị khóa ${waitMins} phút để bảo vệ an toàn.`);
       }
       return null;
     }
 
     // Reset rate limiter on successful authentication
-    loginAttemptMap.delete(cleanEmail);
+    await authRateLimiter.reset(cleanEmail);
 
     // Set secure HTTP-Only session cookie
     await setSessionCookie(user);

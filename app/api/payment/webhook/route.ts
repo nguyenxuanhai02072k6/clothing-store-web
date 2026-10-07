@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/database/db';
 import { verifyPaymentSignature } from '@/backend/services/paymentService';
+import { webhookRateLimiter } from '@/backend/security/rateLimiter';
 
 /**
  * Handle Payment Gateway Webhook / IPN (Instant Payment Notification)
@@ -8,6 +9,12 @@ import { verifyPaymentSignature } from '@/backend/services/paymentService';
  */
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'webhook-gateway';
+    const rateCheck = await webhookRateLimiter.check(ip);
+    if (!rateCheck.success) {
+      return NextResponse.json({ RspCode: '99', Message: 'Too many requests' }, { status: 429 });
+    }
+
     const contentType = request.headers.get('content-type') || '';
     let data: Record<string, string> = {};
 
@@ -37,6 +44,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'webhook-gateway';
+    const rateCheck = await webhookRateLimiter.check(ip);
+    if (!rateCheck.success) {
+      return NextResponse.json({ RspCode: '99', Message: 'Too many requests' }, { status: 429 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const queryParams: Record<string, string> = {};
     searchParams.forEach((value, key) => {

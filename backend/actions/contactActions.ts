@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/database/db';
+import { contactRateLimiter } from '@/backend/security/rateLimiter';
 
 export interface ContactFormData {
   fullName: string;
@@ -47,6 +48,16 @@ export async function submitContactFormAction(data: ContactFormData) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email) || email.length > 150) {
       return { success: false, error: 'Địa chỉ email không đúng định dạng.' };
+    }
+
+    // 2.1 Sliding Window Rate Limiting (Anti-spam / Anti-flooding)
+    const rateCheck = await contactRateLimiter.check(email);
+    if (!rateCheck.success) {
+      const waitSecs = Math.ceil(rateCheck.retryAfterMs / 1000);
+      return {
+        success: false,
+        error: `Bạn đã gửi lời nhắn quá nhiều lần. Vui lòng thử lại sau ${waitSecs} giây.`
+      };
     }
 
     if (phone) {
