@@ -1,1 +1,1 @@
-export { prisma } from '../database/db';
+export * from '@/database/db';

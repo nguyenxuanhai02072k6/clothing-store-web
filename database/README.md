@@ -44,3 +44,11 @@ Hệ thống sử dụng cơ sở dữ liệu quan hệ (Relational Database) g�
    npx prisma db push --force-reset
    npx tsx ./prisma/seed.ts
    ```
+
+---
+
+## 4. Cơ chế chống nghẽn (Concurrency Resilience) & Sẵn sàng cho PostgreSQL
+* **Chế độ WAL (Write-Ahead Logging)**: File SQLite `dev.db` đã được cấu hình chế độ WAL. Nhờ đó, các tác vụ đọc dữ liệu (khách xem web, xem sản phẩm) không bao giờ bị chặn bởi tác vụ ghi (đặt hàng, cập nhật kho).
+* **Cơ chế Busy Timeout 5000ms**: Cấu hình trong `db.ts` giúp hệ thống kiên nhẫn chờ tối đa 5 giây khi có nhiều luồng ghi đồng thời thay vì văng lỗi `SQLITE_BUSY`.
+* **Hàm `withDbRetry`**: Tự động thử lại giao dịch với cơ chế Exponential Backoff nếu có tranh chấp ghi dữ liệu.
+* **Sẵn sàng chuyển đổi sang PostgreSQL**: File mẫu `prisma/schema.postgresql.prisma` đã được thiết kế sẵn. Khi đưa lên máy chủ Production thực tế (Vercel/Railway/AWS), chỉ cần trỏ `DATABASE_URL=postgresql://...` và dùng lệnh `npx prisma migrate deploy` là có thể chạy ngay lập tức.
