@@ -121,7 +121,7 @@ interface AuthContextType {
 
   // Order & Revenue Handlers
   allOrders: Order[];
-  createOrder: (customerInfo: CustomerInfo, items: CartItem[], subtotal: number, discount: number, shipping: number, total: number, paymentMethod: 'cod' | 'transfer' | 'card', branch: string, status?: 'pending' | 'shipping' | 'completed' | 'cancelled', voucherCode?: string) => Promise<string>;
+  createOrder: (customerInfo: CustomerInfo, items: CartItem[], subtotal: number, discount: number, shipping: number, total: number, paymentMethod: 'cod' | 'transfer' | 'card' | 'vnpay', branch: string, status?: 'pending' | 'shipping' | 'completed' | 'cancelled', voucherCode?: string) => Promise<{ orderId: string; paymentUrl?: string }>;
   updateOrderStatus: (orderId: string, status: 'pending' | 'shipping' | 'completed' | 'cancelled') => void;
 
   // Accountant Handlers
@@ -659,13 +659,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     discount: number,
     shipping: number,
     total: number,
-    paymentMethod: 'cod' | 'transfer' | 'card',
+    paymentMethod: 'cod' | 'transfer' | 'card' | 'vnpay',
     branch: string,
     status: 'pending' | 'shipping' | 'completed' | 'cancelled' = 'pending',
     voucherCode?: string
-  ): Promise<string> => {
+  ): Promise<{ orderId: string; paymentUrl?: string }> => {
     try {
-      const realOrderId = await orderService.createOrder(
+      const orderResult = await orderService.createOrder(
         customerInfo,
         items,
         subtotal,
@@ -701,7 +701,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProductsList(prods);
 
       showToast('Đặt hàng thành công!', 'success');
-      return realOrderId;
+      return orderResult;
     } catch (err: any) {
       showToast(err.message || 'Lỗi đặt hàng', 'error');
       throw err;

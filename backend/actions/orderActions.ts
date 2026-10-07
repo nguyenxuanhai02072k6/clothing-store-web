@@ -3,6 +3,7 @@
 import { prisma } from '@/database/db';
 import { z } from 'zod';
 import { getSessionUser, verifySession } from '@/backend/security/session';
+import { createPaymentGatewayUrl } from '@/backend/services/paymentService';
 
 const STAFF_ROLES = ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker'];
 
@@ -26,7 +27,7 @@ const orderItemInputSchema = z.object({
 const checkoutSchema = z.object({
   customerInfo: customerInfoSchema,
   items: z.array(orderItemInputSchema).nonempty("Giỏ hàng trống"),
-  paymentMethod: z.enum(['cod', 'transfer']),
+  paymentMethod: z.enum(['cod', 'transfer', 'vnpay', 'card']),
   branchName: z.string(),
   voucherCode: z.string().optional()
 });
@@ -79,7 +80,7 @@ function mapOrder(dbOrder: any) {
     discount: dbOrder.discount,
     shipping: dbOrder.shipping,
     total: dbOrder.total,
-    paymentMethod: dbOrder.paymentMethod as 'cod' | 'transfer' | 'card',
+    paymentMethod: dbOrder.paymentMethod as 'cod' | 'transfer' | 'card' | 'vnpay',
     branch: dbOrder.branchName,
     status: dbOrder.status as 'pending' | 'shipping' | 'completed' | 'cancelled',
     createdAt: dbOrder.createdAt.toISOString().replace('T', ' ').substring(0, 19)
@@ -324,10 +325,20 @@ export async function createOrderAction(rawInput: any) {
         }
       });
 
-      return orderId;
+      return { orderId, total };
     });
 
-    return { success: true, orderId: result };
+    let paymentUrl: string | undefined = undefined;
+    if (input.paymentMethod === 'vnpay') {
+      paymentUrl = createPaymentGatewayUrl({
+        orderId: result.orderId,
+        amount: result.total,
+        orderInfo: `Thanh toan don hang ${result.orderId}`,
+        returnUrl: `/checkout?orderId=${result.orderId}`
+      });
+    }
+
+    return { success: true, orderId: result.orderId, paymentUrl };
   } catch (error: any) {
     console.error('createOrderAction error:', error);
     return { success: false, message: error.message || 'Lỗi đặt hàng không xác định' };

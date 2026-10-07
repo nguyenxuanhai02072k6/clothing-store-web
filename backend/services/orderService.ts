@@ -17,12 +17,12 @@ export const orderService = {
     discount: number,
     shipping: number,
     total: number,
-    paymentMethod: 'cod' | 'transfer' | 'card',
+    paymentMethod: 'cod' | 'transfer' | 'card' | 'vnpay',
     branch: string,
     status: 'pending' | 'shipping' | 'completed' | 'cancelled' = 'pending',
     currentCustomerId?: string,
     voucherCode?: string
-  ): Promise<string> => {
+  ): Promise<{ orderId: string; paymentUrl?: string }> => {
     // Map CartItem back to orderItemInputSchema format for secure calculation
     const itemsInput = items.map(item => ({
       productId: item.product.id,
@@ -42,7 +42,7 @@ export const orderService = {
     });
 
     if (result.success && result.orderId) {
-      return result.orderId;
+      return { orderId: result.orderId, paymentUrl: result.paymentUrl };
     } else {
       throw new Error(result.message || 'Lỗi đặt đơn hàng từ server');
     }

@@ -61,7 +61,7 @@ export default function CheckoutPage() {
     }
   }, [currentUser]);
   const [notes, setNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'transfer'>('cod');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'transfer' | 'vnpay'>('cod');
 
   // Shipping Branch
   const [selectedBranch, setSelectedBranch] = useState('Chi nhánh Quận 1');
@@ -147,9 +147,15 @@ export default function CheckoutPage() {
       'pending',
       appliedPromo?.code
     )
-      .then((realOrderId) => {
-        setGeneratedOrderId(realOrderId);
-        setShowSuccessModal(true);
+      .then((res) => {
+        const orderId = typeof res === 'string' ? res : res.orderId;
+        const paymentUrl = typeof res === 'object' ? res.paymentUrl : undefined;
+        setGeneratedOrderId(orderId);
+        if (paymentUrl) {
+          window.location.href = paymentUrl;
+        } else {
+          setShowSuccessModal(true);
+        }
       })
       .catch((err) => {
         console.error('Checkout error:', err);
@@ -589,6 +595,34 @@ export default function CheckoutPage() {
                         </div>
                       </motion.div>
                     )}
+                  </div>
+
+                  {/* VNPay Online Gateway option */}
+                  <div
+                    onClick={() => setPaymentMethod('vnpay')}
+                    className={`p-4 rounded-xl border flex items-start gap-4 cursor-pointer transition-all ${
+                      paymentMethod === 'vnpay' ? 'border-brand-text bg-neutral-50' : 'border-brand-border hover:border-brand-text'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      checked={paymentMethod === 'vnpay'}
+                      onChange={() => setPaymentMethod('vnpay')}
+                      className="w-4 h-4 accent-neutral-900 mt-1 cursor-pointer shrink-0"
+                    />
+                    <div className="flex gap-3">
+                      <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-brand-text uppercase block mb-1">Cổng thanh toán trực tuyến (VNPay / Thẻ ATM / Visa)</span>
+                          <span className="text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Tự động 24/7</span>
+                        </div>
+                        <p className="text-[10px] text-brand-muted leading-normal font-light">
+                          Thanh toán tự động qua cổng bảo mật VNPay bằng quét mã QR, thẻ ATM nội địa hoặc thẻ tín dụng quốc tế (Visa/Mastercard). Trạng thái đơn được cập nhật tức thời qua webhook mã hóa HMAC-SHA512.
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                 </div>

@@ -47,7 +47,7 @@ export interface Order {
   discount: number;
   shipping: number;
   total: number;
-  paymentMethod: 'cod' | 'transfer' | 'card';
+  paymentMethod: 'cod' | 'transfer' | 'card' | 'vnpay';
   branch: string; // e.g. 'Chi nhánh Quận 1', 'Chi nhánh Thảo Điền'
   status: 'pending' | 'shipping' | 'completed' | 'cancelled';
   createdAt: string;
