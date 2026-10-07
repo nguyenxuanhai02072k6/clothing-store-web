@@ -4,6 +4,7 @@ import { prisma } from '@/database/db';
 import { z } from 'zod';
 import { getSessionUser, verifySession } from '@/backend/security/session';
 import { createPaymentGatewayUrl } from '@/backend/services/paymentService';
+import { sendOrderConfirmationEmail } from '@/backend/services/emailService';
 
 const STAFF_ROLES = ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker'];
 
@@ -325,8 +326,37 @@ export async function createOrderAction(rawInput: any) {
         }
       });
 
-      return { orderId, total };
+      return {
+        orderId,
+        total,
+        subtotal,
+        discount,
+        shipping,
+        items: orderItemsToCreate
+      };
     });
+
+    // Dispatch transactional order confirmation email asynchronously
+    sendOrderConfirmationEmail({
+      orderId: result.orderId,
+      customerName: input.customerInfo.fullName,
+      customerEmail: input.customerInfo.email,
+      customerPhone: input.customerInfo.phone,
+      customerAddress: input.customerInfo.address,
+      items: result.items.map(item => ({
+        productName: item.productName,
+        size: item.size,
+        colorName: item.colorName,
+        quantity: item.quantity,
+        price: item.price
+      })),
+      subtotal: result.subtotal,
+      discount: result.discount,
+      shipping: result.shipping,
+      total: result.total,
+      paymentMethod: input.paymentMethod,
+      branchName: input.branchName
+    }).catch(err => console.error('[EMAIL ERROR] Failed to dispatch order confirmation email:', err));
 
     let paymentUrl: string | undefined = undefined;
     if (input.paymentMethod === 'vnpay') {

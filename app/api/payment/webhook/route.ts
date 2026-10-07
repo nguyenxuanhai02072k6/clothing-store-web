@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/database/db';
 import { verifyPaymentSignature } from '@/backend/services/paymentService';
 import { webhookRateLimiter } from '@/backend/security/rateLimiter';
+import { sendPaymentSuccessEmail } from '@/backend/services/emailService';
 
 /**
  * Handle Payment Gateway Webhook / IPN (Instant Payment Notification)
@@ -186,6 +187,16 @@ async function handlePaymentNotification(params: Record<string, string>) {
       });
     }
   });
+
+  if (isSuccess) {
+    sendPaymentSuccessEmail({
+      orderId: order.id,
+      customerName: order.customerName,
+      customerEmail: order.customerEmail,
+      amount: order.total,
+      transactionNo: transactionNo || 'N/A'
+    }).catch(err => console.error('[EMAIL ERROR] Failed to send payment success email:', err));
+  }
 
   return NextResponse.json(
     { RspCode: '00', Message: 'Confirm Success' },

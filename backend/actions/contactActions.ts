@@ -2,6 +2,7 @@
 
 import { prisma } from '@/database/db';
 import { contactRateLimiter } from '@/backend/security/rateLimiter';
+import { sendContactConfirmationEmail } from '@/backend/services/emailService';
 
 export interface ContactFormData {
   fullName: string;
@@ -97,6 +98,15 @@ export async function submitContactFormAction(data: ContactFormData) {
         performedByName: fullName
       }
     });
+
+    // 5. Send automated confirmation receipt email asynchronously
+    sendContactConfirmationEmail({
+      ticketId: ticket.id,
+      customerName: fullName,
+      customerEmail: email,
+      category,
+      message
+    }).catch(err => console.error('[EMAIL ERROR] Failed to send contact confirmation email:', err));
 
     return {
       success: true,
