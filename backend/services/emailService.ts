@@ -89,7 +89,8 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
           subject: options.subject,
           html: options.html,
           text: options.text
-        })
+        }),
+        signal: AbortSignal.timeout(8000)
       });
 
       if (response.ok) {

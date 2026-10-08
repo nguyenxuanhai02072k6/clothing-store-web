@@ -1,13 +1,81 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { decryptSession } from './backend/security/sessionCrypto';
+import { globalIpLimiter } from './backend/security/rateLimiter';
 
 const STAFF_ROLES = ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Protect internal ERP routes on server-side
+  // 1. Global IP Rate Limiter (Protects against F5 spam, HTTP flood & DoS)
+  const clientIp =
+    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+    request.headers.get('x-real-ip') ||
+    '127.0.0.1';
+
+  const rateCheck = await globalIpLimiter.check(clientIp);
+  if (!rateCheck.success) {
+    const retryAfterSec = Math.ceil(rateCheck.retryAfterMs / 1000);
+    const acceptHeader = request.headers.get('accept') || '';
+
+    if (acceptHeader.includes('text/html')) {
+      const html = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>429 - Thao tác quá nhanh | NOVYN WEAR</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0c0a09; color: #f5f5f4; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; }
+    .card { background: #1c1917; padding: 2.5rem; border-radius: 1rem; border: 1px solid #292524; text-align: center; max-width: 440px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+    h1 { font-size: 3.5rem; margin: 0; color: #e11d48; font-weight: 800; letter-spacing: -2px; }
+    h2 { font-size: 1.15rem; margin: 0.75rem 0 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    p { color: #a8a29e; font-size: 0.875rem; line-height: 1.6; margin: 0.5rem 0; }
+    .timer { font-family: monospace; font-size: 1.5rem; font-weight: bold; color: #38bdf8; margin: 1.25rem 0; background: #0c0a09; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #292524; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>429</h1>
+    <h2>Thao tác quá nhanh</h2>
+    <p>Hệ thống bảo vệ phát hiện bạn đang làm mới trang (F5) hoặc gửi yêu cầu liên tục từ địa chỉ IP này.</p>
+    <div class="timer">Vui lòng chờ: ${retryAfterSec}s</div>
+    <p>Máy chủ tự động mở lại kết nối ngay sau khi thời gian chờ kết thúc.</p>
+  </div>
+</body>
+</html>`;
+      return new NextResponse(html, {
+        status: 429,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Retry-After': String(retryAfterSec),
+          'X-RateLimit-Limit': String(rateCheck.limit),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(rateCheck.resetTime)
+        }
+      });
+    }
+
+    return NextResponse.json(
+      {
+        error: 'Too Many Requests',
+        message: `Bạn đang thao tác quá nhanh hoặc spam F5. Vui lòng thử lại sau ${retryAfterSec} giây.`,
+        retryAfter: retryAfterSec
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(retryAfterSec),
+          'X-RateLimit-Limit': String(rateCheck.limit),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(rateCheck.resetTime)
+        }
+      }
+    );
+  }
+
+  // 2. Protect internal ERP routes on server-side
   if (pathname.startsWith('/internal')) {
     const sessionCookie = request.cookies.get('novyn_session')?.value;
     

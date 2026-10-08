@@ -6,7 +6,8 @@ const testSuites = [
   { name: '3. Distributed-Ready Rate Limiter', file: 'scripts/test_rate_limiter.ts' },
   { name: '4. Transactional Email Notification System', file: 'scripts/test_email_service.ts' },
   { name: '5. Secure Media & Object Storage Pipeline', file: 'scripts/test_media_upload.ts' },
-  { name: '6. Contact & Anti-Spam Form Integration', file: 'scripts/test_contact.ts' }
+  { name: '6. Contact & Anti-Spam Form Integration', file: 'scripts/test_contact.ts' },
+  { name: '7. Middleware F5 Spam & HTTP Flood Protection', file: 'scripts/test_f5_rate_limiter.ts' }
 ];
 
 console.log('================================================================');

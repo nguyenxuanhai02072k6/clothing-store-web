@@ -102,8 +102,8 @@ export async function loginAction(email: string, password: string) {
       return null;
     }
 
-    // Verify password
-    const isValid = bcrypt.compareSync(password, user.password);
+    // Verify password asynchronously without blocking event loop
+    const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
       const attempt = await authRateLimiter.check(cleanEmail);
       if (!attempt.success) {
@@ -197,13 +197,12 @@ export async function changePasswordAction(userId: string, currentPassword: stri
       return { success: false, message: 'Tài khoản không tồn tại hoặc đã bị khóa' };
     }
 
-    const isValid = bcrypt.compareSync(parsed.data.currentPassword, user.password);
+    const isValid = await bcrypt.compare(parsed.data.currentPassword, user.password);
     if (!isValid) {
       return { success: false, message: 'Mật khẩu hiện tại không đúng' };
     }
 
-    const salt = bcrypt.genSaltSync(10);
-    const hashedPassword = bcrypt.hashSync(parsed.data.newPassword, salt);
+    const hashedPassword = await bcrypt.hash(parsed.data.newPassword, 10);
 
     await prisma.user.update({
       where: { id: userId },
@@ -264,8 +263,7 @@ export async function registerAction(
       return { success: false, message: 'Email đã tồn tại' };
     }
 
-    const salt = bcrypt.genSaltSync(10);
-    const hashedPassword = bcrypt.hashSync(parsed.data.password, salt);
+    const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
 
     const defaultSalary = parsed.data.role === 'director' ? 25000000 : 
                           parsed.data.role === 'accountant' ? 12000000 : 

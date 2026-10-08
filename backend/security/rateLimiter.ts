@@ -210,3 +210,10 @@ export const uploadRateLimiter = new RateLimiter({
   maxRequests: 15,
   keyPrefix: 'media_upload'
 });
+
+// 6. Global IP Route Limiter: Max 80 requests per 1 minute per IP (protects against F5 spam & HTTP flood)
+export const globalIpLimiter = new RateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 80,
+  keyPrefix: 'global_ip_flood'
+});
