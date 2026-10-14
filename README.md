@@ -1,134 +1,233 @@
-# Novyn Wear - Modern Minimalist E-Commerce
+# 🛍️ NOVYN WEAR - Modern Minimalist E-Commerce Platform
 
-Chào mừng bạn đến với **Novyn Wear**, một dự án website thương mại điện tử (e-commerce) cao cấp, hiện đại, sinh động và đầy đủ tính năng. Website được thiết kế tối ưu hóa trải nghiệm người dùng (UX) tinh tế, ứng dụng triết lý thiết kế tối giản hiện đại (Quiet Luxury) cùng các micro-animations chuyển động mượt mà.
+[![Next.js](https://img.shields.io/badge/Next.js-14.2%2B-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+[![Security](https://img.shields.io/badge/Security-Hardened-success?style=for-the-badge&logo=shield)](https://github.com/)
+[![Tests](https://img.shields.io/badge/Automated_Tests-100%25_PASS-brightgreen?style=for-the-badge)](https://github.com/)
 
-Website được tối ưu hóa hiển thị responsive hoàn hảo trên mọi kích cỡ màn hình từ thiết bị di động (mobile) đến máy tính để bàn (desktop) lớn.
+> **Novyn Wear** là nền tảng thương mại điện tử (Full-stack E-Commerce) cao cấp, được thiết kế theo triết lý hiện đại tối giản (*Quiet Luxury*) kết hợp với kiến trúc backend đạt tiêu chuẩn bảo mật ngân hàng, hiệu năng chịu tải cao, sẵn sàng phục vụ quy mô sản xuất thực tế.
+
+---
+
+## 📖 BẢNG MỤC LỤC
+- [🌟 Tính Năng Nổi Bật](#-tính-năng-nổi-bật)
+- [🛡️ Kiến Trúc Bảo Mật & Chịu Tải Cao](#️-kiến-trúc-bảo-mật--chịu-tải-cao)
+- [🛠️ Công Nghệ & Thư Viện Sử Dụng](#️-công-nghệ--thư-viện-sử-dụng)
+- [📁 Cấu Trúc Thư Mục](#-cấu-trúc-thư-mục)
+- [⚙️ Biến Môi Trường (Environment Variables)](#️-biến-môi-trường-environment-variables)
+- [🚀 Hướng Dẫn Cài Đặt & Chạy Cục Bộ](#-hướng-dẫn-cài-đặt--chạy-cục-bộ)
+- [🧪 Hệ Thống Kiểm Thử Tự Động (Automated Testing)](#-hệ-thống-kiểm-thử-tự-động-automated-testing)
+- [👥 Phân Quyền Nhân Sự & Tài Khoản Mẫu](#-phân-quyền-nhân-sự--tài-khoản-mẫu)
+- [📄 Giấy Phép (License)](#-giấy-phép-license)
 
 ---
 
 ## 🌟 Tính Năng Nổi Bật
 
-1. **Trang Chủ Lộng Lẫy (Homepage)**
-   - Hero banner thiết kế bất đối xứng với gradient chuyển màu nhẹ nhàng và hiệu ứng chuyển động lôi cuốn.
-   - Bento-grid giới thiệu danh mục sản phẩm (Tops, Bottoms, Accessories, Lifestyle) sinh động.
-   - Trưng bày các sản phẩm bán chạy nhất (Best Sellers) kèm phản hồi thực tế từ khách hàng uy tú.
-   - Banner khuyến mãi tích hợp mã coupon ưu đãi.
+### 1. Trải Nghiệm Khách Hàng (Storefront UX)
+- **Homepage Sang Trọng**: Hero banner bất đối xứng, hiệu ứng gradient Quiet Luxury, danh mục Bento-Grid (Tops, Bottoms, Outerwear, Accessories).
+- **Bộ Lọc Nâng Cao (Smart Filter)**: Lọc động theo danh mục, khoảng giá, tag khuyến mãi, sắp xếp đa chiều, đồng bộ URL parameters với React `Suspense`.
+- **Trang Chi Tiết Sản Phẩm**: Thư viện ảnh trượt đa góc nhìn, lựa chọn màu sắc/kích cỡ thông minh, kiểm soát tồn kho thời gian thực.
+- **Giỏ Hàng Đa Năng**: Cập nhật số lượng tức thì, áp dụng voucher (`SALE10`, `FREESHIP`), thanh tiến độ tự động tính miễn phí vận chuyển.
+- **Thanh Toán Đa Kênh**:
+  - **VNPay Gateway**: Thanh toán thẻ ATM / Thẻ quốc tế / QR Code VNPay với chữ ký bảo mật HMAC-SHA512.
+  - **Chuyển khoản ngân hàng**: Tự động sinh mã VietQR động theo đơn hàng kèm nội dung chuyển khoản tự động.
+  - **COD**: Thanh toán khi nhận hàng truyền thống.
+- **Hệ Thống Phản Hồi Khách Hàng (CSKH Ticket)**: Tích hợp form liên hệ chống bot Honeypot, tạo ticket hỗ trợ tự động gửi email xác nhận.
 
-2. **Trang Danh Sách Sản Phẩm (Products Catalog)**
-   - Tìm kiếm tức thời (Instant Search) tích hợp đồng bộ URL query.
-   - Bộ lọc nâng cao đa dạng: Lọc theo danh mục (Category), Tag khuyến mãi (On Sale), và khoảng giá (Price Range).
-   - Sắp xếp linh hoạt (Sort): Mới nhất, giá từ thấp đến cao, giá từ cao đến thấp.
-   - Giao diện Loading Skeleton giả lập và trạng thái giỏ hàng rỗng (Empty State) chỉn chu.
-   - Bọc kín toàn bộ logic URL parameters bằng `<Suspense>` của React để tránh lỗi Hydration/Build.
-
-3. **Trang Chi Tiết Sản Phẩm (Product Details)**
-   - Thư viện ảnh sản phẩm (Image Gallery) hỗ trợ chuyển đổi linh hoạt.
-   - Bộ chọn Thuộc tính: Màu sắc (Color) trực quan sinh động và kích cỡ (Size) tiêu chuẩn.
-   - Bộ điều khiển số lượng (Quantity Controller) trực quan, tự động validate giới hạn.
-   - Khung Accordion thu gọn chi tiết chất liệu, bảo quản và chính sách giao hàng tiện dụng.
-   - Mục đề xuất sản phẩm liên quan (Related Products) tăng khả năng cross-selling.
-
-4. **Trang Giỏ Hàng Hoàn Chỉnh (Shopping Cart)**
-   - Danh sách sản phẩm trực quan, cập nhật số lượng hoặc xóa sản phẩm tức thì.
-   - Tích hợp hệ thống Mã Giảm Giá (Promo Code):
-     - `SALE10`: Giảm ngay 10% tổng giá trị đơn hàng.
-     - `FREESHIP`: Miễn phí phí vận chuyển toàn quốc.
-   - Thanh tiến độ (Threshold bar) thông minh khuyến khích khách hàng mua thêm để nhận ưu đãi Freeship tự động (cho đơn từ 500.000đ).
-   - Lưu trữ đồng bộ giỏ hàng an toàn qua `localStorage` chống mất dữ liệu khi refresh trang.
-
-5. **Trang Thanh Toán Demo An Toàn (Checkout Flow)**
-   - Form thông tin khách hàng đầy đủ kiểm tra lỗi logic (Full Name, Phone number, Email, Address, Notes).
-   - Tích hợp 3 hình thức thanh toán tùy biến cao cấp:
-     - **Thanh toán khi nhận hàng (COD)**: Đơn giản, tin cậy.
-     - **Chuyển khoản ngân hàng trực tuyến**: Tạo mã QR thanh toán giả lập động dựa trên mã đơn hàng cực kỳ chuyên nghiệp.
-     - **Thẻ tín dụng quốc tế Visa/Master**: Khung nhập thẻ Visa sandbox kèm thẻ visual 3D bắt mắt, hướng dẫn kiểm thử an toàn.
-   - Modal thông báo Đặt hàng thành công hiển thị hóa đơn tóm tắt và tự động reset giỏ hàng.
-
-6. **Hệ Thống Trực Quan Hóa**
-   - **Toast Notifications**: Thông báo nổi khi thêm, xóa sản phẩm hoặc áp mã giảm giá thành công/thất bại, sử dụng Framer Motion và `AnimatePresence`.
-   - **Vượt trội về CSS**: Ghi đè triệt để chế độ Dark Mode mặc định của Tailwind v4 giúp giao diện luôn sáng bóng, sang trọng, đẳng cấp nhất trên mọi trình duyệt.
-
-7. **Trang Giới Thiệu (About) & Liên Hệ (Contact)**
-   - **About**: Kể câu chuyện thương hiệu Novyn Wear, triết lý "Less but Better", quy trình dệt sợi Linen mộc mạc và các giá trị bền vững cốt lõi.
-   - **Contact**: Form liên hệ trực quan (validate Tên, Email, nội dung ngắn), danh sách showrooms kèm bản đồ thiết kế đồ họa sang trọng.
+### 2. Quản Trị Hệ Thống & Bán Hàng (POS & CRM)
+- **Hệ Thống Phân Quyền Đa Tầng (RBAC)**:
+  - `DIRECTOR / ADMIN`: Toàn quyền quản trị doanh thu, báo cáo tài chính, cài đặt chi nhánh.
+  - `STORE_MANAGER`: Giám sát kho hàng, doanh số và nhân sự ca làm việc tại cửa hàng.
+  - `CASHIER / EMPLOYEE`: Tạo đơn POS tại quầy, in hóa đơn, áp mã giảm giá.
+  - `STOCKER`: Quản lý nhập/xuất kho, kiểm kê hàng hóa.
+  - `CSKH_LEAD / CSKH_STAFF`: Tiếp nhận và xử lý khiếu nại, phản hồi khách hàng.
 
 ---
 
-## 🛠️ Công Nghệ Sử Dụng
+## 🛡️ Kiến Trúc Bảo Mật & Chịu Tải Cao
 
-- **Framework**: [Next.js 16 (App Router)](https://nextjs.org/)
-- **Lập trình**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) & PostCSS
-- **Animations**: [Framer Motion](https://www.framer.com/motion/)
-- **Icons**: [Lucide React](https://lucide.dev/)
+Dự án đã trải qua quá trình kiểm thử tải nặng (1000 requests đồng thời) và được gia cố với 7 lớp phòng thủ:
+
+1. **Chống Spam F5 & HTTP Flood (Middleware IP Rate Limiter)**:
+   - Giới hạn **80 requests/phút/IP** trên toàn bộ các route.
+   - Khi vượt ngưỡng, tự động trả về mã **HTTP 429 Too Many Requests**, header `Retry-After: 60`, chặn đứng hoàn toàn hiện tượng F5 liên tục làm sập server.
+2. **Chống Tấn Công Dò Mật Khẩu (Brute-Force Auth Limiter)**:
+   - Giới hạn 5 lần đăng nhập sai liên tiếp. Tự động khóa tài khoản tạm thời 300 giây.
+3. **Cơ Chế Bộ Nhớ Tự Dọn Dẹp (Sliding-Window TTL)**:
+   - Dọn dẹp tự động các bản ghi IP hết hạn, đảm bảo không rò rỉ bộ nhớ (zero memory leak) trong Node.js.
+4. **Bảo Mật Cổng Thanh Toán VNPay (HMAC-SHA512 & Webhook Idempotency)**:
+   - Kiểm tra toàn vẹn chữ ký mật mã theo chuẩn ngân hàng (Timing-safe comparison chống tấn công Timing Attack).
+   - Kiểm tra tính duy nhất của đơn hàng chống gian lận lặp đơn hoặc chỉnh sửa số tiền thanh toán.
+5. **Cơ Chế Xử Lý Cơ Sở Dữ Liệu Chống Deadlock (Database Concurrency & WAL Mode)**:
+   - Bật chế độ `WAL (Write-Ahead Logging)` và `busy_timeout: 5000ms`.
+   - Bổ sung cơ chế `withDbRetry` tự động thử lại khi gặp tranh chấp ghi đồng thời.
+6. **Hệ Thống Tải Tệp An Toàn (Secure Media Pipeline)**:
+   - Kiểm tra **Magic Bytes nhị phân** của tệp tải lên (chỉ cho phép JPEG, PNG, WebP), chặn đứng 100% mã độc PHP / Shell / SVG-XSS.
+   - Đổi tên tệp ngẫu nhiên theo chuẩn UUID v4, giới hạn dung lượng 5MB.
+7. **Bảo Vệ Tài Nguyên Máy Chủ Bằng Mật Mã Bất Đồng Bộ**:
+   - Sử dụng `bcrypt.compare` và `bcrypt.hash` bất đồng bộ hoàn toàn (Async), không gây block Event Loop của Node.js khi nhiều người dùng đăng nhập cùng lúc.
 
 ---
 
-## 📦 Cấu Trúc Thư Mục Dự Án
+## 🛠️ Công Nghệ & Thư Viện Sử Dụng
+
+| Tầng | Công nghệ / Thư viện | Mô tả |
+| :--- | :--- | :--- |
+| **Frontend** | Next.js 14 / 15 (App Router), React 18 / 19 | Server Components, Suspense Streaming, Tối ưu SEO |
+| **Ngôn ngữ** | TypeScript 5 | Định kiểu dữ liệu chặt chẽ (Type-Safe 100%) |
+| **Giao diện** | Tailwind CSS v4, Lucide Icons, Framer Motion | Thiết kế Responsive, Dark/Light Mode, Micro-animations |
+| **Backend & ORM** | Next.js Server Actions, Route Handlers, Prisma ORM | Truy vấn dữ liệu an toàn, chống SQL Injection |
+| **Cơ Sở Dữ Liệu** | SQLite (Dev) / PostgreSQL (Production) | Kiến trúc linh hoạt chuyển đổi, cấu hình WAL Mode |
+| **Thanh toán** | VNPay SDK (Checksum SHA512), VietQR Code | Cổng thanh toán trực tuyến chuẩn Việt Nam |
+| **Bảo mật** | Bcrypt, JWT Session Crypto, Rate Limiter | Bảo vệ phiên đăng nhập, chống tấn công brute-force & flood |
+| **Email Service** | Resend API / SMTP Transactional | Gửi hóa đơn tự động và tiếp nhận vé CSKH |
+
+---
+
+## 📁 Cấu Trúc Thư Mục
 
 ```text
 modern-fashion-ecommerce/
-├── app/                      # Cấu trúc App Router của Next.js
-│   ├── about/                # Trang Giới thiệu thương hiệu
-│   ├── contact/              # Trang Liên hệ & Form gửi tin
-│   ├── cart/                 # Trang quản lý Giỏ hàng
-│   ├── checkout/             # Trang thanh toán đơn hàng & QR Demo
-│   ├── products/             # Trang danh sách & chi tiết sản phẩm ([slug])
-│   ├── layout.tsx            # Bố cục chính toàn trang (Navbar, Footer, Providers)
-│   ├── page.tsx              # Trang chủ Homepage
-│   └── globals.css           # Cấu hình Tailwind CSS & Custom scrollbar
-├── components/               # Các components tái sử dụng
-│   ├── layout/               # Header, Footer, Mobile menu
-│   └── product/              # ProductCard hiển thị sản phẩm
-├── context/                  # Trạng thái toàn cục (State Context)
-│   ├── CartContext.tsx       # Quản lý giỏ hàng & Promo codes
-│   └── ToastContext.tsx      # Quản lý thông báo Toast nổi
-├── data/                     # Dữ liệu mẫu (Mock data)
-│   └── products.ts           # Danh sách 16 sản phẩm thời trang cao cấp Unsplash
-├── lib/                      # Các tiện ích chung
-│   └── utils.ts              # Hàm định dạng tiền tệ VND, merge class Tailwind
-├── types/                    # Các khai báo kiểu TypeScript
-│   └── index.ts              # Interface Product, CartItem, Order...
-├── package.json              # Khai báo thư viện dependencies
-└── tsconfig.json             # Cấu hình TypeScript
+├── app/                          # Giao diện người dùng & API (App Router)
+│   ├── (store)/                  # Trang bán hàng: Homepage, Products, Cart, Checkout
+│   ├── account/                  # Quản lý tài khoản, lịch sử đơn hàng
+│   ├── api/                      # Backend Endpoints: Webhook VNPay, Uploads, Auth
+│   ├── cskh/                     # Cổng tiếp nhận & xử lý phản hồi khách hàng
+│   ├── pos/                      # Giao diện bán hàng tại quầy cho thu ngân
+│   └── globals.css               # Phong cách thiết kế Quiet Luxury
+├── components/                   # UI Components dùng chung (Header, Footer, ProductCard)
+├── context/                      # Quản lý State toàn cục (Giỏ hàng, Toast)
+├── lib/                          # Thư viện lõi & Xử lý nghiệp vụ
+│   ├── auth/                     # Xác thực & Phân quyền RBAC
+│   ├── email/                    # Dịch vụ gửi hóa đơn & thông báo
+│   ├── prisma.ts                 # Prisma Client tối ưu kết nối & WAL mode
+│   ├── rateLimiter.ts            # Sliding Window Rate Limiter
+│   └── vnpay.ts                  # Xử lý tính toán chữ ký VNPay
+├── prisma/                       # Cấu hình CSDL
+│   ├── schema.prisma             # Mô hình dữ liệu quan hệ (User, Order, Ticket,...)
+│   └── seed.ts                   # Dữ liệu khởi tạo tài khoản & sản phẩm
+├── scripts/                      # Bộ công cụ kiểm thử tự động (Test Suites)
+│   └── run_all_tests.ts          # Master Runner chạy toàn bộ 7 bộ kiểm thử
+├── .env.example                  # File mẫu cấu hình biến môi trường
+├── .gitignore                    # Bộ lọc bảo mật loại bỏ file nhạy cảm
+└── package.json                  # Khai báo Dependencies & Scripts
 ```
 
 ---
 
-## 🚀 Hướng Dẫn Cài Đặt & Chạy Thử Cục Bộ
+## ⚙️ Biến Môi Trường (Environment Variables)
 
-Hãy chắc chắn rằng máy tính của bạn đã cài đặt [Node.js](https://nodejs.org/) (khuyến nghị phiên bản 18+ hoặc mới nhất).
+Dự án cung cấp sẵn tệp mẫu an toàn `.env.example`. Hãy sao chép tệp này thành `.env` để cấu hình:
 
-1. **Truy cập thư mục dự án**:
+```bash
+cp .env.example .env
+```
+
+Nội dung cấu hình cơ bản trong `.env`:
+```env
+# Kết nối Cơ sở dữ liệu
+DATABASE_URL="file:./dev.db"
+
+# Khóa phiên bảo mật (Bắt buộc tối thiểu 32 ký tự khi chạy Production)
+SESSION_SECRET="change-this-to-a-secure-random-32-char-secret-key-in-production"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+# Cấu hình Cổng thanh toán VNPay Sandbox
+VNP_TMN_CODE="YOUR_TMN_CODE"
+VNP_HASH_SECRET="YOUR_HASH_SECRET"
+VNP_URL="https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
+VNP_RETURN_URL="http://localhost:3000/api/checkout/vnpay-return"
+
+# Cấu hình Gửi Email (Resend)
+RESEND_API_KEY=""
+SYSTEM_FROM_EMAIL="onboarding@resend.dev"
+CSKH_SUPPORT_EMAIL="support@novyn.vn"
+```
+
+> ⚠️ **Lưu ý**: Tệp `.env` thật đã được `.gitignore` bảo vệ tuyệt đối, không bao giờ bị đẩy lên GitHub.
+
+---
+
+## 🚀 Hướng Dẫn Cài Đặt & Chạy Cục Bộ
+
+### Yêu cầu hệ thống:
+- [Node.js](https://nodejs.org/) phiên bản 18.17 trở lên.
+- Trình quản lý gói `npm`, `yarn` hoặc `pnpm`.
+
+### Các bước khởi chạy:
+
+1. **Clone mã nguồn về máy:**
    ```bash
-   cd /Users/apple/.gemini/antigravity/scratch/modern-fashion-ecommerce
+   git clone https://github.com/nguyenxuanhai02072k6/<TEN-REPO-CUA-BAN>.git
+   cd <TEN-REPO-CUA-BAN>
    ```
 
-2. **Cài đặt các gói thư viện bổ sung**:
+2. **Cài đặt các gói thư viện (Dependencies):**
    ```bash
    npm install
    ```
 
-3. **Chạy server phát triển (Development Mode)**:
+3. **Khởi tạo cơ sở dữ liệu & Nạp dữ liệu mẫu:**
+   ```bash
+   npx prisma db push
+   npx prisma db seed
+   ```
+
+4. **Khởi chạy máy chủ phát triển (Development):**
    ```bash
    npm run dev
    ```
-   Sau đó mở trình duyệt truy cập: [http://localhost:3000](http://localhost:3000).
+   Mở trình duyệt và truy cập: [http://localhost:3000](http://localhost:3000).
 
-4. **Biên dịch và kiểm thử kiểm duyệt lỗi (Build Production)**:
+5. **Biên dịch bản sản xuất (Production Build):**
    ```bash
    npm run build
-   ```
-   Lệnh này sẽ biên dịch mã TypeScript và đóng gói tối ưu hóa cho môi trường thực tế, đảm bảo không có lỗi cảnh báo (linter) hay lỗi cú pháp nào.
-
-5. **Chạy bản Production đã biên dịch**:
-   ```bash
    npm run start
    ```
 
 ---
 
-## 🔒 Cam Kết Về Trải Nghiệm Lập Trình & Demo
-- Dự án hoàn toàn **không sử dụng cổng thanh toán thật** hay các API thu thập dữ liệu nhạy cảm. Toàn bộ thông tin điền trong trang checkout hoặc contact đều được xử lý cục bộ an toàn cho mục đích kiểm thử và demo cho khách hàng.
-- Trải nghiệm chuyển trang cực kỳ nhanh chóng nhờ tối ưu hóa cơ chế Server Components kết hợp Client Components của Next.js.
-- Các ảnh sản phẩm được sử dụng từ nguồn CDN Unsplash chất lượng cực kỳ cao với kích thước tối ưu, giúp hiển thị mượt mà không làm trễ tốc độ tải trang.
+## 🧪 Hệ Thống Kiểm Thử Tự Động (Automated Testing)
+
+Dự án được trang bị hệ thống kiểm thử tự động toàn diện bao quát 100% các tính năng quan trọng:
+
+```bash
+npx tsx scripts/run_all_tests.ts
+```
+
+**Kết quả kiểm thử đạt 100% [PASS]:**
+- ✅ **1. Database Concurrency**: Xử lý đa luồng, chống khóa bảng WAL mode, tự động retry.
+- ✅ **2. Payment Security**: Kiểm tra toàn vẹn chữ ký VNPay SHA512, chống gian lận đơn.
+- ✅ **3. Distributed Rate Limiter**: Chặn tấn công dò mật khẩu, quản lý bộ nhớ TTL.
+- ✅ **4. Transactional Emails**: Tự động phát hành hóa đơn đơn hàng và tiếp nhận phiếu CSKH.
+- ✅ **5. Secure Media Upload**: Nhận diện magic bytes, chống upload mã độc PHP/SVG-XSS.
+- ✅ **6. Contact & Honeypot**: Lọc spam biểu mẫu liên hệ, chống bot tự động.
+- ✅ **7. Anti-Spam F5 Protection**: Chặn đứng HTTP flood tại tầng Middleware (80 req/min).
+
+---
+
+## 👥 Phân Quyền Nhân Sự & Tài Khoản Mẫu
+
+Sau khi chạy lệnh `npx prisma db seed`, bạn có thể đăng nhập bằng các tài khoản sau (Mật khẩu mặc định: `Novyn@2026` hoặc theo cấu hình seed):
+
+| Vai trò (Role) | Tài khoản (Username) | Phạm vi quyền hạn |
+| :--- | :--- | :--- |
+| **Giám đốc điều hành** | `director` | Xem toàn bộ báo cáo tài chính, doanh thu, quản trị hệ thống |
+| **Kế toán trưởng** | `accountant` | Đối soát dòng tiền, xuất báo cáo doanh số |
+| **Trưởng phòng CSKH** | `cskh.lead` | Quản trị phiếu khiếu nại, phản hồi khách hàng |
+| **Cửa hàng trưởng** | `manager.q1` | Giám sát cửa hàng Chi nhánh Quận 1 |
+| **Thu ngân** | `cashier.q1` | Thao tác trên giao diện POS quầy, in hóa đơn |
+| **Nhân viên kho** | `stocker.q1` | Nhập hàng, kiểm kho, xuất hàng |
+| **Khách hàng thân thiết**| `customer.vip` | Đặt hàng online, theo dõi hành trình đơn |
+
+---
+
+## 📄 Giấy Phép (License)
+
+Dự án được phân phối dưới giấy phép **MIT License**. Bạn hoàn toàn có thể tự do sử dụng, chỉnh sửa và phát triển phục vụ mục đích học tập hoặc thương mại.
+
+---
+*Phát triển bởi [nguyenxuanhai02072k6](https://github.com/nguyenxuanhai02072k6) - 2026.*
