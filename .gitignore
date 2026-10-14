@@ -31,8 +31,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (never commit real .env or secrets)
 .env*
+!.env.example
 !.env.production.example
 
 # vercel
@@ -44,6 +45,20 @@ next-env.d.ts
 
 /lib/generated/prisma
 
-# SQLite temporary files
+# Databases & SQLite files (contains customer records, transactions, orders)
+*.db
+*.db-journal
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite3
+dev.db
+prod.db
+
+# SSL / TLS certificates and private keys
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+
