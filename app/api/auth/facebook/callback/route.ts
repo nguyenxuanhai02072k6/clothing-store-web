@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { setSessionCookie } from '@/lib/session';
 import { getSafeAppUrl } from '@/lib/utils';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '@/lib/security/passwordHash';
 import crypto from 'crypto';
 
 export async function GET(request: NextRequest) {
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     if (!user) {
       // Create new customer account with random secure password hash
-      const randomPasswordHash = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
+      const randomPasswordHash = await hashPassword(crypto.randomBytes(32).toString('hex'));
       user = await prisma.user.create({
         data: {
           id: `usr-fb-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,

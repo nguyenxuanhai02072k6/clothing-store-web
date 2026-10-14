@@ -67,8 +67,10 @@ Dự án đã trải qua quá trình kiểm thử tải nặng (1000 requests đ
 6. **Hệ Thống Tải Tệp An Toàn (Secure Media Pipeline)**:
    - Kiểm tra **Magic Bytes nhị phân** của tệp tải lên (chỉ cho phép JPEG, PNG, WebP), chặn đứng 100% mã độc PHP / Shell / SVG-XSS.
    - Đổi tên tệp ngẫu nhiên theo chuẩn UUID v4, giới hạn dung lượng 5MB.
-7. **Bảo Vệ Tài Nguyên Máy Chủ Bằng Mật Mã Bất Đồng Bộ**:
-   - Sử dụng `bcrypt.compare` và `bcrypt.hash` bất đồng bộ hoàn toàn (Async), không gây block Event Loop của Node.js khi nhiều người dùng đăng nhập cùng lúc.
+7. **Bảo Vệ Mật Khẩu Chuẩn Ngân Hàng (Argon2id Hybrid Hashing)**:
+   - Áp dụng thuật toán băm mật khẩu **Argon2id** (đạt giải quán quân Password Hashing Competition và chuẩn khuyến nghị OWASP), kháng hoàn toàn các đòn tấn công giải mã bằng siêu máy tính GPU/ASIC.
+   - Cơ chế nâng cấp mật khẩu ngầm (Transparent Rehash): Tự động chuyển đổi các tài khoản dùng Bcrypt cũ sang Argon2id ngay khi người dùng đăng nhập mà không làm gián đoạn trải nghiệm.
+   - Thực thi bất đồng bộ hoàn toàn (Async threadpool), không gây nghẽn Event Loop của Node.js.
 
 ---
 
@@ -82,7 +84,7 @@ Dự án đã trải qua quá trình kiểm thử tải nặng (1000 requests đ
 | **Backend & ORM** | Next.js Server Actions, Route Handlers, Prisma ORM | Truy vấn dữ liệu an toàn, chống SQL Injection |
 | **Cơ Sở Dữ Liệu** | SQLite (Dev) / PostgreSQL (Production) | Kiến trúc linh hoạt chuyển đổi, cấu hình WAL Mode |
 | **Thanh toán** | VNPay SDK (Checksum SHA512), VietQR Code | Cổng thanh toán trực tuyến chuẩn Việt Nam |
-| **Bảo mật** | Bcrypt, JWT Session Crypto, Rate Limiter | Bảo vệ phiên đăng nhập, chống tấn công brute-force & flood |
+| **Bảo mật** | Argon2id, Bcrypt fallback, JWT Session Crypto, Rate Limiter | Bảo vệ mật khẩu chuẩn OWASP, chống brute-force & flood |
 | **Email Service** | Resend API / SMTP Transactional | Gửi hóa đơn tự động và tiếp nhận vé CSKH |
 
 ---
@@ -206,6 +208,7 @@ npx tsx scripts/run_all_tests.ts
 - ✅ **5. Secure Media Upload**: Nhận diện magic bytes, chống upload mã độc PHP/SVG-XSS.
 - ✅ **6. Contact & Honeypot**: Lọc spam biểu mẫu liên hệ, chống bot tự động.
 - ✅ **7. Anti-Spam F5 Protection**: Chặn đứng HTTP flood tại tầng Middleware (80 req/min).
+- ✅ **8. Argon2id Password Security**: Kháng bẻ khóa GPU/ASIC, nâng cấp ngầm từ Bcrypt sang Argon2id.
 
 ---
 

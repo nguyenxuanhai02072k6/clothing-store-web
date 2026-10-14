@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword } from '../lib/security/passwordHash';
 import { MOCK_PRODUCTS } from '../data/products';
 import { prisma } from '../lib/db';
 
@@ -121,8 +121,7 @@ async function main() {
   console.log('Seeding users...');
 
   for (const u of DEFAULT_USERS) {
-    const salt = bcrypt.genSaltSync(10);
-    const hashedPassword = bcrypt.hashSync(getSeedPassword(u), salt);
+    const hashedPassword = await hashPassword(getSeedPassword(u));
 
     await prisma.user.create({
       data: {

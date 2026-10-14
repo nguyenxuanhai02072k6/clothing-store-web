@@ -88,14 +88,14 @@ async function runF5RateLimiterTests() {
     throw new Error('❌ Lỗi Fair Queuing: IP người dùng vô tội bị chặn oan!');
   }
 
-  // 5. Kiểm thử hàm băm mật khẩu bất đồng bộ (Non-blocking Async Bcrypt)
-  console.log('\n5. Kiểm thử hàm băm mật khẩu bất đồng bộ (Không còn chặn Event Loop của Node.js)...');
-  const startBcrypt = Date.now();
+  // 5. Kiểm thử hàm băm mật khẩu bất đồng bộ (Non-blocking Async Argon2id)
+  console.log('\n5. Kiểm thử hàm băm mật khẩu bất đồng bộ (Argon2id Non-blocking Threadpool)...');
+  const startArgon2 = Date.now();
   try {
     await loginAction('admin@novynwear.com', 'NovynAdmin@2026!');
   } catch {}
-  const duration = Date.now() - startBcrypt;
-  console.log(`   ✅ Async bcrypt.compare thực thi hoàn toàn bất đồng bộ (${duration}ms) không gây giật lag máy chủ.`);
+  const duration = Date.now() - startArgon2;
+  console.log(`   ✅ Async Argon2id password verification thực thi hoàn toàn bất đồng bộ (${duration}ms) không gây giật lag máy chủ.`);
 
   // Dọn dẹp limiter test
   await globalIpLimiter.reset(spammerIp);

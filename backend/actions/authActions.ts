@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from '@/database/db';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword, verifyPassword } from '@/backend/security/passwordHash';
 import { z } from 'zod';
 import { UserRole } from '@/types';
 import { setSessionCookie, clearSessionCookie, getSessionUser, verifySession } from '@/backend/security/session';
@@ -102,9 +102,9 @@ export async function loginAction(email: string, password: string) {
       return null;
     }
 
-    // Verify password asynchronously without blocking event loop
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
+    // Verify password using Argon2id with seamless legacy bcrypt migration
+    const verifyResult = await verifyPassword(password, user.password);
+    if (!verifyResult.isValid) {
       const attempt = await authRateLimiter.check(cleanEmail);
       if (!attempt.success) {
         await prisma.auditLog.create({
@@ -118,6 +118,19 @@ export async function loginAction(email: string, password: string) {
         throw new Error(`Đăng nhập sai quá 5 lần. Tài khoản tạm thời bị khóa ${waitMins} phút để bảo vệ an toàn.`);
       }
       return null;
+    }
+
+    // Transparently upgrade legacy bcrypt hashes to Argon2id
+    if (verifyResult.needsRehash) {
+      try {
+        const upgradedHash = await hashPassword(password);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { password: upgradedHash }
+        });
+      } catch (rehashErr) {
+        console.warn('Silent argon2 rehash upgrade failed:', rehashErr);
+      }
     }
 
     // Reset rate limiter on successful authentication
@@ -197,12 +210,12 @@ export async function changePasswordAction(userId: string, currentPassword: stri
       return { success: false, message: 'Tài khoản không tồn tại hoặc đã bị khóa' };
     }
 
-    const isValid = await bcrypt.compare(parsed.data.currentPassword, user.password);
-    if (!isValid) {
+    const verifyResult = await verifyPassword(parsed.data.currentPassword, user.password);
+    if (!verifyResult.isValid) {
       return { success: false, message: 'Mật khẩu hiện tại không đúng' };
     }
 
-    const hashedPassword = await bcrypt.hash(parsed.data.newPassword, 10);
+    const hashedPassword = await hashPassword(parsed.data.newPassword);
 
     await prisma.user.update({
       where: { id: userId },
@@ -263,7 +276,7 @@ export async function registerAction(
       return { success: false, message: 'Email đã tồn tại' };
     }
 
-    const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
+    const hashedPassword = await hashPassword(parsed.data.password);
 
     const defaultSalary = parsed.data.role === 'director' ? 25000000 : 
                           parsed.data.role === 'accountant' ? 12000000 : 
