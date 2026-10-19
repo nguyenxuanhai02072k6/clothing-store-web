@@ -129,10 +129,40 @@ async function runSmartShippingTests() {
 
   // TEST 7: Tích hợp Database & Server Action CreateOrder với Smart Shipping
   console.log('\n--- TEST 7: Server Action createOrderAction với Smart Shipping ---');
-  // Tìm một variant có sẵn trong DB để test
-  const testVariant = await prisma.productVariant.findFirst({
+  // Tìm một variant có sẵn tồn kho trong DB để test
+  let testVariant = await prisma.productVariant.findFirst({
+    where: {
+      inventoryItems: {
+        some: {
+          branchName: 'Chi nhánh Quận 1',
+          quantity: { gt: 0 }
+        }
+      }
+    },
     include: { product: true }
   });
+
+  if (!testVariant) {
+    testVariant = await prisma.productVariant.findFirst({
+      include: { product: true }
+    });
+    if (testVariant) {
+      await prisma.inventoryItem.upsert({
+        where: {
+          variantId_branchName: {
+            variantId: testVariant.id,
+            branchName: 'Chi nhánh Quận 1'
+          }
+        },
+        update: { quantity: 10 },
+        create: {
+          variantId: testVariant.id,
+          branchName: 'Chi nhánh Quận 1',
+          quantity: 10
+        }
+      });
+    }
+  }
 
   if (testVariant) {
     const orderRes = await createOrderAction({

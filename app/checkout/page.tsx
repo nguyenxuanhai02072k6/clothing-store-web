@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatPrice } from '../../lib/utils';
-import { ShieldCheck, Truck, Landmark, CheckCircle, ArrowRight, ArrowLeft, Info, Zap, Clock, PackageCheck, Sparkles, MapPin } from 'lucide-react';
+import { ShieldCheck, Truck, CheckCircle, ArrowRight, ArrowLeft, Info, Zap, Clock, PackageCheck, Sparkles, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import VietnamAddressSelector, { AddressSelectorValue } from '../../components/checkout/VietnamAddressSelector';
 import { ShippingOption } from '../../lib/services/smartShippingEngine';
@@ -97,7 +97,7 @@ export default function CheckoutPage() {
     }
   }, [currentUser]);
   const [notes, setNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'transfer' | 'vnpay'>('cod');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'vnpay'>('cod');
 
   // Shipping Branch
   const [selectedBranch, setSelectedBranch] = useState('Chi nhánh Quận 1');
@@ -636,83 +636,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  {/* Bank Transfer Method option */}
-                  <div
-                    onClick={() => setPaymentMethod('transfer')}
-                    className={`p-4 rounded-xl border flex flex-col gap-4 cursor-pointer transition-all ${
-                      paymentMethod === 'transfer' ? 'border-brand-text bg-neutral-50' : 'border-brand-border hover:border-brand-text'
-                    }`}
-                  >
-                    <div className="flex items-start gap-4 w-full">
-                      <input
-                        type="radio"
-                        name="payment"
-                        checked={paymentMethod === 'transfer'}
-                        onChange={() => setPaymentMethod('transfer')}
-                        className="w-4 h-4 accent-neutral-900 mt-1 cursor-pointer shrink-0"
-                      />
-                      <div className="flex gap-3">
-                        <Landmark className="w-5 h-5 text-brand-muted shrink-0 mt-0.5" />
-                        <div>
-                          <span className="text-xs font-bold text-brand-text uppercase block mb-1">Chuyển khoản ngân hàng trực tuyến</span>
-                          <p className="text-[10px] text-brand-muted leading-normal font-light">
-                            Chuyển khoản nhanh qua Internet Banking bằng mã QR code thông tin đơn hàng cực đơn giản.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Subpanel for Bank Details QR code */}
-                    {paymentMethod === 'transfer' && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        className="overflow-hidden border-t border-brand-border pt-4 flex flex-col md:flex-row items-center gap-6"
-                      >
-                        {/* Simulated QR Code Canvas */}
-                        <div className="bg-white p-3 rounded-xl border border-brand-border shadow-inner flex flex-col items-center shrink-0">
-                          <div className="w-32 h-32 relative bg-neutral-100 rounded-xl border border-brand-border flex items-center justify-center p-2">
-                            <div className="grid grid-cols-5 gap-1.5 w-full h-full p-2.5 opacity-85">
-                              {[...Array(25)].map((_, i) => (
-                                <div
-                                  key={i}
-                                  className={`rounded-md ${
-                                    i % 2 === 0 || i % 7 === 0 || i % 9 === 0 ? 'bg-brand-text' : 'bg-transparent'
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                            <div className="absolute bg-white px-2 py-0.5 border border-brand-border rounded-xl text-[8px] font-bold tracking-widest text-brand-text">
-                              NOVYN
-                            </div>
-                          </div>
-                          <span className="text-[8px] font-bold uppercase text-brand-muted mt-2 tracking-widest">Mã QR chuyển khoản</span>
-                        </div>
-
-                        {/* Bank Text Details */}
-                        <div className="flex-grow flex flex-col gap-2.5 text-xs text-brand-muted">
-                          <div className="grid grid-cols-3">
-                            <span className="font-bold text-brand-muted/70">Ngân hàng</span>
-                            <span className="col-span-2 text-brand-text font-bold">Techcombank (TCB)</span>
-                          </div>
-                          <div className="grid grid-cols-3">
-                            <span className="font-bold text-brand-muted/70">Số tài khoản</span>
-                            <span className="col-span-2 text-brand-text font-bold select-all">1903 4567 8901 234</span>
-                          </div>
-                          <div className="grid grid-cols-3">
-                            <span className="font-bold text-brand-muted/70">Chủ tài khoản</span>
-                            <span className="col-span-2 text-brand-text font-bold">CONG TY TNHH NOVYN WEAR</span>
-                          </div>
-                          <div className="grid grid-cols-3">
-                            <span className="font-bold text-brand-muted/70">Nội dung ck</span>
-                            <span className="col-span-2 text-brand-accent font-bold uppercase tracking-wider select-all">
-                              NOVYN CK {generatedOrderId || 'DONHANG'}
-                            </span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
 
                   {/* VNPay Online Gateway option */}
                   <div
@@ -932,16 +856,9 @@ export default function CheckoutPage() {
                 </div>
                 <div className="grid grid-cols-3">
                   <span className="font-bold text-brand-text/70 uppercase text-[10px] tracking-wider">Tổng tiền</span>
-                  <span className="col-span-2 text-brand-text font-bold">{formatPrice(cartTotal)}</span>
+                  <span className="col-span-2 text-brand-text font-bold">{formatPrice(effectiveTotal)}</span>
                 </div>
               </div>
-
-              {/* Instruction if Bank Transfer */}
-              {paymentMethod === 'transfer' && (
-                <div className="bg-neutral-50 p-4 rounded-xl border border-brand-border text-[10px] text-brand-muted font-light leading-relaxed text-left mb-8 w-full max-w-md">
-                  📌 <strong>Hướng dẫn thanh toán chuyển khoản:</strong> Quý khách vui lòng chuyển khoản nhanh đúng số tiền <strong className="text-brand-text">{formatPrice(cartTotal)}</strong> tới STK <strong className="text-brand-text">1903 4567 8901 234</strong> (Techcombank) của NOVYN WEAR với nội dung: <strong className="text-brand-accent select-all">{`NOVYN CK ${generatedOrderId}`}</strong> để hệ thống tự động xác nhận giao hàng.
-                </div>
-              )}
 
               {/* CTA buttons */}
               <button
