@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { getSessionUser, verifySession } from '@/backend/security/session';
 import { createPaymentGatewayUrl } from '@/backend/services/paymentService';
 import { sendOrderConfirmationEmail } from '@/backend/services/emailService';
+import { stockReservationEngine } from '@/backend/security/stockReservationEngine';
 
 const STAFF_ROLES = ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker'];
 
@@ -22,7 +23,8 @@ const orderItemInputSchema = z.object({
   quantity: z.number().int().positive(),
   colorName: z.string(),
   colorHex: z.string(),
-  size: z.string()
+  size: z.string(),
+  reservationId: z.string().optional()
 });
 
 const checkoutSchema = z.object({
@@ -30,7 +32,8 @@ const checkoutSchema = z.object({
   items: z.array(orderItemInputSchema).nonempty("Giỏ hàng trống"),
   paymentMethod: z.enum(['cod', 'transfer', 'vnpay', 'card']),
   branchName: z.string(),
-  voucherCode: z.string().optional()
+  voucherCode: z.string().optional(),
+  sessionId: z.string().optional()
 });
 
 function mapOrder(dbOrder: any) {
@@ -168,9 +171,20 @@ export async function createOrderAction(rawInput: any) {
           }
         });
 
-        const availableQty = inventoryItem?.quantity || 0;
-        if (availableQty < item.quantity) {
-          throw new Error(`Sản phẩm ${product.name} (Màu ${item.colorName}, Size ${item.size}) không đủ hàng tại chi nhánh. Yêu cầu: ${item.quantity}, Hiện có: ${availableQty}`);
+        const physicalQty = inventoryItem?.quantity || 0;
+        const reservedByOthers = stockReservationEngine.getReservedQuantity(variant.id, input.branchName);
+        let effectiveAvailable = physicalQty - reservedByOthers;
+
+        // If customer provided an active reservation, their reserved quantity is credited back to them
+        if (item.reservationId) {
+          const resStatus = await stockReservationEngine.getReservationStatus(item.reservationId);
+          if (resStatus && resStatus.status === 'active' && !resStatus.isExpired && resStatus.variantId === variant.id) {
+            effectiveAvailable += resStatus.quantity;
+          }
+        }
+
+        if (effectiveAvailable < item.quantity) {
+          throw new Error(`Sản phẩm ${product.name} (Màu ${item.colorName}, Size ${item.size}) không đủ hàng hoặc đang được khách hàng khác tạm giữ trong giỏ. Hiện có sẵn: ${Math.max(0, effectiveAvailable)}`);
         }
 
         // Prepare inventory update
@@ -218,6 +232,13 @@ export async function createOrderAction(rawInput: any) {
       // Create inventory transaction logs
       for (const log of txLogs) {
         await tx.inventoryTransaction.create({ data: log });
+      }
+
+      // Commit all active stock reservations
+      for (const item of input.items) {
+        if (item.reservationId) {
+          await stockReservationEngine.commitReservation(item.reservationId, tx);
+        }
       }
 
       // 3. Calculate VIP Discount
@@ -534,3 +555,97 @@ export async function updateOrderStatusAction(
     return { success: false, message: error.message || 'Lỗi cập nhật trạng thái' };
   }
 }
+
+/**
+ * Tạm giữ hàng trong giỏ 10 phút (Cart Reservation) trước khi thanh toán
+ */
+export async function reserveCartStockAction(
+  items: Array<{ productId: string; size: string; colorName: string; quantity: number }>,
+  branchName: string,
+  sessionId: string,
+  ttlSeconds = 600
+) {
+  try {
+    const results = [];
+    for (const item of items) {
+      const variant = await prisma.productVariant.findFirst({
+        where: {
+          productId: item.productId,
+          size: item.size,
+          colorName: item.colorName
+        }
+      });
+      if (!variant) {
+        return { success: false, message: `Biến thể ${item.colorName} - ${item.size} không tồn tại` };
+      }
+
+      const res = await stockReservationEngine.reserveStock({
+        variantId: variant.id,
+        branchName,
+        quantity: item.quantity,
+        sessionId,
+        ttlSeconds
+      });
+
+      if (!res.success) {
+        // Rollback any earlier reservations in this cart request
+        for (const prev of results) {
+          if (prev.reservationId) {
+            await stockReservationEngine.releaseReservation(prev.reservationId);
+          }
+        }
+        return { success: false, message: res.message || 'Hết hàng tạm giữ' };
+      }
+
+      results.push({
+        productId: item.productId,
+        variantId: variant.id,
+        size: item.size,
+        colorName: item.colorName,
+        reservationId: res.reservationId,
+        expiresAt: res.expiresAt,
+        expiresInSeconds: res.expiresInSeconds
+      });
+    }
+
+    return {
+      success: true,
+      reservations: results,
+      ttlSeconds,
+      expiresAt: results[0]?.expiresAt
+    };
+  } catch (err: any) {
+    console.error('reserveCartStockAction error:', err);
+    return { success: false, message: 'Lỗi hệ thống khi tạm giữ giỏ hàng' };
+  }
+}
+
+/**
+ * Hủy tạm giữ hàng (khi khách đổi ý hoặc thoát khỏi checkout)
+ */
+export async function releaseCartStockAction(reservationIds: string[]) {
+  try {
+    if (!Array.isArray(reservationIds)) return { success: false };
+    for (const id of reservationIds) {
+      if (typeof id === 'string') {
+        await stockReservationEngine.releaseReservation(id);
+      }
+    }
+    return { success: true };
+  } catch (err: any) {
+    console.error('releaseCartStockAction error:', err);
+    return { success: false };
+  }
+}
+
+/**
+ * Kiểm tra trạng thái và số giây còn lại của mã giữ hàng
+ */
+export async function getReservationStatusAction(reservationId: string) {
+  try {
+    return await stockReservationEngine.getReservationStatus(reservationId);
+  } catch (err) {
+    return null;
+  }
+}
+

@@ -75,6 +75,7 @@ model ProductVariant {
   inventoryItems       InventoryItem[]
   orderItems           OrderItem[]
   inventoryTransactions InventoryTransaction[]
+  stockReservations    StockReservation[]
 }
 
 model InventoryItem {
@@ -97,6 +98,20 @@ model InventoryTransaction {
   reason      String?
   createdById String? // User who did the transaction
   createdAt   DateTime       @default(now())
+}
+
+model StockReservation {
+  id          String         @id @default(uuid())
+  variantId   String
+  variant     ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  branchName  String
+  quantity    Int
+  sessionId   String
+  status      String         // 'active' | 'completed' | 'expired' | 'cancelled'
+  expiresAt   DateTime
+  createdAt   DateTime       @default(now())
+
+  @@index([variantId, branchName, status, expiresAt])
 }
 
 model Order {
