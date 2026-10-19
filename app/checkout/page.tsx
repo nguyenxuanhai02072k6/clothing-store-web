@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatPrice } from '../../lib/utils';
-import { ShieldCheck, Truck, Landmark, CheckCircle, ArrowRight, ArrowLeft, Info } from 'lucide-react';
+import { ShieldCheck, Truck, Landmark, CheckCircle, ArrowRight, ArrowLeft, Info, Zap, Clock, PackageCheck, Sparkles, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import VietnamAddressSelector, { AddressSelectorValue } from '../../components/checkout/VietnamAddressSelector';
+import { ShippingOption } from '../../lib/services/smartShippingEngine';
+import { getCustomerTier } from '../../types';
 
 interface FormErrors {
   fullName?: string;
@@ -27,6 +30,39 @@ export default function CheckoutPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
+
+  // Smart Address & Shipping States
+  const [addressData, setAddressData] = useState<AddressSelectorValue | null>(null);
+  const [selectedShippingOptionId, setSelectedShippingOptionId] = useState<'instant_2h' | 'express_standard' | 'economy'>('express_standard');
+
+  const customerTier = currentUser && currentUser.role === 'customer'
+    ? (getCustomerTier(currentUser.totalSpent || 0) as 'standard' | 'silver' | 'gold' | 'platinum' | 'diamond')
+    : 'standard';
+
+  // Handle cascading address change from VietnamAddressSelector
+  const handleAddressChange = useCallback((val: AddressSelectorValue) => {
+    setAddressData(val);
+    setAddress(val.fullAddress);
+    if (val.shippingData.recommendedBranch) {
+      setSelectedBranch(val.shippingData.recommendedBranch);
+    }
+    // If current selected option is not available in newly calculated options (e.g. instant_2h outside HCM)
+    if (!val.shippingData.options.some(o => o.id === selectedShippingOptionId)) {
+      setSelectedShippingOptionId('express_standard');
+    }
+  }, [selectedShippingOptionId]);
+
+  // Dynamic Shipping Fee & Effective Total
+  const activeShippingOption: ShippingOption | undefined = useMemo(() => {
+    if (!addressData) return undefined;
+    return addressData.shippingData.options.find(o => o.id === selectedShippingOptionId) || addressData.shippingData.selectedOption;
+  }, [addressData, selectedShippingOptionId]);
+
+  const effectiveShippingFee = activeShippingOption !== undefined ? activeShippingOption.finalFee : cartShipping;
+  const effectiveTotal = Math.max(
+    0,
+    cartSubtotal - (appliedPromo?.code === 'FREESHIP' ? memberDiscount : cartDiscount) + effectiveShippingFee
+  );
 
   // Load addresses from local storage
   const [addressBook, setAddressBook] = useState<any[]>([]);
@@ -112,7 +148,9 @@ export default function CheckoutPage() {
 
   const validateShippingStep = (): boolean => {
     const tempErrors: FormErrors = {};
-    if (!address.trim()) tempErrors.address = 'Vui lòng nhập địa chỉ giao hàng chi tiết.';
+    if (!addressData?.street?.trim() && !address.trim()) {
+      tempErrors.address = 'Vui lòng nhập số nhà và tên đường chi tiết.';
+    }
     
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;
@@ -135,17 +173,25 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true);
     
+    const finalAddress = addressData?.fullAddress || address;
+    const shippingInfoNote = activeShippingOption ? `[${activeShippingOption.name} - ${activeShippingOption.carrierName}]` : '';
+    const finalNotes = [shippingInfoNote, notes].filter(Boolean).join(' | ');
+
     createOrder(
-      { fullName, phone, email, address, notes },
+      { fullName, phone, email, address: finalAddress, notes: finalNotes },
       cart,
       cartSubtotal,
       cartDiscount,
-      cartShipping,
-      cartTotal,
+      effectiveShippingFee,
+      effectiveTotal,
       paymentMethod,
       selectedBranch,
       'pending',
-      appliedPromo?.code
+      appliedPromo?.code,
+      selectedShippingOptionId,
+      addressData?.province,
+      addressData?.district,
+      addressData?.ward
     )
       .then((res) => {
         const orderId = typeof res === 'string' ? res : res.orderId;
@@ -375,21 +421,28 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {/* Step 2 panel: Shipping options */}
+            {/* Step 2 panel: Shipping & Address options */}
             {checkoutStep === 'shipping' && (
-              <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col gap-5">
-                <h3 className="text-xs font-bold text-brand-text uppercase tracking-widest pb-4 border-b border-brand-border mb-2">
-                  2. Địa chỉ nhận hàng
-                </h3>
+              <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col gap-6">
+                <div className="flex items-center justify-between pb-4 border-b border-brand-border">
+                  <h3 className="text-xs font-bold text-brand-text uppercase tracking-widest flex items-center gap-2">
+                    <span>2. Địa chỉ nhận hàng & Giao vận</span>
+                  </h3>
+                  <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                    Định tuyến thông minh
+                  </span>
+                </div>
 
+                {/* Quick select saved addresses */}
                 {currentUser && addressBook.length > 0 && (
-                  <div className="flex flex-col gap-2 pb-4 border-b border-brand-border mb-2 animate-fade-in">
+                  <div className="flex flex-col gap-2 pb-4 border-b border-brand-border animate-fade-in">
                     <label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1">
-                      Chọn nhanh địa chỉ giao hàng
+                      Sử dụng địa chỉ đã lưu
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {addressBook.map((addr) => {
-                        const isSelected = address === `${addr.detailAddress}, ${addr.city}`;
+                        const isSelected = address.includes(addr.detailAddress);
                         return (
                           <button
                             key={addr.id}
@@ -420,42 +473,106 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {/* Shipping Address */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">Địa chỉ nhận hàng *</label>
-                  <input
-                    type="text"
-                    placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành..."
-                    value={address}
-                    onChange={(e) => {
-                      setAddress(e.target.value);
-                      if (errors.address) setErrors({ ...errors, address: undefined });
-                    }}
-                    className={`bg-white border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-brand-accent focus:bg-neutral-50 w-full ${
-                      errors.address ? 'border-rose-600 focus:border-rose-700' : 'border-brand-border'
-                    }`}
+                {/* 4-Tier Administrative Address Cascading Selector */}
+                <div className="flex flex-col gap-2">
+                  <VietnamAddressSelector
+                    subtotal={cartSubtotal}
+                    customerTier={customerTier}
+                    paymentMethod={paymentMethod}
+                    appliedPromoCode={appliedPromo?.code}
+                    onChange={handleAddressChange}
+                    error={errors.address}
                   />
-                  {errors.address && <p className="text-[10px] font-bold text-rose-600">{errors.address}</p>}
                 </div>
 
-                {/* Shipping Branch Selector */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">Chi nhánh phục vụ gần bạn nhất *</label>
-                  <select
-                    value={selectedBranch}
-                    onChange={(e) => setSelectedBranch(e.target.value)}
-                    className="bg-white border border-brand-border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-brand-accent w-full font-bold cursor-pointer"
-                  >
-                    <option value="Chi nhánh Quận 1">Chi nhánh Quận 1 (120 Lê Lợi, Bến Thành, Quận 1)</option>
-                    <option value="Chi nhánh Thảo Điền">Chi nhánh Thảo Điền (45 Thảo Điền, Quận 2)</option>
-                  </select>
+                {/* 3 SLA Delivery Options Cards */}
+                <div className="flex flex-col gap-3 pt-3 border-t border-brand-border">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-brand-accent" />
+                      Gói cước giao hàng (SLA Delivery Options) *
+                    </label>
+                    <span className="text-[10px] text-neutral-500 font-mono">
+                      {addressData?.shippingData.options.length || 0} lựa chọn
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {(addressData?.shippingData.options || []).map((option) => {
+                      const isSelected = selectedShippingOptionId === option.id;
+                      return (
+                        <div
+                          key={option.id}
+                          onClick={() => setSelectedShippingOptionId(option.id)}
+                          className={`p-4 rounded-xl border flex flex-col justify-between gap-3 cursor-pointer transition-all relative ${
+                            isSelected
+                              ? 'border-brand-accent bg-neutral-50/80 shadow-xs ring-1 ring-brand-accent'
+                              : 'border-brand-border hover:border-neutral-400 bg-white'
+                          }`}
+                        >
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-start justify-between gap-1">
+                              <div className="flex items-center gap-1.5">
+                                {option.id === 'instant_2h' ? (
+                                  <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                                ) : option.id === 'express_standard' ? (
+                                  <Truck className="w-4 h-4 text-emerald-600 shrink-0" />
+                                ) : (
+                                  <PackageCheck className="w-4 h-4 text-sky-600 shrink-0" />
+                                )}
+                                <span className="text-xs font-bold text-brand-text">{option.name}</span>
+                              </div>
+                              {option.badge && (
+                                <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                  option.badge.includes('Miễn phí')
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : option.badge.includes('Siêu tốc')
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-neutral-200 text-neutral-800'
+                                }`}>
+                                  {option.badge}
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-[10px] text-neutral-600 line-clamp-1">{option.desc}</p>
+                            
+                            <div className="flex items-center gap-1 text-[10px] text-brand-muted font-medium mt-1">
+                              <Clock className="w-3 h-3 text-neutral-400" />
+                              <span>{option.estimatedDelivery}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-baseline justify-between pt-2 border-t border-brand-border/60">
+                            <span className="text-[9px] text-brand-muted">{option.carrierName.split(' ')[0]}</span>
+                            <div className="text-right">
+                              {option.finalFee === 0 ? (
+                                <span className="text-xs font-bold text-emerald-700 uppercase">Miễn phí</span>
+                              ) : (
+                                <div className="flex items-baseline gap-1.5">
+                                  {option.discount > 0 && (
+                                    <span className="text-[10px] text-neutral-400 line-through">
+                                      {formatPrice(option.originalFee)}
+                                    </span>
+                                  )}
+                                  <span className="text-xs font-bold text-brand-text">
+                                    {formatPrice(option.finalFee)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Notes */}
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5 pt-2 border-t border-brand-border">
                   <label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">Ghi chú đơn hàng (Tùy chọn)</label>
                   <textarea
-                    rows={3}
+                    rows={2}
                     placeholder="Ghi chú về thời gian giao hàng, chỉ dẫn tìm đường..."
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -702,11 +819,16 @@ export default function CheckoutPage() {
                 <span className="font-semibold text-brand-text">{formatPrice(cartSubtotal)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span>Phí vận chuyển</span>
-                {cartShipping === 0 ? (
+                <span className="flex items-center gap-1">
+                  <span>Phí vận chuyển</span>
+                  {activeShippingOption && (
+                    <span className="text-[10px] text-brand-muted font-normal">({activeShippingOption.name})</span>
+                  )}
+                </span>
+                {effectiveShippingFee === 0 ? (
                   <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 border border-emerald-100 rounded-full text-[10px] uppercase tracking-widest">Miễn phí</span>
                 ) : (
-                  <span className="font-semibold text-brand-text">{formatPrice(cartShipping)}</span>
+                  <span className="font-semibold text-brand-text">{formatPrice(effectiveShippingFee)}</span>
                 )}
               </div>
               {memberDiscount > 0 && (
@@ -727,7 +849,7 @@ export default function CheckoutPage() {
             <div className="flex justify-between items-end border-t border-brand-border pt-5 mb-6">
               <span className="text-xs uppercase font-bold text-brand-text">Tổng thanh toán</span>
               <span className="text-lg md:text-xl font-normal text-brand-text leading-none">
-                {formatPrice(cartTotal)}
+                {formatPrice(effectiveTotal)}
               </span>
             </div>
 

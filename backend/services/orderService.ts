@@ -21,7 +21,11 @@ export const orderService = {
     branch: string,
     status: 'pending' | 'shipping' | 'completed' | 'cancelled' = 'pending',
     currentCustomerId?: string,
-    voucherCode?: string
+    voucherCode?: string,
+    shippingOptionId?: 'instant_2h' | 'express_standard' | 'economy',
+    provinceName?: string,
+    districtName?: string,
+    wardName?: string
   ): Promise<{ orderId: string; paymentUrl?: string }> => {
     // Map CartItem back to orderItemInputSchema format for secure calculation
     const itemsInput = items.map(item => ({
@@ -38,7 +42,12 @@ export const orderService = {
       paymentMethod,
       branchName: branch,
       currentCustomerId,
-      voucherCode
+      voucherCode,
+      shippingOptionId,
+      provinceName,
+      districtName,
+      wardName,
+      shippingFee: shipping
     });
 
     if (result.success && result.orderId) {

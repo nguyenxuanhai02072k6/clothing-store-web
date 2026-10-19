@@ -9,7 +9,8 @@ const testSuites = [
   { name: '6. Contact & Anti-Spam Form Integration', file: 'scripts/test_contact.ts' },
   { name: '7. Middleware F5 Spam & HTTP Flood Protection', file: 'scripts/test_f5_rate_limiter.ts' },
   { name: '8. Argon2id Password Hashing & Migration Pipeline', file: 'scripts/test_argon2.ts' },
-  { name: '9. Two-Tier Stock Reservation & In-Memory Lock', file: 'scripts/test_stock_reservation.ts' }
+  { name: '9. Two-Tier Stock Reservation & In-Memory Lock', file: 'scripts/test_stock_reservation.ts' },
+  { name: '10. Smart Shipping Engine & 4-Tier Address Selector', file: 'scripts/test_smart_shipping.ts' }
 ];
 
 console.log('================================================================');

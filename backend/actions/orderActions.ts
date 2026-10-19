@@ -6,6 +6,8 @@ import { getSessionUser, verifySession } from '@/backend/security/session';
 import { createPaymentGatewayUrl } from '@/backend/services/paymentService';
 import { sendOrderConfirmationEmail } from '@/backend/services/emailService';
 import { stockReservationEngine } from '@/backend/security/stockReservationEngine';
+import { smartShippingEngine } from '@/lib/services/smartShippingEngine';
+import { getCustomerTier } from '@/types';
 
 const STAFF_ROLES = ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker'];
 
@@ -33,7 +35,13 @@ const checkoutSchema = z.object({
   paymentMethod: z.enum(['cod', 'transfer', 'vnpay', 'card']),
   branchName: z.string(),
   voucherCode: z.string().optional(),
-  sessionId: z.string().optional()
+  sessionId: z.string().optional(),
+  shippingOptionId: z.enum(['instant_2h', 'express_standard', 'economy']).optional(),
+  provinceName: z.string().optional(),
+  districtName: z.string().optional(),
+  wardName: z.string().optional(),
+  shippingFee: z.number().optional(),
+  currentCustomerId: z.string().optional()
 });
 
 function mapOrder(dbOrder: any) {
@@ -279,15 +287,34 @@ export async function createOrderAction(rawInput: any) {
         }
       }
 
-      // 5. Calculate Shipping Fee
-      // Free shipping for orders over 1,000,000 VND or if freeship promotion applied
+      // 5. Calculate Shipping Fee using SmartShippingEngine
       let shipping = 30000;
-      if (subtotal > 1000000 || isFreeship) {
+      let shippingOptionInfo: string | null = null;
+      if (input.provinceName && input.districtName) {
+        const customerTier = linkedCustomer ? getCustomerTier(linkedCustomer.totalSpent || 0) : 'standard';
+        const shippingCalc = smartShippingEngine.calculate({
+          provinceName: input.provinceName,
+          districtName: input.districtName,
+          wardName: input.wardName,
+          subtotal,
+          customerTier: customerTier as any,
+          paymentMethod: input.paymentMethod,
+          appliedPromoCode: input.voucherCode
+        });
+        const chosen = shippingCalc.options.find(o => o.id === input.shippingOptionId) || shippingCalc.selectedOption;
+        shipping = chosen.finalFee;
+        shippingOptionInfo = `[${chosen.name} - ${chosen.carrierName} - ${chosen.estimatedDelivery}]`;
+      } else if (input.shippingFee !== undefined) {
+        shipping = input.shippingFee;
+      } else if (subtotal >= 500000 || isFreeship) {
         shipping = 0;
       }
 
       const discount = vipDiscount + voucherDiscount;
       const total = Math.max(0, subtotal - discount + shipping);
+
+      // Format customer notes with shipping carrier information if available
+      const customerNotes = [shippingOptionInfo, input.customerInfo.notes].filter(Boolean).join(' | ') || null;
 
       // 6. Create Order record
       const dbOrder = await tx.order.create({
@@ -297,7 +324,7 @@ export async function createOrderAction(rawInput: any) {
           customerPhone: input.customerInfo.phone,
           customerEmail: input.customerInfo.email,
           customerAddress: input.customerInfo.address,
-          customerNotes: input.customerInfo.notes || null,
+          customerNotes,
           subtotal,
           discount,
           shipping,

@@ -121,7 +121,22 @@ interface AuthContextType {
 
   // Order & Revenue Handlers
   allOrders: Order[];
-  createOrder: (customerInfo: CustomerInfo, items: CartItem[], subtotal: number, discount: number, shipping: number, total: number, paymentMethod: 'cod' | 'transfer' | 'card' | 'vnpay', branch: string, status?: 'pending' | 'shipping' | 'completed' | 'cancelled', voucherCode?: string) => Promise<{ orderId: string; paymentUrl?: string }>;
+  createOrder: (
+    customerInfo: CustomerInfo,
+    items: CartItem[],
+    subtotal: number,
+    discount: number,
+    shipping: number,
+    total: number,
+    paymentMethod: 'cod' | 'transfer' | 'card' | 'vnpay',
+    branch: string,
+    status?: 'pending' | 'shipping' | 'completed' | 'cancelled',
+    voucherCode?: string,
+    shippingOptionId?: 'instant_2h' | 'express_standard' | 'economy',
+    provinceName?: string,
+    districtName?: string,
+    wardName?: string
+  ) => Promise<{ orderId: string; paymentUrl?: string }>;
   updateOrderStatus: (orderId: string, status: 'pending' | 'shipping' | 'completed' | 'cancelled') => void;
 
   // Accountant Handlers
@@ -662,7 +677,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     paymentMethod: 'cod' | 'transfer' | 'card' | 'vnpay',
     branch: string,
     status: 'pending' | 'shipping' | 'completed' | 'cancelled' = 'pending',
-    voucherCode?: string
+    voucherCode?: string,
+    shippingOptionId?: 'instant_2h' | 'express_standard' | 'economy',
+    provinceName?: string,
+    districtName?: string,
+    wardName?: string
   ): Promise<{ orderId: string; paymentUrl?: string }> => {
     try {
       const orderResult = await orderService.createOrder(
@@ -676,7 +695,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         branch,
         status,
         currentUser?.role === 'customer' ? currentUser.id : undefined,
-        voucherCode
+        voucherCode,
+        shippingOptionId,
+        provinceName,
+        districtName,
+        wardName
       );
 
       // Refresh orders & users & stock levels
