@@ -157,6 +157,7 @@ export default function AppSidebar({
 }: AppSidebarProps) {
   
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [selectedWorkspace, setSelectedWorkspace] = useState<'all' | 'pos' | 'cskh' | 'warehouse' | 'finance' | 'management'>('all');
 
   // Scroll Lock when mobile sidebar is open
   useEffect(() => {
@@ -297,9 +298,39 @@ export default function AppSidebar({
         )}
       </AnimatePresence>
 
+      {/* Workspace Filter Pills */}
+      {!isCollapsed && (
+        <div className="px-3 py-2.5 border-b border-[#322A26] bg-[#1a1715]/60">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
+            {[
+              { id: 'all', label: 'Tất cả' },
+              { id: 'pos', label: 'POS' },
+              { id: 'cskh', label: 'CSKH' },
+              { id: 'warehouse', label: 'Kho WMS' },
+              { id: 'finance', label: 'Tài chính' },
+              { id: 'management', label: 'Quản trị' }
+            ].map((ws) => (
+              <button
+                key={ws.id}
+                onClick={() => setSelectedWorkspace(ws.id as any)}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  selectedWorkspace === ws.id
+                    ? 'bg-[#B19C89] text-[#211D1A] shadow-xs'
+                    : 'bg-[#28221e] text-[#8c8077] hover:text-white'
+                }`}
+              >
+                {ws.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Menu Groups */}
       <div className="flex-1 overflow-y-auto py-5 px-3 space-y-6 scrollbar-thin scrollbar-thumb-[#322A26] scrollbar-track-transparent">
-        {menuGroups.map((group) => {
+        {menuGroups
+          .filter(group => selectedWorkspace === 'all' || group.workspace === selectedWorkspace)
+          .map((group) => {
           if (group.allowedRoles && currentUser && !group.allowedRoles.includes(currentUser.role)) {
             return null;
           }

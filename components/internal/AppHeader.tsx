@@ -21,6 +21,7 @@ import {
   LayoutGrid
 } from 'lucide-react';
 import { menuGroups, MenuItem } from './AppSidebar';
+import CommandPalette from './CommandPalette';
 
 interface AppHeaderProps {
   currentUser: any;
@@ -49,17 +50,21 @@ export default function AppHeader({
 }: AppHeaderProps) {
   const [showQuickMenu, setShowQuickMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearchResults, setShowSearchResults] = useState(false);
-  const [searchResults, setSearchResults] = useState<{
-    orders: any[];
-    products: any[];
-    customers: any[];
-  }>({ orders: [], products: [], customers: [] });
-
   const quickMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Global Cmd+K / Ctrl+K shortcut listener
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -70,44 +75,10 @@ export default function AppHeader({
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowSearchResults(false);
-      }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Search logic
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults({ orders: [], products: [], customers: [] });
-      return;
-    }
-
-    const query = searchQuery.toLowerCase().trim();
-
-    // Filter orders (up to 3)
-    const filteredOrders = allOrders
-      .filter((o) => o.id.toLowerCase().includes(query) || o.customerInfo?.fullName?.toLowerCase().includes(query))
-      .slice(0, 3);
-
-    // Filter products (up to 3)
-    const filteredProducts = productsList
-      .filter((p) => p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query))
-      .slice(0, 3);
-
-    // Filter customers (up to 3)
-    const filteredCustomers = crmClients
-      .filter((c) => c.name.toLowerCase().includes(query) || c.phone.includes(query))
-      .slice(0, 3);
-
-    setSearchResults({
-      orders: filteredOrders,
-      products: filteredProducts,
-      customers: filteredCustomers
-    });
-  }, [searchQuery, allOrders, productsList, crmClients]);
 
   const workspaces = [
     { id: 'management', label: 'Tổng Chỉ Huy', icon: LayoutGrid, defaultTab: 'overview' },
@@ -155,23 +126,6 @@ export default function AppHeader({
     return ['NOVYN.WEAR', groupTitle, getPageTitle()];
   };
 
-  const handleSearchResultClick = (type: 'order' | 'product' | 'customer', item: any) => {
-    setShowSearchResults(false);
-    setSearchQuery('');
-    
-    if (type === 'order') {
-      setActiveTab('sales-orders-list');
-      // Set timer to trigger viewing details
-      setTimeout(() => {
-        const viewBtn = document.querySelector(`[title*="${item.id}"]`) || document.querySelector(`button[title*="chi tiết"]`);
-        if (viewBtn) (viewBtn as HTMLElement).click();
-      }, 300);
-    } else if (type === 'product') {
-      setActiveTab('products-database');
-    } else if (type === 'customer') {
-      setActiveTab('customers-list');
-    }
-  };
 
   const isGlobalView = ['director', 'accountant'].includes(currentUser?.role);
   const isExecutive = ['director', 'manager'].includes(currentUser?.role);
@@ -239,86 +193,23 @@ export default function AppHeader({
           )}
         </div>
 
-        {/* Global Autocomplete Search */}
-        <div ref={searchRef} className="relative w-full max-w-xs shrink-0">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Tìm đơn hàng, sản phẩm, khách hàng..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setShowSearchResults(true);
-              }}
-              onFocus={() => setShowSearchResults(true)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-brand-border text-xs focus:outline-none focus:border-brand-accent focus:bg-white bg-brand-bg font-semibold transition-all"
-            />
-            <Search className="w-3.5 h-3.5 text-brand-muted absolute left-3 top-1/2 -translate-y-1/2" />
-          </div>
-
-          {/* Results Dropdown */}
-          {showSearchResults && searchQuery.trim() && (
-            <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-brand-border rounded-xl shadow-2xl p-3 max-h-96 overflow-y-auto z-50 text-xs">
-              {searchResults.orders.length === 0 &&
-              searchResults.products.length === 0 &&
-              searchResults.customers.length === 0 ? (
-                <p className="text-center py-4 text-brand-muted italic">Không tìm thấy kết quả</p>
-              ) : (
-                <div className="space-y-4">
-                  {/* Orders */}
-                  {searchResults.orders.length > 0 && (
-                    <div className="space-y-1.5">
-                      <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest block px-1">Đơn hàng</span>
-                      {searchResults.orders.map((o) => (
-                        <button
-                          key={o.id}
-                          onClick={() => handleSearchResultClick('order', o)}
-                          className="w-full p-2 hover:bg-brand-bg rounded-lg text-left flex justify-between items-center cursor-pointer"
-                        >
-                          <span className="font-mono font-bold text-brand-accent">{o.id}</span>
-                          <span className="text-[10px] text-brand-muted truncate max-w-[120px]">{o.customerInfo?.fullName || 'Khách lẻ'}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Products */}
-                  {searchResults.products.length > 0 && (
-                    <div className="space-y-1.5">
-                      <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest block px-1">Sản phẩm</span>
-                      {searchResults.products.map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => handleSearchResultClick('product', p)}
-                          className="w-full p-2 hover:bg-brand-bg rounded-lg text-left flex justify-between items-center cursor-pointer"
-                        >
-                          <span className="font-bold text-brand-accent truncate max-w-[150px]">{p.name}</span>
-                          <span className="text-[10px] text-brand-muted">{p.category}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Customers */}
-                  {searchResults.customers.length > 0 && (
-                    <div className="space-y-1.5">
-                      <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest block px-1">Khách hàng</span>
-                      {searchResults.customers.map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => handleSearchResultClick('customer', c)}
-                          className="w-full p-2 hover:bg-brand-bg rounded-lg text-left flex justify-between items-center cursor-pointer"
-                        >
-                          <span className="font-bold text-brand-accent">{c.name}</span>
-                          <span className="text-[10px] text-brand-muted font-mono">{c.phone}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+        {/* Linear-Style Command Palette Trigger (Cmd+K) */}
+        <div className="relative w-full max-w-xs shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsCommandPaletteOpen(true)}
+            className="w-full flex items-center justify-between pl-3 pr-2 py-2 rounded-xl border border-brand-border text-xs bg-brand-bg hover:bg-white hover:border-brand-accent text-neutral-500 font-medium transition-all shadow-xs cursor-pointer group"
+          >
+            <div className="flex items-center gap-2">
+              <Search className="w-3.5 h-3.5 text-brand-muted group-hover:text-brand-accent transition-colors" />
+              <span className="truncate">Tìm kiếm, thao tác...</span>
             </div>
-          )}
+            <div className="flex items-center gap-1 shrink-0">
+              <kbd className="px-1.5 py-0.5 rounded-md bg-white border border-neutral-200 text-[10px] font-mono font-bold text-neutral-600 shadow-2xs">
+                ⌘K
+              </kbd>
+            </div>
+          </button>
         </div>
 
         {/* Quick Create Dropdown Menu */}
@@ -445,6 +336,20 @@ export default function AppHeader({
           })}
         </div>
       )}
+
+      {/* Global Linear-style Command Palette Modal (Cmd+K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        currentUser={currentUser}
+        setActiveTab={setActiveTab}
+        productsList={productsList}
+        allOrders={allOrders}
+        crmClients={crmClients}
+        selectedBranch={selectedBranch}
+        setSelectedBranch={setSelectedBranch}
+        onQuickAction={onQuickAction}
+      />
     </header>
   );
 }

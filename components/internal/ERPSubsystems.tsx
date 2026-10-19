@@ -52,6 +52,10 @@ import {
   updateCSKHTicketStatusAction,
   createCashReconciliationAction,
 } from '../../lib/actions/erpActions';
+import MultiCartPOS from './pos/MultiCartPOS';
+import VariantStockMatrix from './warehouse/VariantStockMatrix';
+import CashShiftReconciliation from './finance/CashShiftReconciliation';
+import Customer360Sidebar from './crm/Customer360Sidebar';
 
 interface ERPSubsystemsProps {
   activeTab: string;
@@ -362,6 +366,8 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
   const [transferStatusFilter, setTransferStatusFilter] = useState<'all' | 'shipping' | 'received' | 'cancelled'>('all');
   const [damageSearchQuery, setDamageSearchQuery] = useState('');
   const [damageBranchFilter, setDamageBranchFilter] = useState<string>('all');
+  const [financeReconTab, setFinanceReconTab] = useState<'drawer' | 'pl'>('drawer');
+  const [selectedCustomerFor360, setSelectedCustomerFor360] = useState<any | null>(null);
 
   // Local state for held POS orders (đơn tạm thời) và bộ lọc danh mục
   const [posSelectedCategory, setPosSelectedCategory] = useState<string>('all');
@@ -1039,842 +1045,35 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
   return (
     <div className="space-y-8">
       
-      {/* 1. POS SALES TAB */}
+      {/* 1. POS SALES TAB (MULTI-CART POS 2.0) */}
       {activeTab === 'pos-sales' && (
-        <div className="space-y-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
-            <div>
-              <h3 className="text-lg font-black text-neutral-950 uppercase tracking-tight flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-rose-500" />
-                Bán hàng POS tại quầy
-              </h3>
-              <p className="text-xs text-neutral-450 mt-1">Thu ngân: <span className="font-bold text-neutral-850">{currentUser.name}</span> • Cửa hàng: <span className="font-bold text-neutral-850">{currentUser.branch || 'Chi nhánh Quận 1'}</span></p>
-            </div>
-            
-            {/* Simulated Barcode Scan input */}
-            <form onSubmit={handleScanBarcode} className="flex gap-2 w-full md:w-auto">
-              <input
-                type="text"
-                placeholder="Quét mã vạch/nhập SKU..."
-                value={posBarcodeScan}
-                onChange={(e) => setPosBarcodeScan(e.target.value)}
-                className="px-3.5 py-2 border rounded-xl text-xs bg-white text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-rose-400 font-mono tracking-wider w-full md:w-56"
-              />
-              <button type="submit" className="bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shrink-0">
-                Quét
-              </button>
-            </form>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left side: Products catalog selector */}
-            <div className="lg:col-span-7 space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-grow">
-                  <input
-                    type="text"
-                    placeholder="Tìm sản phẩm theo tên..."
-                    value={posSearchQuery}
-                    onChange={(e) => setPosSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:border-rose-450 text-neutral-800"
-                  />
-                  <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                </div>
-
-                {/* Category Filter tabs */}
-                <div className="flex gap-1.5 overflow-x-auto select-none no-scrollbar shrink-0 max-w-full">
-                  {[
-                    { id: 'all', name: 'Tất cả' },
-                    { id: 'Tops', name: 'Áo' },
-                    { id: 'Bottoms', name: 'Quần' },
-                    { id: 'Dresses', name: 'Đầm' },
-                    { id: 'Outerwear', name: 'Áo khoác' }
-                  ].map(cat => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setPosSelectedCategory(cat.id)}
-                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wide uppercase transition-all border cursor-pointer active:scale-95 ${
-                        posSelectedCategory === cat.id
-                          ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
-                          : 'bg-white hover:bg-neutral-50 text-neutral-550 border-neutral-200 hover:text-neutral-800'
-                      }`}
-                    >
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* POS product list grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-1">
-                {productsList
-                  .filter(p => p.name.toLowerCase().includes(posSearchQuery.toLowerCase()))
-                  .filter(p => posSelectedCategory === 'all' || p.category === posSelectedCategory)
-                  .map(prod => {
-                    const branchName = currentUser?.branch || 'Chi nhánh Quận 1';
-                    const stock = branchStock?.[prod.id]?.[branchName] || 0;
-
-                    return (
-                      <div key={prod.id} className="bg-white border border-brand-border rounded-2xl p-3 flex gap-3 shadow-sm hover:border-neutral-800/40 transition-all hover:shadow-md duration-200">
-                        <div className="relative w-16 h-20 rounded-xl overflow-hidden bg-neutral-50 shrink-0 border border-neutral-100">
-                          <Image src={prod.images[0]} alt={prod.name} fill className="object-cover" unoptimized />
-                        </div>
-                        <div className="flex-grow flex flex-col justify-between min-w-0">
-                          <div>
-                            <div className="flex justify-between items-start gap-1">
-                              <h4 className="text-xs font-bold text-neutral-900 truncate flex-grow">{prod.name}</h4>
-                              {stock === 0 ? (
-                                <span className="bg-rose-50 text-rose-600 border border-rose-100 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0">Hết hàng</span>
-                              ) : stock <= 5 ? (
-                                <span className="bg-amber-50 text-amber-600 border border-amber-100 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0">Còn {stock} sp</span>
-                              ) : (
-                                <span className="bg-neutral-50 text-neutral-550 border border-neutral-200/60 text-[8px] font-bold px-1.5 py-0.5 rounded-md shrink-0">Kho: {stock}</span>
-                              )}
-                            </div>
-                            <span className="text-[10px] text-neutral-400 block mt-0.5">{categoryLabel[prod.category] || prod.category}</span>
-                            <span className="text-xs font-black text-neutral-900 block mt-1.5">{formatPrice(prod.price)}</span>
-                          </div>
-                          {/* Quick variants options */}
-                          <div className="flex gap-1.5 flex-wrap">
-                            {['S', 'M', 'L'].map(sz => (
-                              <button
-                                key={sz}
-                                disabled={stock === 0}
-                                onClick={() => handleAddPosCart(prod, sz, prod.colors[0]?.name || prod.colors[0] || 'Oatmeal')}
-                                className="px-2.5 py-1 rounded-lg border border-neutral-200 text-[9px] font-black hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all cursor-pointer active:scale-95 disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-neutral-400 disabled:hover:border-neutral-200"
-                              >
-                                + {sz}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-
-            {/* Right side: POS Cart and Billing Checkout */}
-            <div className="lg:col-span-5 bg-white border rounded-3xl p-5 shadow-sm space-y-4 relative">
-              <div className="flex justify-between items-center border-b pb-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-neutral-850 flex items-center gap-1.5">
-                  <ShoppingBag className="w-4 h-4 text-brand-accent-secondary" />
-                  <span>Giỏ hàng</span>
-                  <span className="text-brand-accent font-mono text-[10px]">({posCart.reduce((sum, i) => sum + i.quantity, 0)} chiếc)</span>
-                </h4>
-                
-                {/* Hold/Recall Buttons */}
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={handleHoldCart}
-                    disabled={posCart.length === 0}
-                    className="px-2.5 py-1 text-[10px] font-bold border border-brand-border rounded-lg hover:bg-brand-bg disabled:opacity-40 transition-colors flex items-center gap-1 cursor-pointer"
-                    title="Lưu đơn tạm thời"
-                  >
-                    Lưu tạm
-                  </button>
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowHeldDropdown(!showHeldDropdown)}
-                      className="px-2.5 py-1 text-[10px] font-bold bg-neutral-900 text-white rounded-lg hover:bg-neutral-850 transition-colors flex items-center gap-1 cursor-pointer"
-                    >
-                      Đơn tạm ({heldCarts.length})
-                    </button>
-                    
-                    {showHeldDropdown && (
-                      <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-brand-border rounded-2xl shadow-xl z-50 p-3 space-y-2 text-xs">
-                        <div className="font-bold text-[10px] text-brand-muted uppercase tracking-wider pb-1 border-b">
-                          Danh sách đơn tạm thời
-                        </div>
-                        {heldCarts.length === 0 ? (
-                          <div className="text-[10px] text-brand-muted italic text-center py-4">
-                            Không có đơn tạm thời nào
-                          </div>
-                        ) : (
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                            {heldCarts.map((hc) => (
-                              <div key={hc.id} className="flex flex-col p-2 bg-brand-bg rounded-xl gap-1.5 border border-brand-border/40">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <span className="font-bold text-neutral-900 block">{hc.customerName}</span>
-                                    <span className="text-[9px] text-brand-muted font-semibold block">{hc.time}</span>
-                                  </div>
-                                  <span className="text-[9px] font-bold font-mono text-brand-accent">
-                                    {hc.cart.reduce((sum, i) => sum + i.quantity, 0)} sp
-                                  </span>
-                                </div>
-                                <div className="flex gap-2 justify-end">
-                                  <button
-                                    onClick={() => handleRecallCart(hc.id)}
-                                    className="px-2 py-0.5 text-[9px] font-bold bg-neutral-950 text-white rounded hover:bg-neutral-800 transition-colors cursor-pointer"
-                                  >
-                                    Phục hồi
-                                  </button>
-                                  <button
-                                    onClick={() => handleCancelHeldCart(hc.id)}
-                                    className="px-2 py-0.5 text-[9px] font-bold bg-rose-50 text-rose-600 rounded hover:bg-rose-100 transition-colors cursor-pointer"
-                                  >
-                                    Xóa
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Cart List */}
-              <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1 border-b pb-3">
-                {posCart.length === 0 ? (
-                  <p className="text-xs text-neutral-400 italic text-center py-10">POS giỏ hàng đang trống.</p>
-                ) : (
-                  posCart.map(item => (
-                    <div key={item.id} className="flex justify-between items-center gap-2 text-xs py-1 border-b border-neutral-100 last:border-0">
-                      <div className="min-w-0 flex-grow">
-                        <span className="font-bold text-neutral-900 block truncate">{item.product.name}</span>
-                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                          <span className="text-[9px] text-neutral-450 font-mono">SKU: {item.sku}</span>
-                          {item.size && (
-                            <span className="text-[8.5px] bg-neutral-100 text-neutral-600 px-1 rounded font-bold">Size: {item.size}</span>
-                          )}
-                          {(() => {
-                            const branchName = currentUser?.branch || 'Chi nhánh Quận 1';
-                            const stock = branchStock?.[item.product.id]?.[branchName] ?? 10;
-                            if (stock === 0) {
-                              return (
-                                <span className="text-[8px] bg-rose-50 text-rose-600 border border-rose-200 px-1 py-0.2 rounded font-black uppercase tracking-wider">
-                                  Hết hàng quầy
-                                </span>
-                              );
-                            }
-                            if (item.quantity > stock) {
-                              return (
-                                <span className="text-[8px] bg-rose-100 text-rose-700 border border-rose-300 px-1 py-0.2 rounded font-black uppercase tracking-wider">
-                                  Vượt tồn ({stock})
-                                </span>
-                              );
-                            }
-                            if (stock < 3) {
-                              return (
-                                <span className="text-[8px] bg-amber-50 text-amber-700 border border-amber-200 px-1 py-0.2 rounded font-bold uppercase tracking-wider">
-                                  Tồn ít: {stock}
-                                </span>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
-                      </div>
-                      
-                      {/* Quantity change buttons */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button 
-                          onClick={() => {
-                            const updated = [...posCart];
-                            const idx = updated.findIndex(i => i.id === item.id);
-                            if (updated[idx].quantity > 1) {
-                              updated[idx].quantity -= 1;
-                              setPosCart(updated);
-                            } else {
-                              setPosCart(posCart.filter(i => i.id !== item.id));
-                            }
-                          }}
-                          className="w-5 h-5 rounded bg-neutral-100 font-bold hover:bg-neutral-200 flex items-center justify-center text-[10px]"
-                        >
-                          -
-                        </button>
-                        <span className="w-4 text-center font-bold font-mono">{item.quantity}</span>
-                        <button 
-                          onClick={() => {
-                            const updated = [...posCart];
-                            const idx = updated.findIndex(i => i.id === item.id);
-                            updated[idx].quantity += 1;
-                            setPosCart(updated);
-                          }}
-                          className="w-5 h-5 rounded bg-neutral-100 font-bold hover:bg-neutral-200 flex items-center justify-center text-[10px]"
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <span className="font-bold font-mono text-neutral-800 shrink-0 w-20 text-right">{formatPrice(item.price * item.quantity)}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Quick Cross-sell & Upsell Add-ons Bar */}
-              <div className="bg-gradient-to-r from-rose-50/70 to-amber-50/70 border border-rose-150/80 rounded-2xl p-3 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-rose-900 flex items-center gap-1">
-                    <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
-                    Gợi ý bán kèm tại quầy (Cross-sell & Upsell)
-                  </span>
-                  <span className="text-[8px] font-bold text-neutral-450">+ AOV</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {[
-                    { id: 'cross-socks', name: 'Vớ Cotton Khử Mùi', price: 49000, sku: 'ACC-SOCK-01' },
-                    { id: 'cross-spray', name: 'Xịt Thơm Vải Novyn', price: 129000, sku: 'CARE-SPR-01' },
-                    { id: 'cross-scarf', name: 'Khăn Lụa Vuông Tơ', price: 189000, sku: 'ACC-SCRF-01' }
-                  ].map(crossItem => (
-                    <button
-                      key={crossItem.id}
-                      type="button"
-                      onClick={() => {
-                        const existing = posCart.find(i => i.id === crossItem.id);
-                        if (existing) {
-                          setPosCart(posCart.map(i => i.id === crossItem.id ? { ...i, quantity: i.quantity + 1 } : i));
-                        } else {
-                          setPosCart([...posCart, {
-                            id: crossItem.id,
-                            product: { id: crossItem.id, name: crossItem.name, price: crossItem.price, images: ['/brand/logo.png'] },
-                            size: 'F',
-                            color: 'Standard',
-                            quantity: 1,
-                            price: crossItem.price,
-                            sku: crossItem.sku
-                          }]);
-                        }
-                        showToast(`✓ Đã thêm ${crossItem.name} vào giỏ!`, 'success');
-                      }}
-                      className="p-1.5 bg-white hover:bg-rose-500 hover:text-white border border-rose-200/70 rounded-xl text-left transition-all group cursor-pointer shadow-xs"
-                    >
-                      <span className="text-[9px] font-bold block truncate group-hover:text-white text-neutral-850">{crossItem.name}</span>
-                      <span className="text-[8.5px] font-mono font-black text-rose-600 group-hover:text-white/90 block mt-0.5">{formatPrice(crossItem.price)}</span>
-                      <span className="text-[7.5px] font-bold uppercase tracking-wider text-neutral-400 group-hover:text-white/80 block mt-0.5">+ Thêm</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* VIP Customer Membership syncing */}
-              <div className="space-y-2 border-b pb-3">
-                <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block">Thành viên VIP Loyalty</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="SĐT hoặc Tên khách..."
-                    value={posCustomerPhone}
-                    onChange={(e) => setPosCustomerPhone(e.target.value)}
-                    className="flex-grow px-3 py-1.5 border rounded-lg text-xs bg-white text-neutral-800 focus:outline-none"
-                  />
-                  <button onClick={handleLookUpCustomer} className="bg-neutral-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-neutral-800 shrink-0">
-                    Đồng bộ
-                  </button>
-                </div>
-                {posSelectedCustomer && (
-                  <div className="bg-amber-550/10 border border-amber-200 rounded-xl p-2.5 flex items-center justify-between text-xs font-semibold text-amber-800 animate-pulse">
-                    <div>
-                      <span>💎 {posSelectedCustomer.name}</span>
-                      <span className="text-[9px] text-neutral-500 block">Hạng: {posSelectedCustomer.tier} • Điểm: {posSelectedCustomer.points}</span>
-                    </div>
-                    <span className="font-bold">Chiết khấu -{vipDiscountPercent * 100}%</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Promo Code selector */}
-              <div className="flex gap-2 border-b pb-3">
-                <input
-                  type="text"
-                  placeholder="Mã giảm giá (SALE10)..."
-                  value={posPromoCode}
-                  onChange={(e) => setPosPromoCode(e.target.value)}
-                  className="flex-grow px-3 py-1.5 border rounded-lg text-xs bg-white text-neutral-800 focus:outline-none uppercase font-bold"
-                />
-                {posPromoCode && (
-                  <span className="bg-rose-50 text-rose-600 border border-rose-200 text-[9px] font-black uppercase tracking-wide px-2 rounded-lg flex items-center">
-                    {posPromoCode.toUpperCase() === 'SALE10' ? 'Đã áp 10%' : posPromoCode.toUpperCase() === 'FREESHIP' ? 'Giảm 30k' : 'Không lệ'}
-                  </span>
-                )}
-              </div>
-
-              {/* Invoice Summary */}
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between text-neutral-650">
-                  <span>Tổng tiền hàng</span>
-                  <span className="font-mono">{formatPrice(posSubtotal)}</span>
-                </div>
-                {vipDiscountAmt > 0 && (
-                  <div className="flex justify-between text-amber-700 font-semibold">
-                    <span>Ưu đãi VIP ({posSelectedCustomer?.tier})</span>
-                    <span className="font-mono">-{formatPrice(vipDiscountAmt)}</span>
-                  </div>
-                )}
-                {promoDiscountAmt > 0 && (
-                  <div className="flex justify-between text-rose-600 font-semibold">
-                    <span>Mã giảm giá áp dụng</span>
-                    <span className="font-mono">-{formatPrice(promoDiscountAmt)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-black text-neutral-900 border-t pt-2 mt-2 text-sm">
-                  <span>Khách phải thanh toán</span>
-                  <span className="font-mono text-rose-650">{formatPrice(posTotal)}</span>
-                </div>
-              </div>
-
-              {/* Payment Methods */}
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block">Phương thức thanh toán</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { key: 'cash', label: '💵 Tiền mặt' },
-                    { key: 'transfer', label: '🏦 Chuyển khoản' },
-                    { key: 'wallet', label: '📱 Ví điện tử' }
-                  ].map(m => (
-                    <button
-                      key={m.key}
-                      onClick={() => setPosPaymentMethod(m.key as any)}
-                      className={`py-2 rounded-xl text-[10px] font-bold transition-all border cursor-pointer ${
-                        posPaymentMethod === m.key
-                          ? 'bg-neutral-950 text-white border-neutral-950'
-                          : 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200'
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* VietQR Dynamic Code Showcase if Bank Transfer */}
-              {posPaymentMethod === 'transfer' && posTotal > 0 && (
-                <div className="bg-neutral-50 border rounded-2xl p-4 flex flex-col items-center justify-center gap-3">
-                  <div className="relative w-36 h-36 border-2 border-dashed border-rose-300 rounded-xl overflow-hidden bg-white flex items-center justify-center p-2 shadow-inner">
-                    <Image
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://qr.vietqr.co/NOVYN-STUDIO-RECONCILIATION-AMOUNT-${posTotal}`}
-                      alt="VietQR Chuyển khoản"
-                      fill
-                      className="object-contain"
-                      unoptimized
-                    />
-                  </div>
-                  <div className="text-center">
-                    <span className="text-[9px] font-black text-neutral-450 uppercase tracking-widest block">Mã VietQR động chứa số tiền</span>
-                    <span className="text-[11px] font-bold text-rose-650 font-mono mt-0.5">{formatPrice(posTotal)}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Checkout & Pro-forma CTAs */}
-              <div className="space-y-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowProformaModal(true)}
-                  disabled={posCart.length === 0}
-                  className="w-full py-2.5 rounded-xl border border-neutral-300 hover:border-neutral-900 text-neutral-850 font-bold uppercase text-[11px] tracking-wider transition-all disabled:opacity-40 hover:bg-neutral-50 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Printer className="w-4 h-4 text-neutral-600" />
-                  In Phiếu Tạm Tính (Pro-forma Bill)
-                </button>
-                <button
-                  onClick={handleCheckoutPOS}
-                  disabled={posCart.length === 0}
-                  className="w-full py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black uppercase text-xs tracking-wider transition-all disabled:opacity-40 shadow-md shadow-rose-500/10 active:scale-95 cursor-pointer"
-                >
-                  ✓ Chốt đơn & In hóa đơn lẻ
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Pro-forma Pre-checkout Bill Modal */}
-          <AnimatePresence>
-            {showProformaModal && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-white rounded-3xl border shadow-2xl p-6 w-full max-w-sm overflow-hidden text-neutral-800"
-                >
-                  <div className="border-b-2 border-dashed pb-4 text-center space-y-1">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
-                      Phiếu Tạm Tính (Chưa thanh toán)
-                    </span>
-                    <h2 className="text-lg font-black tracking-widest text-neutral-900 uppercase mt-1">NOVYN WEAR</h2>
-                    <p className="text-[10px] text-neutral-500 font-medium">Phiếu đối chiếu sản phẩm & số tiền tại quầy</p>
-                    <p className="text-[9px] font-mono text-neutral-450 mt-1">{currentUser.branch || 'Chi nhánh Quận 1'}</p>
-                    <p className="text-[8px] text-neutral-450 font-mono">Thời gian: {new Date().toLocaleString('vi-VN')}</p>
-                  </div>
-
-                  <div className="py-3 border-b-2 border-dashed space-y-2 text-xs max-h-56 overflow-y-auto">
-                    {posCart.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-start font-medium leading-relaxed">
-                        <div className="min-w-0 pr-2">
-                          <span className="font-bold text-neutral-900 block truncate">{item.product.name}</span>
-                          <span className="text-[9px] text-neutral-450 font-mono">Size {item.size} • SKU: {item.sku}</span>
-                        </div>
-                        <span className="font-mono text-neutral-450 shrink-0">{item.quantity} x</span>
-                        <span className="font-bold font-mono text-neutral-900 shrink-0 text-right w-20">
-                          {formatPrice(item.price * item.quantity)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="py-3 border-b-2 border-dashed space-y-1 text-xs">
-                    <div className="flex justify-between font-medium text-neutral-600">
-                      <span>Cộng tiền hàng</span>
-                      <span className="font-mono">{formatPrice(posSubtotal)}</span>
-                    </div>
-                    {vipDiscountAmt > 0 && (
-                      <div className="flex justify-between text-amber-700 font-bold">
-                        <span>Chiết khấu VIP ({posSelectedCustomer?.tier})</span>
-                        <span className="font-mono">-{formatPrice(vipDiscountAmt)}</span>
-                      </div>
-                    )}
-                    {promoDiscountAmt > 0 && (
-                      <div className="flex justify-between text-rose-600 font-bold">
-                        <span>Mã giảm giá ({posPromoCode})</span>
-                        <span className="font-mono">-{formatPrice(promoDiscountAmt)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-black text-neutral-900 text-sm pt-1">
-                      <span>TỔNG TẠM TÍNH</span>
-                      <span className="font-mono text-rose-650">{formatPrice(posTotal)}</span>
-                    </div>
-                  </div>
-
-                  <div className="py-3 text-center text-[10px] text-neutral-500 font-medium space-y-0.5">
-                    <p>Khách hàng: <span className="font-bold text-neutral-800">{posSelectedCustomer?.name || posCustomerPhone || 'Khách vãng lai'}</span></p>
-                    <p>Thu ngân: <span className="font-bold text-neutral-800">{currentUser.name}</span></p>
-                    <p className="italic text-neutral-400 text-[9px] mt-2">* Quý khách vui lòng kiểm tra sản phẩm trước khi thanh toán *</p>
-                  </div>
-
-                  <div className="flex gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        showToast('✓ Đã gửi lệnh in phiếu tạm tính ra máy in nhiệt!', 'success');
-                      }}
-                      className="flex-1 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      In phiếu
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowProformaModal(false)}
-                      className="px-4 py-2.5 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 text-xs font-bold transition-all cursor-pointer"
-                    >
-                      Đóng
-                    </button>
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
-
-          {/* POS Receipt roll Modal */}
-          <AnimatePresence>
-            {posPrintedReceipt && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-white rounded-3xl border shadow-2xl p-6 w-full max-w-sm overflow-hidden text-neutral-800"
-                >
-                  {/* Styled 80mm thermal receipt header */}
-                  <div className="border-b-2 border-dashed pb-4 text-center space-y-1">
-                    <h2 className="text-lg font-black tracking-widest text-neutral-900 uppercase">NOVYN WEAR</h2>
-                    <p className="text-[10px] text-neutral-500 font-medium">Quiet Luxury Minimalist Apparel showroom</p>
-                    <p className="text-[9px] font-mono text-neutral-450 mt-1">{posPrintedReceipt.branch}</p>
-                    <p className="text-[8px] text-neutral-450 font-mono">Invoice: {posPrintedReceipt.id} • {posPrintedReceipt.date}</p>
-                  </div>
-
-                  {/* Receipt items list */}
-                  <div className="py-4 border-b-2 border-dashed space-y-2 text-xs">
-                    {posPrintedReceipt.items.map((item: any, idx: number) => (
-                      <div key={idx} className="flex justify-between items-start font-medium leading-relaxed">
-                        <div className="min-w-0 pr-2">
-                          <span className="font-bold text-neutral-900 block truncate">{item.productName}</span>
-                          <span className="text-[9px] text-neutral-450 font-mono">SKU: {item.sku}</span>
-                        </div>
-                        <span className="font-mono text-neutral-450 shrink-0">{item.quantity} x</span>
-                        <span className="font-bold font-mono text-neutral-900 shrink-0 text-right w-20">{formatPrice(item.price * item.quantity)}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Receipt totals */}
-                  <div className="py-4 border-b-2 border-dashed space-y-1 text-xs">
-                    <div className="flex justify-between font-medium text-neutral-600">
-                      <span>Cộng tiền hàng</span>
-                      <span className="font-mono">{formatPrice(posPrintedReceipt.subtotal)}</span>
-                    </div>
-                    {posPrintedReceipt.vipDiscount > 0 && (
-                      <div className="flex justify-between text-amber-700 font-bold">
-                        <span>Chiết khấu VIP</span>
-                        <span className="font-mono">-{formatPrice(posPrintedReceipt.vipDiscount)}</span>
-                      </div>
-                    )}
-                    {posPrintedReceipt.promoDiscount > 0 && (
-                      <div className="flex justify-between text-rose-600 font-bold">
-                        <span>Giảm giá Promo</span>
-                        <span className="font-mono">-{formatPrice(posPrintedReceipt.promoDiscount)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-black text-neutral-900 text-sm pt-2">
-                      <span>TỔNG THANH TOÁN</span>
-                      <span className="font-mono text-rose-650">{formatPrice(posPrintedReceipt.total)}</span>
-                    </div>
-                  </div>
-
-                  {/* Payment Info */}
-                  <div className="py-4 text-center text-[10px] text-neutral-500 font-medium space-y-1">
-                    <p>Thanh toán bằng: <span className="font-bold uppercase text-neutral-800">{posPrintedReceipt.paymentMethod}</span></p>
-                    <p>Khách hàng: <span className="font-bold text-neutral-800">{posPrintedReceipt.customerName}</span></p>
-                    <p>Thu ngân phục vụ: <span className="font-bold text-neutral-800">{posPrintedReceipt.cashierName}</span></p>
-                    <p className="mt-4 italic tracking-wide uppercase font-bold text-neutral-400">✦ Cảm ơn quý khách đã chọn NOVYN! ✦</p>
-                  </div>
-
-                  {/* PDF Download mockup & Email receipt */}
-                  <div className="space-y-2 mt-4">
-                    <button 
-                      onClick={() => {
-                        showToast('✓ Đã tải xuống file hóa đơn PDF bán lẻ!', 'success');
-                      }}
-                      className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-700 hover:bg-neutral-50 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Download className="w-4 h-4" /> Tải hoá đơn PDF (Mô phỏng)
-                    </button>
-                    <div className="flex gap-2">
-                      <input
-                        type="email"
-                        placeholder="Nhập email gửi e-bill..."
-                        value={posReceiptMail}
-                        onChange={(e) => setPosReceiptMail(e.target.value)}
-                        className="flex-grow px-3 py-2 border rounded-xl text-xs bg-white text-neutral-800 focus:outline-none"
-                      />
-                      <button 
-                        onClick={() => {
-                          if (!posReceiptMail.trim()) return;
-                          showToast(`✓ Đã gửi E-Bill điện tử tới ${posReceiptMail}!`, 'success');
-                          setPosReceiptMail('');
-                        }}
-                        className="bg-neutral-950 text-white text-[10px] font-bold px-4 py-2 rounded-xl hover:bg-neutral-800 cursor-pointer"
-                      >
-                        Gửi
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => setPosPrintedReceipt(null)}
-                      className="w-full py-2.5 bg-neutral-900 text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-neutral-800 transition-colors cursor-pointer mt-4"
-                    >
-                      Đóng
-                    </button>
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
-        </div>
+        <MultiCartPOS
+          currentUser={currentUser}
+          productsList={productsList}
+          branchStock={branchStock}
+          crmClients={crmClients}
+          setCrmClients={setCrmClients}
+          showToast={showToast}
+          onSwitchToTransferTab={onSwitchToTransferTab}
+          restockBranchProduct={restockBranchProduct}
+          posHistory={posHistory}
+          setPosHistory={setPosHistory}
+        />
       )}
 
-      {/* 2. STOCKER INVENTORY WARNING ALERTS TAB */}
+      {/* 2. STOCKER INVENTORY & VARIANT MATRIX TAB */}
       {activeTab === 'stocker-inventory' && (
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-black text-neutral-950 uppercase tracking-tight flex items-center gap-2">
-              <Box className="w-5 h-5 text-blue-500" />
-              Quản lý kho & Cảnh báo tồn thấp
-            </h3>
-            <p className="text-xs text-neutral-450 mt-1">Stocker: <span className="font-bold text-neutral-850">{currentUser?.name}</span> • Chi nhánh: <span className="font-bold text-neutral-850">{currentUser?.branch || 'Chi nhánh Quận 1'}</span></p>
-          </div>
-
-          {/* Low stock alerts dashboard */}
-          <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 shadow-sm space-y-4">
-            <h4 className="text-xs font-black uppercase text-rose-800 tracking-wide flex items-center gap-1.5">
-              <AlertTriangle className="w-4 h-4 text-rose-600 animate-bounce" />
-              Cảnh báo tồn kho thấp (Low-Stock Alerts)
-            </h4>
-            <p className="text-[10px] text-rose-700 font-semibold">• Hệ thống tự động đánh dấu đỏ các biến thể có số lượng tồn dưới 3 sản phẩm tại {currentUser?.branch || 'chi nhánh'}.</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {productsList.map(prod => {
-                const branchName = currentUser?.branch || 'Chi nhánh Quận 1';
-                const totalStock = branchStock?.[prod.id]?.[branchName] || 0;
-                
-                // Variants simulation
-                const isLow = totalStock < 8; // Simulate variant alert if total stock is low
-                if (!isLow) return null;
-
-                return (
-                  <div key={prod.id} className="bg-white border-2 border-rose-200 rounded-2xl p-4 flex gap-3 shadow-inner">
-                    <div className="relative w-12 h-16 rounded-lg overflow-hidden bg-neutral-100 shrink-0 border border-rose-100">
-                      <Image src={prod.images[0]} alt={prod.name} fill className="object-cover" unoptimized />
-                    </div>
-                    <div className="min-w-0">
-                      <h5 className="text-xs font-bold text-neutral-900 truncate">{prod.name}</h5>
-                      <span className="text-[9px] text-rose-600 font-black block mt-0.5 uppercase tracking-wide">Tồn thấp: {totalStock} chiếc!</span>
-                      <span className="text-[9px] text-neutral-400 block mt-1 font-mono">SKU: NOVYN-{prod.category.toUpperCase()}</span>
-                    </div>
-                  </div>
-                );
-              })}
-              {productsList.every(prod => (branchStock?.[prod.id]?.[currentUser?.branch || 'Chi nhánh Quận 1'] || 0) >= 8) && (
-                <p className="text-xs text-emerald-700 italic font-semibold">Tất cả sản phẩm tại chi nhánh đang ở mức tồn an toàn (&gt;= 8 cái).</p>
-              )}
-            </div>
-          </div>
-
-          {/* Standard stock tracking table */}
-          <div className="bg-white border rounded-3xl p-5 shadow-sm space-y-4">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-              <div>
-                <h4 className="text-xs font-black uppercase text-neutral-850 tracking-wider">Danh sách tồn kho chi tiết sản phẩm</h4>
-                <p className="text-[10px] text-neutral-450 mt-0.5">Theo dõi số lượng tồn quầy thực tế, ngưỡng cảnh báo an toàn (&lt; 5 chiếc).</p>
-              </div>
-
-              {/* Filters bar */}
-              <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Tìm theo tên hoặc SKU..."
-                    value={stockerSearchQuery}
-                    onChange={(e) => setStockerSearchQuery(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 border rounded-xl text-xs bg-white text-neutral-800 focus:outline-none focus:border-blue-400 w-full sm:w-48"
-                  />
-                  <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                </div>
-                <div className="flex gap-1 overflow-x-auto no-scrollbar">
-                  {[
-                    { key: 'all', label: 'Tất cả' },
-                    { key: 'urgent', label: '🚨 Gấp (< 3)' },
-                    { key: 'warning', label: '⚠️ Dưới ngưỡng (< 5)' },
-                    { key: 'safe', label: '✅ An toàn (≥ 5)' }
-                  ].map(f => (
-                    <button
-                      key={f.key}
-                      type="button"
-                      onClick={() => setStockerRangeFilter(f.key as any)}
-                      className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
-                        stockerRangeFilter === f.key
-                          ? 'bg-neutral-900 text-white border-neutral-900'
-                          : 'bg-white hover:bg-neutral-50 text-neutral-600 border-neutral-200'
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto max-h-[380px]">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-neutral-50 border-b text-neutral-450 font-bold uppercase tracking-wider text-[9px]">
-                    <th className="p-3">Sản phẩm</th>
-                    <th className="p-3">Danh mục</th>
-                    <th className="p-3 text-center">Tồn kho hiện có</th>
-                    <th className="p-3 text-center">Trạng thái kho & Ngưỡng an toàn</th>
-                    <th className="p-3 text-right">Thao tác kho</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-neutral-700 font-medium">
-                  {productsList
-                    .filter(prod => {
-                      const q = stockerSearchQuery.toLowerCase();
-                      const matchQuery = prod.name.toLowerCase().includes(q) || prod.id.toLowerCase().includes(q) || prod.category.toLowerCase().includes(q);
-                      if (!matchQuery) return false;
-
-                      const branchName = currentUser?.branch || 'Chi nhánh Quận 1';
-                      const stock = branchStock?.[prod.id]?.[branchName] || 0;
-
-                      if (stockerRangeFilter === 'urgent') return stock < 3;
-                      if (stockerRangeFilter === 'warning') return stock < 5;
-                      if (stockerRangeFilter === 'safe') return stock >= 5;
-                      return true;
-                    })
-                    .map(prod => {
-                      const branchName = currentUser?.branch || 'Chi nhánh Quận 1';
-                      const stock = branchStock?.[prod.id]?.[branchName] || 0;
-                      const isOutOfStock = stock === 0;
-                      const isUrgent = stock > 0 && stock < 3;
-                      const isWarning = stock >= 3 && stock < 5;
-                      const isMedium = stock >= 5 && stock < 10;
-                      const isSafe = stock >= 10;
-
-                      return (
-                        <tr key={prod.id} className="hover:bg-neutral-50/20">
-                          <td className="p-3 flex items-center gap-2">
-                            <div className="relative w-8 h-10 rounded overflow-hidden bg-neutral-100 shrink-0 border border-neutral-150">
-                              <Image src={prod.images[0]} alt={prod.name} fill className="object-cover" unoptimized />
-                            </div>
-                            <div>
-                              <span className="font-bold text-neutral-900 block truncate max-w-xs">{prod.name}</span>
-                              <span className="text-[9px] text-neutral-400 font-mono block">SKU: NOVYN-{prod.category.toUpperCase()}-{prod.id.slice(-4).toUpperCase()}</span>
-                            </div>
-                          </td>
-                          <td className="p-3">{categoryLabel[prod.category] || prod.category}</td>
-                          <td className="p-3 text-center font-black font-mono text-sm text-neutral-850">{stock} chiếc</td>
-                          <td className="p-3 text-center">
-                            {isOutOfStock ? (
-                              <span className="px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-300 animate-pulse">
-                                Hết hàng quầy
-                              </span>
-                            ) : isUrgent ? (
-                              <span className="px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
-                                🚨 Cần nhập gấp (&lt; 3)
-                              </span>
-                            ) : isWarning ? (
-                              <span className="px-2.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
-                                ⚠️ Dưới ngưỡng an toàn (&lt; 5)
-                              </span>
-                            ) : isMedium ? (
-                              <span className="px-2.5 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                                Tồn vừa phải ({stock})
-                              </span>
-                            ) : (
-                              <span className="px-2.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                An toàn dồi dào ({stock})
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3 text-right">
-                            {stock < 5 ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setNewTransferProductId(prod.id);
-                                  if (Array.isArray(prod?.colors) && prod.colors.length > 0) {
-                                    setNewTransferColor(prod.colors[0]?.name || prod.colors[0] || 'Oatmeal');
-                                  }
-                                  setNewTransferQty(Math.max(1, 10 - stock));
-                                  const currentBranch = currentUser?.branch || 'Chi nhánh Quận 1';
-                                  const otherBranch = currentBranch === 'Chi nhánh Quận 1' ? 'Chi nhánh Thảo Điền' : 'Chi nhánh Quận 1';
-                                  setNewTransferTo(currentBranch);
-                                  setNewTransferFrom(otherBranch);
-                                  if (onSwitchToTransferTab) {
-                                    onSwitchToTransferTab();
-                                  }
-                                  showToast(`✓ Đã chọn ${prod.name} (đề xuất chuyển ${Math.max(1, 10 - stock)} sp từ ${otherBranch})!`, 'success');
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200 text-[9px] font-bold transition-all cursor-pointer whitespace-nowrap"
-                              >
-                                + Đề xuất chuyển kho
-                              </button>
-                            ) : (
-                              <span className="text-[10px] text-neutral-400 font-mono">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <VariantStockMatrix
+          currentUser={currentUser}
+          productsList={productsList}
+          branchStock={branchStock}
+          restockBranchProduct={restockBranchProduct}
+          refreshInventoryStocks={refreshInventoryStocks}
+          onSwitchToTransferTab={onSwitchToTransferTab}
+          transfers={transfers}
+          setTransfers={setTransfers}
+          showToast={showToast}
+        />
       )}
 
       {/* 3A. STOCKER TRANSFER TAB (ĐIỀU CHUYỂN KHO LIÊN CHI NHÁNH) */}
@@ -2661,7 +1860,17 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                   </thead>
                   <tbody className="divide-y text-neutral-700">
                     {crmClients.map(client => (
-                      <tr key={client.id} className="hover:bg-neutral-50/20">
+                      <tr
+                        key={client.id}
+                        onClick={() => {
+                          setSelectedCustomerFor360(client);
+                          showToast(`✓ Đã mở Khách Hàng 360: ${client.name}`, 'info');
+                        }}
+                        className={`hover:bg-neutral-50/60 cursor-pointer transition-colors ${
+                          selectedCustomerFor360?.id === client.id ? 'bg-purple-50/70 font-semibold' : ''
+                        }`}
+                        title="Click để xem hồ sơ Khách Hàng 360"
+                      >
                         <td className="p-3 font-bold text-neutral-900">
                           {client.name}
                           <span className="text-[9px] text-neutral-400 font-mono block">{client.phone}</span>
@@ -2805,6 +2014,26 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
               </form>
             </div>
             )}
+
+            {/* Customer 360 & Quick Canned Responses Hub */}
+            {(activeTab === 'cskh-hub' || activeTab === 'customers-list' || activeTab === 'cskh-customers') && (
+              <div className="lg:col-span-12">
+                <Customer360Sidebar
+                  selectedCustomer={selectedCustomerFor360 || crmClients[0] || null}
+                  customerOrders={allOrders.filter(o => 
+                    o.customerInfo?.fullName?.toLowerCase().includes((selectedCustomerFor360?.name || crmClients[0]?.name || '').toLowerCase()) ||
+                    o.customerInfo?.phone?.includes(selectedCustomerFor360?.phone || crmClients[0]?.phone || '----')
+                  )}
+                  customerTickets={cskhTickets.filter(t => 
+                    t.customerName?.toLowerCase().includes((selectedCustomerFor360?.name || crmClients[0]?.name || '').toLowerCase())
+                  )}
+                  onInsertCannedReply={(text) => {
+                    setNewTicketDesc(newTicketDesc ? `${newTicketDesc}\n${text}` : text);
+                  }}
+                  showToast={showToast}
+                />
+              </div>
+            )}
           </div>
 
           {/* Tickets lists history */}
@@ -2935,81 +2164,44 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
-            {/* Reconciliation panel */}
-            <div className="lg:col-span-5 bg-white border rounded-3xl p-5 shadow-sm space-y-4">
-              <h4 className="text-xs font-black uppercase tracking-wider text-neutral-850">Đối soát kiểm đếm két tiền mặt cửa hàng</h4>
-              
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Cửa hàng đối soát</label>
-                  <select
-                    className="w-full p-2.5 border rounded-xl bg-white text-neutral-800 focus:outline-none"
-                    disabled
-                  >
-                    <option value="Chi nhánh Quận 1">Chi nhánh Quận 1</option>
-                  </select>
-                </div>
+          {/* Sub-tab Switcher: Cash Shift vs P&L */}
+          <div className="flex bg-neutral-100 p-1 rounded-xl gap-1 w-fit">
+            <button
+              type="button"
+              onClick={() => setFinanceReconTab('drawer')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                financeReconTab === 'drawer'
+                  ? 'bg-white text-emerald-700 shadow-xs'
+                  : 'text-neutral-600 hover:text-neutral-900'
+              }`}
+            >
+              💵 Chốt ca két tiền POS (Mệnh giá)
+            </button>
+            <button
+              type="button"
+              onClick={() => setFinanceReconTab('pl')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                financeReconTab === 'pl'
+                  ? 'bg-white text-neutral-900 shadow-xs'
+                  : 'text-neutral-600 hover:text-neutral-900'
+              }`}
+            >
+              📊 Sổ cái P&L Doanh nghiệp
+            </button>
+          </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Tiền mặt POS kỳ vọng</label>
-                    <input
-                      type="number"
-                      disabled
-                      value={posReconciliationExpected}
-                      className="w-full p-2.5 border rounded-xl bg-neutral-50 font-bold font-mono text-neutral-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Tiền mặt kiểm thực tế *</label>
-                    <input
-                      type="number"
-                      required
-                      placeholder="Nhập số tiền thực tế..."
-                      value={posReconciliationActual || ''}
-                      onChange={(e) => setPosReconciliationActual(parseFloat(e.target.value) || 0)}
-                      className="w-full p-2.5 border rounded-xl bg-white focus:outline-none focus:border-neutral-400 font-bold font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Ghi chú đối soát</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Lý do chênh lệch hoặc ghi chú két..."
-                    value={posReconciliationNotes}
-                    onChange={(e) => setPosReconciliationNotes(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl bg-white focus:outline-none focus:border-neutral-400 text-xs font-medium resize-none"
-                  />
-                </div>
-
-                <div className="bg-[#FAF7F2] p-3.5 rounded-2xl border text-neutral-700">
-                  <div className="flex justify-between items-center font-bold text-neutral-800 mb-2">
-                    <span>Chênh lệch đối soát:</span>
-                    <span className={posReconciliationActual - posReconciliationExpected === 0 ? 'text-emerald-600' : 'text-rose-500'}>
-                      {posReconciliationActual - posReconciliationExpected > 0 ? '+' : ''}{formatPrice(posReconciliationActual - posReconciliationExpected)}
-                    </span>
-                  </div>
-                  <p className="text-[10px] leading-normal text-neutral-450">
-                    * Thủ quỹ hoặc thu ngân chịu trách nhiệm giải trình nếu có sai lệch lớn giữa tiền mặt thực tế và POS.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleSaveReconciliation}
-                  className="w-full py-3 rounded-xl bg-neutral-950 text-white font-bold uppercase tracking-wider text-xs hover:bg-neutral-850 active:scale-95 cursor-pointer shadow-sm transition-all"
-                >
-                  Xác nhận chốt két & đối soát
-                </button>
-              </div>
-            </div>
-
-            {/* P&L Interactive Ledger */}
-            <div className="lg:col-span-7 bg-white border rounded-3xl p-5 shadow-sm space-y-5">
+          {financeReconTab === 'drawer' ? (
+            <CashShiftReconciliation
+              currentUser={currentUser}
+              allOrders={allOrders}
+              posHistory={posHistory}
+              showToast={showToast}
+              reconciliations={cashReconciliations}
+              setReconciliations={setCashReconciliations}
+            />
+          ) : (
+            /* P&L Interactive Ledger */
+            <div className="w-full bg-white border rounded-3xl p-5 shadow-sm space-y-5">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-4">
                 <h4 className="text-xs font-black uppercase tracking-wider text-neutral-850">Sổ cái tài chính P&L Doanh nghiệp</h4>
                 <div className="flex items-center gap-2">
@@ -3294,7 +2486,7 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
                 );
               })()}
             </div>
-          </div>
+          )}
         </div>
       )}
 
