@@ -39,6 +39,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatPrice } from '../../../lib/utils';
 import { updateCRMClientLoyaltyAction } from '../../../lib/actions/erpActions';
+import { VoucherQrScannerModal } from '../../common/VoucherQrScannerModal';
+import { extractVoucherCodeFromQR } from '../../../lib/voucherQr';
 
 export interface CartItem {
   id: string;
@@ -139,6 +141,7 @@ export default function MultiCartPOS({
   // Modals
   const [showProformaModal, setShowProformaModal] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [showVoucherScanner, setShowVoucherScanner] = useState(false);
   const [printedReceipt, setPrintedReceipt] = useState<any | null>(null);
   const [receiptMail, setReceiptMail] = useState('');
   const [showHotkeysGuide, setShowHotkeysGuide] = useState(false);
@@ -171,14 +174,61 @@ export default function MultiCartPOS({
 
   const vipDiscountAmt = Math.round(subtotal * vipDiscountPercent);
 
-  let promoDiscountAmt = 0;
-  if (activeTab.promoCode.toUpperCase() === 'SALE10') {
-    promoDiscountAmt = Math.round((subtotal - vipDiscountAmt) * 0.1);
-  } else if (activeTab.promoCode.toUpperCase() === 'FREESHIP') {
-    promoDiscountAmt = Math.min(30000, subtotal - vipDiscountAmt);
-  } else if (activeTab.promoCode.toUpperCase() === 'VIP50K') {
-    promoDiscountAmt = Math.min(50000, subtotal - vipDiscountAmt);
-  }
+  // Dynamic Voucher / Coupon Discount Calculation
+  const getPromoDiscount = (code: string, subtotalAfterVip: number): { discount: number; desc: string; isValid: boolean } => {
+    if (!code) return { discount: 0, desc: '', isValid: false };
+    const clean = code.trim().toUpperCase();
+
+    // Check dynamic promos from localStorage
+    let dynamicMap: Record<string, any> = {};
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('novyn_dynamic_promos');
+        if (raw) dynamicMap = JSON.parse(raw);
+      } catch {}
+    }
+
+    if (dynamicMap[clean]) {
+      const p = dynamicMap[clean];
+      const discount = p.type === 'percent'
+        ? Math.round((subtotalAfterVip * p.value) / 100)
+        : Math.min(p.value, subtotalAfterVip);
+      return { discount, desc: p.description || '', isValid: true };
+    }
+
+    // Predefined voucher catalog
+    const KNOWN_PROMOS: Record<string, { type: 'percent' | 'fixed'; value: number; minOrder?: number; desc: string }> = {
+      SALE10: { type: 'percent', value: 10, desc: 'Giảm 10% tổng đơn' },
+      SALE12: { type: 'percent', value: 12, desc: 'Giảm 12% tổng đơn' },
+      SALE15: { type: 'percent', value: 15, desc: 'Giảm 15% tổng đơn' },
+      SALE20: { type: 'percent', value: 20, desc: 'Jackpot Giảm 20%' },
+      FREESHIP: { type: 'fixed', value: 30000, desc: 'Trừ 30.000 ₫' },
+      LUCKYSHIP: { type: 'fixed', value: 30000, desc: 'Trừ 30.000 ₫' },
+      LUCKYSHIP2: { type: 'fixed', value: 30000, desc: 'Trừ 30.000 ₫' },
+      NOVYN50K: { type: 'fixed', value: 50000, desc: 'Giảm trực tiếp 50.000 ₫' },
+      VIP50K: { type: 'fixed', value: 50000, desc: 'Giảm trực tiếp 50.000 ₫' },
+      NOVYNVIP50: { type: 'fixed', value: 50000, desc: 'Voucher VIP 50.000 ₫' },
+      NOVYNVIP100: { type: 'fixed', value: 100000, desc: 'Voucher VIP 100.000 ₫' },
+      NOVYNVIP200: { type: 'fixed', value: 200000, desc: 'Voucher VIP 200.000 ₫' },
+      XUAN2026: { type: 'fixed', value: 50000, minOrder: 500000, desc: 'Giảm 50.000 ₫ cho đơn từ 500.000 ₫' },
+    };
+
+    if (KNOWN_PROMOS[clean]) {
+      const p = KNOWN_PROMOS[clean];
+      if (p.minOrder && subtotalAfterVip < p.minOrder) {
+        return { discount: 0, desc: `Đơn tối thiểu ${p.minOrder.toLocaleString('vi-VN')} ₫`, isValid: false };
+      }
+      const discount = p.type === 'percent'
+        ? Math.round((subtotalAfterVip * p.value) / 100)
+        : Math.min(p.value, subtotalAfterVip);
+      return { discount, desc: p.desc, isValid: true };
+    }
+
+    return { discount: 0, desc: 'Mã không tồn tại', isValid: false };
+  };
+
+  const promoCheck = getPromoDiscount(activeTab.promoCode, subtotal - vipDiscountAmt);
+  const promoDiscountAmt = promoCheck.discount;
 
   const finalTotal = Math.max(0, subtotal - vipDiscountAmt - promoDiscountAmt);
 
@@ -298,13 +348,35 @@ export default function MultiCartPOS({
     updateActiveTab({ items: newItems });
   };
 
-  // Barcode Scan Handler
+  // Barcode & QR Code Scan Handler (Supports both Product Barcodes and Voucher QR codes)
   const handleBarcodeScan = (e: React.FormEvent) => {
     e.preventDefault();
     if (!barcodeScan.trim()) return;
+
+    // 1. Check if the scanned string is a Voucher QR code
+    const voucherCandidate = extractVoucherCodeFromQR(barcodeScan);
+    const promoCandidateCheck = getPromoDiscount(voucherCandidate, subtotal - vipDiscountAmt);
+    if (
+      promoCandidateCheck.isValid ||
+      voucherCandidate.startsWith('SALE') ||
+      voucherCandidate.startsWith('NOVYN') ||
+      voucherCandidate.startsWith('VOUCHER') ||
+      barcodeScan.includes('voucher=') ||
+      barcodeScan.includes('promo=')
+    ) {
+      updateActiveTab({ promoCode: voucherCandidate });
+      if (promoCandidateCheck.isValid) {
+        showToast(`✓ Đã quét mã QR Voucher: ${voucherCandidate} (${promoCandidateCheck.desc})`, 'success');
+      } else {
+        showToast(`Đã nhận mã Voucher: ${voucherCandidate}`, 'info');
+      }
+      setBarcodeScan('');
+      return;
+    }
+
     const cleanScan = barcodeScan.trim().toLowerCase();
 
-    // Check SKU or name match
+    // 2. Check SKU or name match for products
     const foundProduct = productsList.find(p =>
       p.id.toLowerCase().includes(cleanScan) ||
       p.name.toLowerCase().includes(cleanScan) ||
@@ -931,8 +1003,8 @@ export default function MultiCartPOS({
             )}
           </div>
 
-          {/* Promo Code Input [F3] */}
-          <div className="flex gap-2 border-b pb-3">
+          {/* Promo Code Input [F3] with QR Scanner */}
+          <div className="flex gap-2 border-b pb-3 items-center">
             <input
               ref={promoInputRef}
               type="text"
@@ -941,8 +1013,21 @@ export default function MultiCartPOS({
               onChange={(e) => updateActiveTab({ promoCode: e.target.value })}
               className="flex-1 px-3 py-1.5 border rounded-lg text-xs bg-white text-neutral-800 uppercase font-bold focus:outline-none focus:border-rose-500"
             />
+            <button
+              type="button"
+              onClick={() => setShowVoucherScanner(true)}
+              className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer active:scale-95 shadow-xs"
+              title="Mở camera hoặc tải ảnh quét mã QR voucher"
+            >
+              <QrCode className="w-3.5 h-3.5 text-rose-400" />
+              <span>Quét QR</span>
+            </button>
             {activeTab.promoCode && (
-              <span className="bg-rose-50 text-rose-600 border border-rose-200 text-[9px] font-black uppercase tracking-wide px-2 rounded-lg flex items-center shrink-0">
+              <span className={`text-[9px] font-black uppercase tracking-wide px-2 py-1.5 rounded-lg flex items-center shrink-0 border ${
+                promoDiscountAmt > 0
+                  ? 'bg-rose-50 text-rose-600 border-rose-200'
+                  : 'bg-neutral-100 text-neutral-500 border-neutral-200'
+              }`}>
                 {promoDiscountAmt > 0 ? `-${formatPrice(promoDiscountAmt)}` : 'Không hợp lệ'}
               </span>
             )}
@@ -1385,6 +1470,23 @@ export default function MultiCartPOS({
           </div>
         )}
       </AnimatePresence>
+
+      {/* POS Voucher QR Scanner Modal */}
+      <VoucherQrScannerModal
+        isOpen={showVoucherScanner}
+        onClose={() => setShowVoucherScanner(false)}
+        onScanSuccess={(code) => {
+          updateActiveTab({ promoCode: code });
+          const chk = getPromoDiscount(code, subtotal - vipDiscountAmt);
+          if (chk.isValid) {
+            showToast(`✓ Đã quét & áp dụng mã QR Voucher: ${code} (-${formatPrice(chk.discount)})`, 'success');
+          } else {
+            showToast(`Đã nhận mã QR: ${code}`, 'info');
+          }
+        }}
+        title="Quét mã QR Voucher tại quầy POS"
+        subtitle="Quét mã voucher trên điện thoại khách hàng, tin nhắn hoặc voucher giấy"
+      />
     </div>
   );
 }

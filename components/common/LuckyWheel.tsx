@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Gift, Sparkles, AlertCircle, ShoppingBag, Check, Loader2 } from 'lucide-react';
+import { X, Gift, Sparkles, AlertCircle, ShoppingBag, Check, Loader2, QrCode } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
 import { usePathname } from 'next/navigation';
+import { VoucherQrViewModal } from './VoucherQrViewModal';
 
 interface WheelOption {
   code: string;
@@ -29,6 +30,7 @@ export const LuckyWheel: React.FC = () => {
   const [prize, setPrize] = useState<WheelOption | null>(null);
   const [showPrizeModal, setShowPrizeModal] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
 
   const wheelOptions: WheelOption[] = [
     { code: 'SALE15', label: 'GIẢM 15%', type: 'percent', value: 15, description: 'Giảm 15% tổng hóa đơn mua hàng', color: '#FDFBF7', textColor: '#1C1917' }, // Cream
@@ -303,6 +305,15 @@ export const LuckyWheel: React.FC = () => {
                   <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-widest block mb-1">Mã Coupon ưu đãi:</span>
                   <div className="text-2xl font-black tracking-widest text-white font-mono bg-neutral-950 border border-neutral-800 px-5 py-2.5 rounded-2xl select-all">{prize.code}</div>
                   
+                  <button
+                    type="button"
+                    onClick={() => setShowQrModal(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[10px] font-bold uppercase tracking-wider transition-all mt-3 cursor-pointer border border-neutral-700 shadow-xs active:scale-95"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Xem mã QR quét tại quầy</span>
+                  </button>
+
                   <span className="h-px w-full bg-neutral-800 my-4 block" />
                   <p className="text-[11px] font-bold text-amber-300 leading-normal">{prize.description}</p>
                 </div>
@@ -346,6 +357,18 @@ export const LuckyWheel: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Lucky Prize QR Code Modal */}
+      <VoucherQrViewModal
+        isOpen={showQrModal}
+        onClose={() => setShowQrModal(false)}
+        voucher={prize ? {
+          code: prize.code,
+          description: prize.description,
+          value: prize.value,
+          type: prize.type
+        } : null}
+      />
     </>
   );
 };

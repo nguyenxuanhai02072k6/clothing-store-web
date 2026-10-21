@@ -27,9 +27,11 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  ArrowRight
+  ArrowRight,
+  QrCode
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { VoucherQrViewModal } from '../../components/common/VoucherQrViewModal';
 
 const DEMO_ACCOUNTS = [
   {
@@ -138,6 +140,7 @@ export default function AccountPage() {
 
   // Loyalty Points State (Loaded securely from Server DB AuditLog & User Spending)
   const [redeemedPoints, setRedeemedPoints] = useState(0);
+  const [qrVoucherModal, setQrVoucherModal] = useState<any | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -166,6 +169,12 @@ export default function AccountPage() {
       setRedeemedPoints(res.redeemedPoints ?? (redeemedPoints + cost));
       addDynamicPromoCode(code, 'fixed', value, `Voucher Loyalty VIP đổi từ điểm thưởng - Giảm ${formatPrice(value)}`);
       showToast(`Đổi điểm thành công! Đã tạo mã ${code} giảm ${formatPrice(value)} vào giỏ hàng.`, 'success');
+      setQrVoucherModal({
+        code,
+        value,
+        type: 'fixed',
+        description: `Voucher VIP Loyalty đổi từ điểm thưởng - Giảm ${formatPrice(value)}`
+      });
     } catch (err: any) {
       showToast(err.message || 'Lỗi khi đổi điểm thưởng!', 'error');
     }
@@ -1199,17 +1208,33 @@ export default function AccountPage() {
                                   <span className="text-xs font-bold text-brand-text uppercase">Voucher Giảm {formatPrice(item.value)}</span>
                                   <span className="text-[9px] font-bold text-brand-accent tracking-widest block uppercase mt-0.5">{item.cost} Điểm thưởng</span>
                                 </div>
-                                <button
-                                  onClick={() => handleRedeemVoucher(item.cost, item.value, item.code)}
-                                  disabled={!canRedeem}
-                                  className={`px-4 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all active:scale-95 cursor-pointer border ${
-                                    canRedeem
-                                      ? 'bg-brand-accent text-white border-brand-accent hover:bg-neutral-800 shadow-sm'
-                                      : 'bg-white text-brand-muted border-brand-border cursor-not-allowed'
-                                  }`}
-                                >
-                                  Đổi mã
-                                </button>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setQrVoucherModal({
+                                      code: item.code,
+                                      value: item.value,
+                                      type: 'fixed',
+                                      description: `Voucher VIP Loyalty - Giảm ${formatPrice(item.value)}`
+                                    })}
+                                    className="px-2.5 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border border-neutral-200 flex items-center gap-1 cursor-pointer active:scale-95"
+                                    title="Xem mã QR để quét tại quầy thu ngân"
+                                  >
+                                    <QrCode className="w-3 h-3 text-rose-500" />
+                                    <span>Mã QR</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleRedeemVoucher(item.cost, item.value, item.code)}
+                                    disabled={!canRedeem}
+                                    className={`px-3.5 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all active:scale-95 cursor-pointer border ${
+                                      canRedeem
+                                        ? 'bg-brand-accent text-white border-brand-accent hover:bg-neutral-800 shadow-sm'
+                                        : 'bg-white text-brand-muted border-brand-border cursor-not-allowed'
+                                    }`}
+                                  >
+                                    Đổi mã
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}
@@ -1488,6 +1513,12 @@ export default function AccountPage() {
         )}
       </AnimatePresence>
 
+      {/* Loyalty Voucher QR Modal */}
+      <VoucherQrViewModal
+        isOpen={!!qrVoucherModal}
+        onClose={() => setQrVoucherModal(null)}
+        voucher={qrVoucherModal}
+      />
     </div>
   );
 }

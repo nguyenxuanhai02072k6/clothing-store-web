@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCart } from '../../context/CartContext';
 import { formatPrice } from '../../lib/utils';
-import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, Tag, X, Info } from 'lucide-react';
+import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, Tag, X, Info, QrCode } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { VoucherQrScannerModal } from '../../components/common/VoucherQrScannerModal';
 
 export default function CartPage() {
   const {
@@ -24,6 +25,18 @@ export default function CartPage() {
 
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState('');
+  const [showQrScanner, setShowQrScanner] = useState(false);
+
+  // Auto-apply voucher from URL parameters (e.g. from camera QR scan)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const voucherParam = params.get('voucher') || params.get('promo') || params.get('code');
+      if (voucherParam) {
+        applyPromoCode(voucherParam);
+      }
+    }
+  }, [applyPromoCode]);
 
   const handleApplyPromo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +48,17 @@ export default function CartPage() {
       setPromoInput('');
     } else {
       setPromoError('Mã giảm giá không chính xác hoặc đã hết hạn.');
+    }
+  };
+
+  const handleQrScanSuccess = (scannedCode: string) => {
+    setPromoInput(scannedCode);
+    const success = applyPromoCode(scannedCode);
+    if (!success) {
+      setPromoError(`Mã "${scannedCode}" không hợp lệ hoặc đã hết hạn.`);
+    } else {
+      setPromoInput('');
+      setPromoError('');
     }
   };
 
@@ -370,10 +394,22 @@ export default function CartPage() {
 
           {/* Promo code box */}
           <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm">
-            <h3 className="text-xs font-bold text-brand-text uppercase tracking-widest mb-4 flex items-center gap-2">
-              <Tag className="w-4 h-4 text-brand-muted" />
-              Mã giảm giá
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-bold text-brand-text uppercase tracking-widest flex items-center gap-2">
+                <Tag className="w-4 h-4 text-brand-muted" />
+                Mã giảm giá
+              </h3>
+              {!appliedPromo && (
+                <button
+                  type="button"
+                  onClick={() => setShowQrScanner(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-xs"
+                >
+                  <QrCode className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Quét mã QR</span>
+                </button>
+              )}
+            </div>
 
             {appliedPromo ? (
               // Active coupon badge
@@ -395,24 +431,36 @@ export default function CartPage() {
               </div>
             ) : (
               // Promo input form
-              <form onSubmit={handleApplyPromo} className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Mã giảm giá..."
-                  value={promoInput}
-                  onChange={(e) => {
-                    setPromoInput(e.target.value);
-                    setPromoError('');
-                  }}
-                  className="bg-neutral-50 border border-brand-border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-brand-accent focus:bg-white w-full uppercase text-brand-text"
-                />
-                <button
-                  type="submit"
-                  disabled={!promoInput.trim()}
-                  className="bg-brand-accent text-white text-xs font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl hover:bg-neutral-800 transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Áp dụng
-                </button>
+              <form onSubmit={handleApplyPromo} className="space-y-2">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder="Mã giảm giá..."
+                      value={promoInput}
+                      onChange={(e) => {
+                        setPromoInput(e.target.value);
+                        setPromoError('');
+                      }}
+                      className="bg-neutral-50 border border-brand-border rounded-xl pl-3 pr-10 py-2.5 text-xs focus:outline-none focus:border-brand-accent focus:bg-white w-full uppercase text-brand-text"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowQrScanner(true)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-neutral-400 hover:text-rose-500 rounded-lg transition-colors cursor-pointer"
+                      title="Mở camera quét mã QR voucher"
+                    >
+                      <QrCode className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!promoInput.trim()}
+                    className="bg-brand-accent text-white text-xs font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl hover:bg-neutral-800 transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  >
+                    Áp dụng
+                  </button>
+                </div>
               </form>
             )}
 
@@ -450,6 +498,14 @@ export default function CartPage() {
 
       </div>
 
+      {/* QR Code Voucher Scanner Modal */}
+      <VoucherQrScannerModal
+        isOpen={showQrScanner}
+        onClose={() => setShowQrScanner(false)}
+        onScanSuccess={handleQrScanSuccess}
+        title="Quét mã QR Voucher"
+        subtitle="Quét mã voucher trên điện thoại, tem nhãn hoặc thẻ ưu đãi"
+      />
     </div>
   );
 }
