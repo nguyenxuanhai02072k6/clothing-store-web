@@ -15,6 +15,7 @@ import {
   FileDown,
   DollarSign,
   UserPlus,
+  UserCheck,
   ArrowRight,
   MessageSquare,
   Layers,
@@ -230,7 +231,8 @@ export default function AppHeader({
                 { label: 'Thêm sản phẩm', action: 'add-product', icon: Box, allowedRoles: ['director', 'accountant', 'manager'] },
                 { label: 'Nhập hàng', action: 'restock', icon: FileDown, allowedRoles: ['director', 'manager', 'accountant'] },
                 { label: 'Tạo khoản chi', action: 'add-expense', icon: DollarSign, allowedRoles: ['director', 'manager', 'accountant'] },
-                { label: 'Thêm khách hàng', action: 'add-customer', icon: UserPlus, allowedRoles: ['director', 'manager', 'employee', 'cskh', 'accountant'] }
+                { label: 'Thêm khách hàng', action: 'add-customer', icon: UserPlus, allowedRoles: ['director', 'manager', 'employee', 'cskh', 'accountant'] },
+                { label: 'Tạo tài khoản nhân viên', action: 'add-staff', icon: UserCheck, allowedRoles: ['director', 'manager', 'accountant'] }
               ]
                 .filter(item => !item.allowedRoles || item.allowedRoles.includes(currentUser?.role))
                 .map((item) => {

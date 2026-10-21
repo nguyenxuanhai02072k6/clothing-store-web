@@ -24,7 +24,8 @@ import {
   TrendingUp,
   MapPin,
   CheckCircle2,
-  Calendar
+  Calendar,
+  UserCheck
 } from 'lucide-react';
 import { formatPrice } from '../../lib/utils';
 
@@ -104,6 +105,7 @@ export default function CommandPalette({
     { id: 'finance-payroll', title: 'Bảng Lương, Hoa Hồng & Thuế', category: 'Tài chính', icon: FileSpreadsheet },
     { id: 'finance-p-l', title: 'Báo Cáo Lợi Nhuận Doanh Nghiệp (P&L)', category: 'Tài chính', icon: TrendingUp },
     { id: 'staff-schedule', title: 'Lịch Xếp Ca Tuần & Nhân Sự', category: 'Nhân sự', icon: Calendar },
+    { id: 'staff-schedule', title: 'Tạo Tài Khoản & Quản Lý Nhân Viên Chi Nhánh', category: 'Nhân sự', icon: UserCheck },
     { id: 'attendance', title: 'Chấm Công & Đi Muộn', category: 'Nhân sự', icon: Clock },
     { id: 'overview', title: 'Bảng Điều Hành Doanh Nghiệp (Overview)', category: 'Điều hành', icon: Command }
   ].filter(item => !cleanQuery || item.title.toLowerCase().includes(cleanQuery) || item.category.toLowerCase().includes(cleanQuery));
@@ -113,15 +115,45 @@ export default function CommandPalette({
     .filter(p => !cleanQuery || p.name.toLowerCase().includes(cleanQuery) || p.category.toLowerCase().includes(cleanQuery))
     .slice(0, 4);
 
-  // Orders Items (Up to 3)
-  const orderItems = allOrders
-    .filter(o => !cleanQuery || o.id.toLowerCase().includes(cleanQuery) || o.customerInfo?.fullName?.toLowerCase().includes(cleanQuery) || o.customerInfo?.phone?.includes(cleanQuery))
-    .slice(0, 3);
+  const cleanPhoneQuery = cleanQuery.replace(/\D/g, '');
 
-  // Customer Items (Up to 3)
+  // Orders & Transactions Items (Up to 4) - Match ID, Phone, Customer, or Payment Ref
+  const orderItems = allOrders
+    .filter(o => {
+      if (!cleanQuery) return true;
+      const matchId = String(o.id || '').toLowerCase().includes(cleanQuery);
+      const matchName = String(o.customerInfo?.fullName || o.customerName || '').toLowerCase().includes(cleanQuery);
+      
+      const rawPhone = String(o.customerInfo?.phone || o.phone || o.customerPhone || '');
+      const orderPhoneDigits = rawPhone.replace(/\D/g, '');
+      const matchPhone = (
+        rawPhone.toLowerCase().includes(cleanQuery) ||
+        (cleanPhoneQuery.length >= 3 && orderPhoneDigits.includes(cleanPhoneQuery)) ||
+        (cleanPhoneQuery.startsWith('0') && orderPhoneDigits.includes(cleanPhoneQuery.slice(1))) ||
+        (cleanPhoneQuery.startsWith('84') && orderPhoneDigits.includes(cleanPhoneQuery.slice(2)))
+      );
+
+      const matchTrans = String(o.transactionId || o.paymentRef || '').toLowerCase().includes(cleanQuery);
+      return matchId || matchName || matchPhone || matchTrans;
+    })
+    .slice(0, 4);
+
+  // Customer Items (Up to 4) - Match Name or Phone
   const customerItems = crmClients
-    .filter(c => !cleanQuery || c.name?.toLowerCase().includes(cleanQuery) || c.phone?.includes(cleanQuery))
-    .slice(0, 3);
+    .filter(c => {
+      if (!cleanQuery) return true;
+      const matchName = String(c.name || '').toLowerCase().includes(cleanQuery);
+      const rawPhone = String(c.phone || '');
+      const clientPhoneDigits = rawPhone.replace(/\D/g, '');
+      const matchPhone = (
+        rawPhone.toLowerCase().includes(cleanQuery) ||
+        (cleanPhoneQuery.length >= 3 && clientPhoneDigits.includes(cleanPhoneQuery)) ||
+        (cleanPhoneQuery.startsWith('0') && clientPhoneDigits.includes(cleanPhoneQuery.slice(1))) ||
+        (cleanPhoneQuery.startsWith('84') && clientPhoneDigits.includes(cleanPhoneQuery.slice(2)))
+      );
+      return matchName || matchPhone;
+    })
+    .slice(0, 4);
 
   const handleSelectNav = (id: string) => {
     setActiveTab(id);

@@ -2020,10 +2020,18 @@ export const ERPSubsystems: React.FC<ERPSubsystemsProps> = ({
               <div className="lg:col-span-12">
                 <Customer360Sidebar
                   selectedCustomer={selectedCustomerFor360 || crmClients[0] || null}
-                  customerOrders={allOrders.filter(o => 
-                    o.customerInfo?.fullName?.toLowerCase().includes((selectedCustomerFor360?.name || crmClients[0]?.name || '').toLowerCase()) ||
-                    o.customerInfo?.phone?.includes(selectedCustomerFor360?.phone || crmClients[0]?.phone || '----')
-                  )}
+                  customerOrders={allOrders.filter(o => {
+                    const custName = (selectedCustomerFor360?.name || crmClients[0]?.name || '').toLowerCase();
+                    const custPhone = (selectedCustomerFor360?.phone || crmClients[0]?.phone || '').replace(/\D/g, '');
+                    const orderName = (o.customerInfo?.fullName || o.customerName || '').toLowerCase();
+                    const orderPhone = (o.customerInfo?.phone || o.phone || '').replace(/\D/g, '');
+                    
+                    const matchName = custName && orderName.includes(custName);
+                    const matchPhone = custPhone.length >= 3 && orderPhone.length >= 3 && (
+                      orderPhone.includes(custPhone) || custPhone.includes(orderPhone)
+                    );
+                    return matchName || matchPhone;
+                  })}
                   customerTickets={cskhTickets.filter(t => 
                     t.customerName?.toLowerCase().includes((selectedCustomerFor360?.name || crmClients[0]?.name || '').toLowerCase())
                   )}

@@ -260,11 +260,27 @@ export async function registerAction(
       return { success: false, message: parsed.error.issues[0]?.message || 'Thông tin đăng ký không hợp lệ' };
     }
 
-    // Security check: Only allow registering as 'customer' unless the caller is a 'director'
+    // Security check: Only allow registering as 'customer' unless caller has permission (director or manager or accountant)
+    let creatorSession: any = null;
     if (parsed.data.role !== 'customer') {
-      const session = await getSessionUser();
-      if (!session || session.role !== 'director') {
-        return { success: false, message: 'Chỉ có Giám đốc mới có quyền đăng ký tài khoản nhân viên' };
+      creatorSession = await getSessionUser();
+      if (!creatorSession || !['director', 'manager', 'accountant'].includes(creatorSession.role)) {
+        return { success: false, message: 'Chỉ có Ban giám đốc hoặc Quản lý cửa hàng mới có quyền tạo tài khoản nhân viên' };
+      }
+
+      // If caller is a store manager, enforce branch boundaries and allowed staff roles
+      if (creatorSession.role === 'manager') {
+        const allowedRolesForManager = ['employee', 'cashier', 'stocker', 'cskh'];
+        if (!allowedRolesForManager.includes(parsed.data.role)) {
+          return {
+            success: false,
+            message: 'Quản lý cửa hàng chỉ có quyền tạo tài khoản nhân viên vận hành chi nhánh (Nhân viên bán hàng, Thu ngân, Thủ kho, CSKH)'
+          };
+        }
+        // Force employee's branch to match manager's branch
+        if (creatorSession.branch) {
+          parsed.data.branch = creatorSession.branch;
+        }
       }
     }
 
@@ -299,6 +315,17 @@ export async function registerAction(
         salary: defaultSalary || null,
       }
     });
+
+    if (creatorSession) {
+      await prisma.auditLog.create({
+        data: {
+          action: 'STAFF_REGISTER',
+          details: `${creatorSession.name} (${creatorSession.role}) đã tạo tài khoản nhân viên mới: ${newUser.name} (${newUser.role}) tại ${newUser.branch || 'Toàn hệ thống'}`,
+          performedById: creatorSession.userId,
+          performedByName: creatorSession.name,
+        }
+      });
+    }
 
     const { password: _, ...userWithoutPassword } = newUser;
     return { success: true, user: userWithoutPassword };

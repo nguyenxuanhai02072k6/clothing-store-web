@@ -339,13 +339,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUsersList(users);
 
         const registeredUser = users.find(u => u.email.trim().toLowerCase() === email.trim().toLowerCase());
-        if (!currentUser || currentUser.role !== 'accountant') {
+        const isStaffCreator = currentUser && ['director', 'manager', 'accountant'].includes(currentUser.role);
+        
+        // Only switch session to the new user if it was a public/guest registration
+        if (!currentUser) {
           if (registeredUser) {
             setCurrentUser(registeredUser);
             await authService.saveCurrentUser(registeredUser);
           }
         }
-        showToast(currentUser?.role === 'accountant' ? `Đã tạo tài khoản cho ${name} thành công!` : `Đăng ký thành công! Chào mừng ${name}.`, 'success');
+        showToast(isStaffCreator ? `Đã tạo tài khoản cho nhân viên ${name} thành công!` : `Đăng ký thành công! Chào mừng ${name}.`, 'success');
         return true;
       }
 

@@ -34,6 +34,8 @@ import {
   PlusCircle,
   LogOut,
   UserCheck,
+  UserPlus,
+  Users,
   FileText,
   Layers,
   TrendingUp,
@@ -65,6 +67,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
+  Copy,
   Filter,
   QrCode,
   MapPin,
@@ -344,6 +347,7 @@ export default function InternalDashboardPage() {
         ];
         if (['director', 'manager', 'accountant'].includes(currentUser?.role)) {
           tabs.push({ id: 'approval', name: 'Xếp lịch & Duyệt phép' });
+          tabs.push({ id: 'staff', name: 'Nhân sự & Tạo tài khoản' });
         }
         if (['director', 'accountant'].includes(currentUser?.role)) {
           tabs.push({ id: 'payroll', name: 'Lương & Hoa hồng' });
@@ -574,9 +578,11 @@ export default function InternalDashboardPage() {
   const [newWikiContent, setNewWikiContent] = useState('');
   const [wikiSearch, setWikiSearch] = useState('');
 
-  // Search filter for CSKH
+  // Search filter for CSKH & Orders
   const [customerSearch, setCustomerSearch] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all');
+  const [orderBranchFilter, setOrderBranchFilter] = useState('all');
   const [viewingOrderId, setViewingOrderId] = useState<string | null>(null);
 
   // CSKH Live Chat States
@@ -664,13 +670,15 @@ export default function InternalDashboardPage() {
   const [newExpenseAmount, setNewExpenseAmount] = useState(0);
   const [newExpenseCategory, setNewExpenseCategory] = useState<'marketing' | 'operations' | 'equipment' | 'other'>('operations');
 
-  // Accountant HR Staffing
+  // HR Staffing & Account Management
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPassword, setNewStaffPassword] = useState('');
-  const [newStaffRole, setNewStaffRole] = useState<'employee' | 'manager' | 'accountant' | 'director' | 'cskh'>('employee');
+  const [newStaffRole, setNewStaffRole] = useState<'employee' | 'manager' | 'accountant' | 'director' | 'cskh' | 'cashier' | 'stocker'>('employee');
   const [newStaffBranch, setNewStaffBranch] = useState('Chi nhánh Quận 1');
   const [newStaffPhone, setNewStaffPhone] = useState('');
+  const [staffFilterRole, setStaffFilterRole] = useState('all');
+  const [staffSearchQuery, setStaffSearchQuery] = useState('');
 
   // Accountant Tax Settlement
   const [taxPeriod, setTaxPeriod] = useState('2026-05');
@@ -1095,12 +1103,19 @@ export default function InternalDashboardPage() {
 
   const handleQuickAction = (action: string) => {
     if (action === 'create-order') {
-      setActiveTab('sales-orders');
-      setSalesOrdersSubTab('pos');
+      setActiveTab('pos-sales');
     } else if (action === 'add-product') {
-      setActiveTab('products-inventory');
-      setProductsInventorySubTab('list');
+      setActiveTab('products-database');
       setShowAddProductModal(true);
+    } else if (action === 'add-staff') {
+      setActiveTab('staff-schedule');
+      setStaffScheduleSubTab('staff');
+    } else if (action === 'restock') {
+      setActiveTab('restock');
+    } else if (action === 'add-expense') {
+      setActiveTab('finance-costs');
+    } else if (action === 'add-customer') {
+      setActiveTab('customers-list');
     }
   };
 
@@ -3570,6 +3585,376 @@ export default function InternalDashboardPage() {
                   </div>
                 </div>
               )}
+
+              {/* --- STORE MANAGER & DIRECTOR STAFF MANAGEMENT & ACCOUNT CREATION CONSOLE --- */}
+              {(activeTab === 'staff-schedule' && staffScheduleSubTab === 'staff') && ['director', 'manager', 'accountant'].includes(currentUser.role) && (() => {
+                const isManager = currentUser.role === 'manager';
+                const isDirector = currentUser.role === 'director';
+                const managerBranch = currentUser.branch || 'Chi nhánh Quận 1';
+
+                // Filter branch employees
+                const branchStaffList = usersList.filter((u: any) => {
+                  if (u.role === 'customer') return false;
+                  if (isManager) {
+                    return u.branch === managerBranch;
+                  }
+                  if (selectedBranch === 'all') return true;
+                  return u.branch === selectedBranch;
+                });
+
+                // Filter by search query and role filter pill
+                const filteredStaff = branchStaffList.filter((u: any) => {
+                  const matchQuery = !staffSearchQuery || 
+                    u.name?.toLowerCase().includes(staffSearchQuery.toLowerCase()) ||
+                    u.email?.toLowerCase().includes(staffSearchQuery.toLowerCase()) ||
+                    u.phone?.includes(staffSearchQuery);
+                  const matchRole = staffFilterRole === 'all' || u.role === staffFilterRole;
+                  return matchQuery && matchRole;
+                });
+
+                const totalStaffCount = branchStaffList.length;
+                const employeeCount = branchStaffList.filter((u: any) => u.role === 'employee').length;
+                const cashierCount = branchStaffList.filter((u: any) => u.role === 'cashier').length;
+                const stockerCount = branchStaffList.filter((u: any) => u.role === 'stocker').length;
+                const cskhCount = branchStaffList.filter((u: any) => u.role === 'cskh').length;
+
+                const getRoleBadge = (role: string) => {
+                  switch (role) {
+                    case 'director':
+                      return <span className="px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase bg-rose-50 text-rose-700 border border-rose-200">Giám đốc</span>;
+                    case 'manager':
+                      return <span className="px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase bg-amber-50 text-amber-700 border border-amber-200">Quản lý</span>;
+                    case 'cashier':
+                      return <span className="px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase bg-teal-50 text-teal-700 border border-teal-200">Thu ngân POS</span>;
+                    case 'stocker':
+                      return <span className="px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase bg-purple-50 text-purple-700 border border-purple-200">Thủ kho</span>;
+                    case 'cskh':
+                      return <span className="px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase bg-sky-50 text-sky-700 border border-sky-200">CSKH Hub</span>;
+                    case 'accountant':
+                      return <span className="px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">Kế toán</span>;
+                    default:
+                      return <span className="px-2 py-0.5 rounded text-[8px] font-black tracking-widest uppercase bg-neutral-100 text-neutral-700 border border-neutral-200">Nhân viên</span>;
+                  }
+                };
+
+                const handleCreateStaffSubmit = async (e: React.FormEvent) => {
+                  e.preventDefault();
+                  if (!newStaffName.trim() || !newStaffEmail.trim() || !newStaffPassword.trim()) {
+                    showToast('Vui lòng điền đầy đủ họ tên, email và mật khẩu!', 'error');
+                    return;
+                  }
+
+                  const effectiveBranch = isManager ? managerBranch : newStaffBranch;
+                  const success = await register(
+                    newStaffName.trim(),
+                    newStaffEmail.trim(),
+                    newStaffPassword,
+                    newStaffRole,
+                    effectiveBranch,
+                    newStaffPhone.trim()
+                  );
+
+                  if (success) {
+                    setNewStaffName('');
+                    setNewStaffEmail('');
+                    setNewStaffPassword('');
+                    setNewStaffPhone('');
+                  }
+                };
+
+                return (
+                  <div className="space-y-6">
+                    {/* Header */}
+                    <div className="border-b pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                      <div>
+                        <h3 className="text-lg font-black text-neutral-950 uppercase tracking-tight flex items-center gap-2">
+                          <UserPlus className="w-5 h-5 text-emerald-600" />
+                          Quản lý Nhân sự & Tạo Tài khoản Nhân viên Chi nhánh
+                        </h3>
+                        <p className="text-xs text-neutral-450 mt-1">
+                          {isManager 
+                            ? `Quản lý ${managerBranch} có thẩm quyền trực tiếp tạo tài khoản cho nhân sự bán hàng, thu ngân quầy và kho vận chi nhánh.` 
+                            : 'Ban Giám Đốc quản trị toàn bộ danh sách nhân sự đa chi nhánh và cấp quyền truy cập hệ thống.'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-black flex items-center gap-1.5 shadow-2xs">
+                          <MapPin className="w-3.5 h-3.5" />
+                          {isManager ? managerBranch : (selectedBranch === 'all' ? 'Tất cả chi nhánh' : selectedBranch)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* KPI Quick Stats */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="p-4 bg-white rounded-2xl border border-neutral-150 shadow-2xs">
+                        <span className="text-[10px] font-black uppercase text-neutral-450 tracking-wider block">Tổng nhân sự chi nhánh</span>
+                        <span className="text-xl font-black text-neutral-900 mt-1 block">{totalStaffCount} người</span>
+                        <span className="text-[9px] text-emerald-600 font-bold mt-0.5 block">Đã xác thực danh tính</span>
+                      </div>
+                      <div className="p-4 bg-white rounded-2xl border border-neutral-150 shadow-2xs">
+                        <span className="text-[10px] font-black uppercase text-neutral-450 tracking-wider block">Nhân viên Bán hàng</span>
+                        <span className="text-xl font-black text-sky-700 mt-1 block">{employeeCount} nhân sự</span>
+                        <span className="text-[9px] text-neutral-400 font-medium mt-0.5 block">Stylist & Bán lẻ</span>
+                      </div>
+                      <div className="p-4 bg-white rounded-2xl border border-neutral-150 shadow-2xs">
+                        <span className="text-[10px] font-black uppercase text-neutral-450 tracking-wider block">Thu ngân & Thủ kho</span>
+                        <span className="text-xl font-black text-teal-700 mt-1 block">{cashierCount + stockerCount} nhân sự</span>
+                        <span className="text-[9px] text-neutral-400 font-medium mt-0.5 block">{cashierCount} POS / {stockerCount} Kho</span>
+                      </div>
+                      <div className="p-4 bg-white rounded-2xl border border-neutral-150 shadow-2xs">
+                        <span className="text-[10px] font-black uppercase text-neutral-450 tracking-wider block">CSKH & Hỗ trợ</span>
+                        <span className="text-xl font-black text-purple-700 mt-1 block">{cskhCount} nhân sự</span>
+                        <span className="text-[9px] text-neutral-400 font-medium mt-0.5 block">Hỗ trợ khách hàng</span>
+                      </div>
+                    </div>
+
+                    {/* 2-Column Responsive Workspace */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                      
+                      {/* Left: Create Staff Account Form */}
+                      <div className="lg:col-span-5 bg-white rounded-3xl border border-neutral-150 p-6 shadow-sm space-y-4">
+                        <div className="border-b pb-3 flex items-center justify-between">
+                          <h4 className="text-xs font-black text-neutral-950 uppercase tracking-wider flex items-center gap-1.5">
+                            <PlusCircle className="w-4 h-4 text-emerald-600" />
+                            Đăng ký tài khoản nhân viên mới
+                          </h4>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-600 uppercase">
+                            {isManager ? 'Thẩm quyền Quản lý' : 'Quyền Giám đốc'}
+                          </span>
+                        </div>
+
+                        <form onSubmit={handleCreateStaffSubmit} className="space-y-3.5">
+                          <div>
+                            <label className="text-[9px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                              Họ và tên nhân viên <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Ví dụ: Lê Thị Phương Mai"
+                              value={newStaffName}
+                              onChange={(e) => setNewStaffName(e.target.value)}
+                              className="w-full px-3.5 py-2.5 border rounded-xl text-xs bg-[#FAF7F2] focus:bg-white focus:outline-none focus:border-brand-accent font-semibold text-neutral-900 transition-colors"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[9px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                                Email đăng nhập <span className="text-rose-500">*</span>
+                              </label>
+                              <input
+                                type="email"
+                                required
+                                placeholder="mai.le@novynwear.com"
+                                value={newStaffEmail}
+                                onChange={(e) => setNewStaffEmail(e.target.value)}
+                                className="w-full px-3.5 py-2.5 border rounded-xl text-xs bg-[#FAF7F2] focus:bg-white focus:outline-none focus:border-brand-accent font-semibold text-neutral-900 transition-colors"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                                Số điện thoại <span className="text-rose-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="0901234567"
+                                value={newStaffPhone}
+                                onChange={(e) => setNewStaffPhone(e.target.value)}
+                                className="w-full px-3.5 py-2.5 border rounded-xl text-xs bg-[#FAF7F2] focus:bg-white focus:outline-none focus:border-brand-accent font-semibold text-neutral-900 transition-colors"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[9px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                              Mật khẩu khởi tạo <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="password"
+                              required
+                              placeholder="Tối thiểu 6 ký tự (có chữ hoa, số, ký tự đặc biệt)"
+                              value={newStaffPassword}
+                              onChange={(e) => setNewStaffPassword(e.target.value)}
+                              className="w-full px-3.5 py-2.5 border rounded-xl text-xs bg-[#FAF7F2] focus:bg-white focus:outline-none focus:border-brand-accent font-semibold transition-colors"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[9px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                                Vai trò & Vị trí làm việc <span className="text-rose-500">*</span>
+                              </label>
+                              <select
+                                value={newStaffRole}
+                                onChange={(e) => setNewStaffRole(e.target.value as any)}
+                                className="w-full px-3 py-2.5 border bg-white rounded-xl text-xs font-bold text-neutral-850 focus:outline-none focus:border-brand-accent"
+                              >
+                                <option value="employee">🛍️ Nhân viên bán hàng</option>
+                                <option value="cashier">💵 Thu ngân quầy POS</option>
+                                <option value="stocker">📦 Nhân viên kho chi nhánh</option>
+                                <option value="cskh">🎧 Chăm sóc khách hàng</option>
+                                {isDirector && (
+                                  <>
+                                    <option value="manager">👔 Quản lý chi nhánh</option>
+                                    <option value="accountant">📊 Kế toán tài chính</option>
+                                  </>
+                                )}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                                Chi nhánh trực thuộc <span className="text-rose-500">*</span>
+                              </label>
+                              {isManager ? (
+                                <div className="px-3.5 py-2.5 border rounded-xl bg-neutral-100 text-xs font-bold text-neutral-700 flex items-center justify-between cursor-not-allowed">
+                                  <span>{managerBranch}</span>
+                                  <span className="text-[8px] uppercase tracking-wider font-mono text-neutral-400">Khóa chi nhánh</span>
+                                </div>
+                              ) : (
+                                <select
+                                  value={newStaffBranch}
+                                  onChange={(e) => setNewStaffBranch(e.target.value)}
+                                  className="w-full px-3 py-2.5 border bg-white rounded-xl text-xs font-bold text-neutral-850 focus:outline-none focus:border-brand-accent"
+                                >
+                                  <option value="Chi nhánh Quận 1">Chi nhánh Quận 1</option>
+                                  <option value="Chi nhánh Thảo Điền">Chi nhánh Thảo Điền</option>
+                                </select>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="pt-2">
+                            <button
+                              type="submit"
+                              className="w-full py-3 rounded-xl bg-neutral-950 hover:bg-neutral-850 active:scale-[0.99] text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+                            >
+                              <UserCheck className="w-4 h-4 text-emerald-400" />
+                              Tạo tài khoản nhân viên ngay
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+
+                      {/* Right: Branch Staff Directory */}
+                      <div className="lg:col-span-7 bg-white rounded-3xl border border-neutral-150 p-6 shadow-sm space-y-4">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-3">
+                          <div>
+                            <h4 className="text-xs font-black text-neutral-950 uppercase tracking-wider">
+                              Danh sách nhân viên — {isManager ? managerBranch : (selectedBranch === 'all' ? 'Toàn hệ thống' : selectedBranch)}
+                            </h4>
+                            <span className="text-[10px] text-neutral-450 font-medium">Hiển thị {filteredStaff.length} / {totalStaffCount} nhân sự</span>
+                          </div>
+
+                          {/* Quick Search */}
+                          <div className="relative w-full sm:w-48">
+                            <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-2.5" />
+                            <input
+                              type="text"
+                              placeholder="Tìm tên, email, sđt..."
+                              value={staffSearchQuery}
+                              onChange={(e) => setStaffSearchQuery(e.target.value)}
+                              className="w-full pl-8 pr-3 py-1.5 border rounded-lg text-xs bg-[#FAF7F2] focus:bg-white focus:outline-none font-medium"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Filter Role Pills */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { id: 'all', label: 'Tất cả' },
+                            { id: 'employee', label: 'Bán hàng' },
+                            { id: 'cashier', label: 'Thu ngân' },
+                            { id: 'stocker', label: 'Thủ kho' },
+                            { id: 'cskh', label: 'CSKH' },
+                            ...(isDirector ? [{ id: 'manager', label: 'Quản lý' }] : [])
+                          ].map(pill => (
+                            <button
+                              key={pill.id}
+                              type="button"
+                              onClick={() => setStaffFilterRole(pill.id)}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                staffFilterRole === pill.id
+                                  ? 'bg-neutral-950 text-white shadow-2xs'
+                                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                              }`}
+                            >
+                              {pill.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Staff Table */}
+                        <div className="overflow-x-auto max-h-[460px] border border-neutral-100 rounded-2xl">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-neutral-50 border-b border-neutral-100 text-neutral-450 font-bold uppercase tracking-wider text-[8px]">
+                                <th className="p-3">Họ tên & Email</th>
+                                <th className="p-3 text-center">Vai trò</th>
+                                <th className="p-3">Chi nhánh</th>
+                                <th className="p-3">Số điện thoại</th>
+                                <th className="p-3 text-right">Trạng thái</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-neutral-100 font-medium text-neutral-700">
+                              {filteredStaff.map((u: any) => (
+                                <tr key={u.id} className="hover:bg-neutral-50/40 transition-colors">
+                                  <td className="p-3">
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="w-7 h-7 rounded-full bg-[#FAF7F2] border border-neutral-200 flex items-center justify-center font-black text-neutral-800 text-[10px] shrink-0">
+                                        {u.name?.charAt(0) || 'U'}
+                                      </div>
+                                      <div>
+                                        <span className="font-bold text-neutral-950 block">{u.name}</span>
+                                        <span className="text-[10px] text-neutral-450 font-mono block">{u.email}</span>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-center whitespace-nowrap">
+                                    {getRoleBadge(u.role)}
+                                  </td>
+                                  <td className="p-3 whitespace-nowrap text-[11px] text-neutral-600 font-medium">
+                                    {u.branch || 'Toàn hệ thống'}
+                                  </td>
+                                  <td className="p-3 whitespace-nowrap text-[11px] font-mono text-neutral-700">
+                                    {u.phone ? (
+                                      <a href={`tel:${u.phone}`} className="hover:text-emerald-600 transition-colors flex items-center gap-1">
+                                        <Phone className="w-3 h-3 text-neutral-400" />
+                                        {u.phone}
+                                      </a>
+                                    ) : (
+                                      <span className="text-neutral-350 italic">—</span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 text-right whitespace-nowrap">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      Hoạt động
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+
+                              {filteredStaff.length === 0 && (
+                                <tr>
+                                  <td colSpan={5} className="py-12 text-center text-neutral-400 italic text-xs">
+                                    Không tìm thấy nhân sự phù hợp với bộ lọc.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* --- MANAGER DAILY REPORT --- */}
               {(activeTab === 'manager-reports-requests' || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'directives')) && currentUser.role === 'manager' && (
@@ -6431,102 +6816,264 @@ export default function InternalDashboardPage() {
               )}
 
               {/* --- CSKH ORDERS STATUS UPDATE --- */}
-              {(activeTab === 'sales-orders-list' || activeTab === 'cskh-orders' || (activeTab === 'sales-orders' && salesOrdersSubTab === 'list')) && ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier'].includes(currentUser.role) && (
-                <div>
-                  <h3 className="text-lg font-black text-neutral-950 tracking-tight mb-2 uppercase">Quản lý Đơn hàng & Giao dịch</h3>
-                  <p className="text-xs text-neutral-400 mb-8">Tra cứu, theo dõi và cập nhật trạng thái đơn giao nhận cho toàn hệ thống.</p>
+              {(activeTab === 'sales-orders-list' || activeTab === 'cskh-orders' || (activeTab === 'sales-orders' && salesOrdersSubTab === 'list')) && ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier'].includes(currentUser.role) && (() => {
+                const search = orderSearch.trim().toLowerCase();
+                const searchDigits = search.replace(/\D/g, '');
+                const isPhoneSearching = searchDigits.length >= 3;
 
-                  <div className="mb-6 max-w-md relative">
-                    <input
-                      type="text"
-                      placeholder="Tìm kiếm mã đơn (ORD-...) hoặc số điện thoại..."
-                      value={orderSearch}
-                      onChange={(e) => setOrderSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 text-xs focus:outline-none focus:border-neutral-400 bg-white font-semibold text-neutral-805"
-                    />
-                    <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  </div>
+                const filteredOrders = allOrders.filter((order: any) => {
+                  // Filter by branch
+                  if (orderBranchFilter !== 'all' && order.branch !== orderBranchFilter) {
+                    return false;
+                  }
 
-                  <div className="bg-white rounded-3xl border border-neutral-100 p-6 shadow-sm">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-neutral-50 border-b border-neutral-100 text-neutral-450 font-bold uppercase tracking-wider text-[9px]">
-                            <th className="p-3">Mã đơn</th>
-                            <th className="p-3">Khách hàng</th>
-                            <th className="p-3">Chi nhánh</th>
-                            <th className="p-3 font-mono">Tổng tiền</th>
-                            <th className="p-3">Thanh toán</th>
-                            <th className="p-3">Ngày đặt</th>
-                            <th className="p-3 text-right">Trạng thái</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-50 font-medium text-neutral-700">
-                          {(() => {
-                            const filteredOrders = allOrders.filter((order: any) => {
-                              const search = orderSearch.toLowerCase().trim();
-                              if (!search) return true;
-                              const matchId = order.id.toLowerCase().includes(search);
-                              const matchPhone = order.customerInfo.phone?.includes(search) || false;
-                              return matchId || matchPhone;
-                            });
+                  // Filter by status
+                  if (orderStatusFilter !== 'all' && order.status !== orderStatusFilter) {
+                    return false;
+                  }
 
-                            return (
-                              <>
-                                {filteredOrders.map((order: any) => (
-                                  <tr key={order.id} className="hover:bg-neutral-50/20 transition-colors">
-                                    <td className="p-3">
-                                      <button
-                                        onClick={() => setViewingOrderId(order.id)}
-                                        className="text-indigo-650 hover:text-indigo-850 hover:underline font-mono font-black transition-all cursor-pointer text-xs"
-                                        title="Click để xem chi tiết đơn hàng"
-                                      >
-                                        {order.id}
-                                      </button>
-                                    </td>
-                                    <td className="p-3">
-                                      <span className="font-bold text-neutral-900 block">{order.customerInfo.fullName}</span>
-                                      <span className="text-[9px] text-neutral-400 font-semibold">{order.customerInfo.phone}</span>
-                                    </td>
-                                    <td className="p-3">{order.branch}</td>
-                                    <td className="p-3 font-mono font-black text-neutral-900">{formatPrice(order.total)}</td>
-                                    <td className="p-3 capitalize font-bold text-neutral-500">{order.paymentMethod}</td>
-                                    <td className="p-3 font-mono text-[10px] text-neutral-450">{order.createdAt}</td>
-                                    <td className="p-3 text-right">
-                                      <select
-                                        value={order.status}
-                                        onChange={(e) => updateOrderStatus(order.id, e.target.value as any)}
-                                        className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border outline-none bg-white cursor-pointer ${
-                                          order.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
-                                          order.status === 'shipping' ? 'bg-sky-50 text-sky-600 border-sky-200' :
-                                          order.status === 'pending' ? 'bg-amber-50 text-amber-600 border-amber-200 animate-pulse' :
-                                          'bg-rose-50 text-rose-600 border-rose-200'
-                                        }`}
-                                      >
-                                        <option value="pending">Chờ xử lý</option>
-                                        <option value="shipping">Đang giao</option>
-                                        <option value="completed">Đã hoàn thành</option>
-                                        <option value="cancelled">Đã hủy</option>
-                                      </select>
-                                    </td>
-                                  </tr>
-                                ))}
-                                {filteredOrders.length === 0 && (
-                                  <tr>
-                                    <td colSpan={7} className="text-center py-6 text-neutral-400 italic">
-                                      {allOrders.length === 0 ? "Chưa có giao dịch nào phát sinh." : "Không tìm thấy đơn hàng phù hợp."}
-                                    </td>
-                                  </tr>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </tbody>
-                      </table>
+                  if (!search) return true;
+
+                  // 1. Phone matching (exact, substring, or normalized without prefix)
+                  const rawPhone = String(order.customerInfo?.phone || order.phone || order.customerPhone || '');
+                  const orderDigits = rawPhone.replace(/\D/g, '');
+                  let matchPhone = false;
+
+                  if (searchDigits.length >= 3) {
+                    if (orderDigits.includes(searchDigits)) matchPhone = true;
+                    const searchNoZero = searchDigits.replace(/^0+/, '');
+                    const orderNoZero = orderDigits.replace(/^(84|0)+/, '');
+                    if (searchNoZero.length >= 3 && orderNoZero.includes(searchNoZero)) matchPhone = true;
+                  } else if (rawPhone.toLowerCase().includes(search)) {
+                    matchPhone = true;
+                  }
+
+                  // 2. Order ID match
+                  const matchId = String(order.id || '').toLowerCase().includes(search);
+
+                  // 3. Customer Full Name match
+                  const customerName = String(order.customerInfo?.fullName || order.customerName || '').toLowerCase();
+                  const matchName = customerName.includes(search);
+
+                  // 4. Transaction ID or payment reference match
+                  const transId = String(order.transactionId || order.paymentRef || order.paymentId || '').toLowerCase();
+                  const matchTransaction = transId.includes(search);
+
+                  // 5. Payment method, address, or email match
+                  const matchPayment = String(order.paymentMethod || '').toLowerCase().includes(search);
+                  const matchEmail = String(order.customerInfo?.email || '').toLowerCase().includes(search);
+                  const matchAddress = String(order.customerInfo?.address || '').toLowerCase().includes(search);
+
+                  return matchPhone || matchId || matchName || matchTransaction || matchPayment || matchEmail || matchAddress;
+                });
+
+                return (
+                  <div className="space-y-6">
+                    {/* Header */}
+                    <div className="border-b pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                      <div>
+                        <h3 className="text-lg font-black text-neutral-950 tracking-tight uppercase flex items-center gap-2">
+                          <ShoppingBag className="w-5 h-5 text-indigo-600" />
+                          Quản lý Đơn hàng & Giao dịch
+                        </h3>
+                        <p className="text-xs text-neutral-400 mt-1">
+                          Tra cứu siêu tốc theo Số điện thoại khách hàng (SĐT), mã đơn (#ORD-...) hoặc mã giao dịch toàn hệ thống.
+                        </p>
+                      </div>
+
+                      {/* Quick Stats */}
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="px-3 py-1.5 rounded-xl bg-white border border-neutral-200 text-neutral-700 font-bold shadow-2xs">
+                          Tổng: <strong className="text-neutral-950">{allOrders.length}</strong> đơn
+                        </span>
+                        <span className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold shadow-2xs">
+                          Kết quả: <strong className="text-indigo-950">{filteredOrders.length}</strong> đơn
+                        </span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* --- GLASSMORPHIC ORDER DETAIL MODAL --- */}
+                    {/* Search & Filter Controls */}
+                    <div className="bg-white rounded-3xl border border-neutral-150 p-5 shadow-xs space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                        
+                        {/* Search Input with Phone Focus */}
+                        <div className="md:col-span-6 relative">
+                          <input
+                            type="text"
+                            placeholder="Nhập SĐT khách hàng (090...), mã đơn (#ORD...), mã GD hoặc tên..."
+                            value={orderSearch}
+                            onChange={(e) => setOrderSearch(e.target.value)}
+                            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-neutral-200 text-xs focus:outline-none focus:border-indigo-500 bg-[#FAF7F2] focus:bg-white font-semibold text-neutral-900 transition-all"
+                          />
+                          <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          {orderSearch && (
+                            <button
+                              type="button"
+                              onClick={() => setOrderSearch('')}
+                              className="w-6 h-6 rounded-full hover:bg-neutral-200 text-neutral-400 hover:text-neutral-700 absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center transition-colors cursor-pointer"
+                              title="Xóa tìm kiếm"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Branch Filter */}
+                        <div className="md:col-span-3">
+                          <select
+                            value={orderBranchFilter}
+                            onChange={(e) => setOrderBranchFilter(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold bg-[#FAF7F2] focus:bg-white text-neutral-800 outline-none"
+                          >
+                            <option value="all">🏢 Tất cả chi nhánh</option>
+                            <option value="Chi nhánh Quận 1">📍 Chi nhánh Quận 1</option>
+                            <option value="Chi nhánh Thảo Điền">📍 Chi nhánh Thảo Điền</option>
+                          </select>
+                        </div>
+
+                        {/* Status Filter */}
+                        <div className="md:col-span-3">
+                          <select
+                            value={orderStatusFilter}
+                            onChange={(e) => setOrderStatusFilter(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold bg-[#FAF7F2] focus:bg-white text-neutral-800 outline-none"
+                          >
+                            <option value="all">⚡ Tất cả trạng thái</option>
+                            <option value="pending">⏳ Chờ xử lý</option>
+                            <option value="shipping">🚚 Đang giao hàng</option>
+                            <option value="completed">✅ Đã hoàn thành</option>
+                            <option value="cancelled">🛑 Đã hủy</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Phone Search Indicator Badge */}
+                      {isPhoneSearching && (
+                        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold animate-in fade-in">
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-emerald-600 animate-pulse" />
+                            <span>
+                              Đang lọc giao dịch theo Số Điện Thoại: <strong className="font-mono text-emerald-950 underline">{orderSearch}</strong>
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-mono font-black text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                            Khớp {filteredOrders.length} đơn
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Orders Table */}
+                    <div className="bg-white rounded-3xl border border-neutral-100 p-6 shadow-sm">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-neutral-50 border-b border-neutral-100 text-neutral-450 font-bold uppercase tracking-wider text-[9px]">
+                              <th className="p-3">Mã đơn</th>
+                              <th className="p-3">Khách hàng & SĐT</th>
+                              <th className="p-3">Chi nhánh</th>
+                              <th className="p-3 font-mono">Tổng tiền</th>
+                              <th className="p-3">Thanh toán</th>
+                              <th className="p-3">Ngày đặt</th>
+                              <th className="p-3 text-right">Trạng thái</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-50 font-medium text-neutral-700">
+                            {filteredOrders.map((order: any) => {
+                              const customerPhone = order.customerInfo?.phone || order.phone || order.customerPhone || '';
+                              const customerName = order.customerInfo?.fullName || order.customerName || 'Khách vãng lai';
+
+                              return (
+                                <tr key={order.id} className="hover:bg-neutral-50/40 transition-colors">
+                                  <td className="p-3">
+                                    <button
+                                      onClick={() => setViewingOrderId(order.id)}
+                                      className="text-indigo-650 hover:text-indigo-850 hover:underline font-mono font-black transition-all cursor-pointer text-xs"
+                                      title="Click để xem chi tiết đơn hàng"
+                                    >
+                                      {order.id}
+                                    </button>
+                                  </td>
+                                  <td className="p-3">
+                                    <span className="font-bold text-neutral-900 block">{customerName}</span>
+                                    {customerPhone ? (
+                                      <div className="flex items-center gap-1.5 mt-0.5">
+                                        <a
+                                          href={`tel:${customerPhone}`}
+                                          className="text-[10px] text-emerald-700 font-bold hover:underline flex items-center gap-1 font-mono"
+                                          title="Bấm để gọi điện"
+                                        >
+                                          <Phone className="w-3 h-3 text-emerald-600" />
+                                          {customerPhone}
+                                        </a>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(customerPhone);
+                                            showToast(`✓ Đã sao chép SĐT: ${customerPhone}`, 'info');
+                                          }}
+                                          className="p-0.5 text-neutral-400 hover:text-neutral-700 rounded transition-colors cursor-pointer"
+                                          title="Sao chép số điện thoại"
+                                        >
+                                          <Copy className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[9px] text-neutral-400 italic">Không có SĐT</span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 text-[11px] text-neutral-600">{order.branch}</td>
+                                  <td className="p-3 font-mono font-black text-neutral-900">{formatPrice(order.total)}</td>
+                                  <td className="p-3">
+                                    <span className="capitalize font-bold text-neutral-700 block text-[11px]">{order.paymentMethod}</span>
+                                    {order.transactionId && (
+                                      <span className="text-[8px] font-mono text-neutral-400 block truncate max-w-[120px]" title={order.transactionId}>
+                                        TXN: {order.transactionId}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 font-mono text-[10px] text-neutral-450">{order.createdAt}</td>
+                                  <td className="p-3 text-right">
+                                    <select
+                                      value={order.status}
+                                      onChange={(e) => updateOrderStatus(order.id, e.target.value as any)}
+                                      className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border outline-none bg-white cursor-pointer ${
+                                        order.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                                        order.status === 'shipping' ? 'bg-sky-50 text-sky-600 border-sky-200' :
+                                        order.status === 'pending' ? 'bg-amber-50 text-amber-600 border-amber-200 animate-pulse' :
+                                        'bg-rose-50 text-rose-600 border-rose-200'
+                                      }`}
+                                    >
+                                      <option value="pending">Chờ xử lý</option>
+                                      <option value="shipping">Đang giao</option>
+                                      <option value="completed">Đã hoàn thành</option>
+                                      <option value="cancelled">Đã hủy</option>
+                                    </select>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+
+                            {filteredOrders.length === 0 && (
+                              <tr>
+                                <td colSpan={7} className="text-center py-12 text-neutral-400 italic">
+                                  {orderSearch ? (
+                                    <div className="space-y-1">
+                                      <p className="font-bold text-neutral-700 text-xs">Không tìm thấy đơn hàng hoặc giao dịch nào phù hợp.</p>
+                                      <p className="text-[11px] text-neutral-400">Thử tìm kiếm với số điện thoại khác hoặc xóa bộ lọc.</p>
+                                    </div>
+                                  ) : (
+                                    "Chưa có giao dịch nào phát sinh."
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* --- GLASSMORPHIC ORDER DETAIL MODAL --- */}
                   {viewingOrderId && (() => {
                     const order = allOrders.find((o: any) => o.id === viewingOrderId);
                     if (!order) return null;
@@ -6851,7 +7398,8 @@ export default function InternalDashboardPage() {
                     );
                   })()}
                 </div>
-              )}
+              );
+            })()}
 
               {/* --- CSKH REVIEWS READER --- */}
               {(activeTab === 'reviews' || activeTab === 'cskh-reviews' || (activeTab === 'customers' && customersSubTab === 'reviews')) && ['director', 'manager', 'cskh'].includes(currentUser.role) && (
