@@ -95,7 +95,7 @@ export async function loginAction(email: string, password: string) {
             details: `Tài khoản ${cleanEmail} bị tạm khóa do đăng nhập sai 5 lần liên tiếp.`,
             performedByName: cleanEmail
           }
-        }).catch(() => {});
+        }).catch(() => { });
         const waitMins = Math.ceil(attempt.retryAfterMs / 60000);
         throw new Error(`Đăng nhập sai quá 5 lần. Tài khoản tạm thời bị khóa ${waitMins} phút để bảo vệ an toàn.`);
       }
@@ -113,7 +113,7 @@ export async function loginAction(email: string, password: string) {
             details: `Tài khoản ${cleanEmail} bị tạm khóa do đăng nhập sai 5 lần liên tiếp.`,
             performedByName: cleanEmail
           }
-        }).catch(() => {});
+        }).catch(() => { });
         const waitMins = Math.ceil(attempt.retryAfterMs / 60000);
         throw new Error(`Đăng nhập sai quá 5 lần. Tài khoản tạm thời bị khóa ${waitMins} phút để bảo vệ an toàn.`);
       }
@@ -165,17 +165,17 @@ export async function getCurrentUserAction() {
   try {
     const session = await getSessionUser();
     if (!session) return null;
-    
+
     // Fetch latest user info from DB to check active status
     const user = await prisma.user.findUnique({
       where: { id: session.userId }
     });
-    
+
     if (!user || !user.isActive) {
       await clearSessionCookie();
       return null;
     }
-    
+
     const { password: _, ...userWithoutPassword } = user;
     return userWithoutPassword;
   } catch (error) {
@@ -294,13 +294,13 @@ export async function registerAction(
 
     const hashedPassword = await hashPassword(parsed.data.password);
 
-    const defaultSalary = parsed.data.role === 'director' ? 25000000 : 
-                          parsed.data.role === 'accountant' ? 12000000 : 
-                          parsed.data.role === 'cskh' ? 9500000 :
-                          parsed.data.role === 'manager' ? 15000000 : 
-                          parsed.data.role === 'employee' ? 8500000 :
-                          parsed.data.role === 'cashier' ? 8000000 :
-                          parsed.data.role === 'stocker' ? 8200000 : undefined;
+    const defaultSalary = parsed.data.role === 'director' ? 25000000 :
+      parsed.data.role === 'accountant' ? 12000000 :
+        parsed.data.role === 'cskh' ? 9500000 :
+          parsed.data.role === 'manager' ? 15000000 :
+            parsed.data.role === 'employee' ? 8500000 :
+              parsed.data.role === 'cashier' ? 8000000 :
+                parsed.data.role === 'stocker' ? 8200000 : undefined;
 
     const newUser = await prisma.user.create({
       data: {
@@ -339,17 +339,17 @@ export async function deleteUserAction(userId: string) {
   try {
     // Access control: Only directors are allowed to delete users
     const callerSession = await verifySession(['director']);
-    
+
     // Self-deletion prevention
     if (callerSession.userId === userId) {
       return false;
     }
-    
+
     await prisma.user.update({
       where: { id: userId },
       data: { isActive: false }
     });
-    
+
     // Log to audit log
     await prisma.auditLog.create({
       data: {
@@ -359,7 +359,7 @@ export async function deleteUserAction(userId: string) {
         performedByName: callerSession.name,
       }
     });
-    
+
     return true;
   } catch (error) {
     console.error('deleteUserAction error:', error);
@@ -372,11 +372,11 @@ export async function updateUserSpentAction(userId: string, amount: number) {
     // Security: Only authorized staff (director, manager, accountant, cashier) can adjust customer spending.
     // Customers are strictly forbidden from modifying totalSpent directly to prevent VIP tier manipulation.
     const session = await verifySession(['director', 'manager', 'accountant', 'cashier']);
-    
+
     if (typeof amount !== 'number' || isNaN(amount) || amount === 0) {
       return false;
     }
-    
+
     await prisma.user.update({
       where: { id: userId },
       data: {
@@ -436,7 +436,7 @@ export async function getLoyaltyPointsAction() {
         if (typeof data.cost === 'number') {
           redeemedPoints += data.cost;
         }
-      } catch {}
+      } catch { }
     }
 
     const balance = Math.max(0, accruedPoints - redeemedPoints);
@@ -487,7 +487,7 @@ export async function redeemLoyaltyVoucherAction(code: string) {
         if (typeof data.cost === 'number') {
           redeemedPoints += data.cost;
         }
-      } catch {}
+      } catch { }
     }
 
     const balance = accruedPoints - redeemedPoints;
