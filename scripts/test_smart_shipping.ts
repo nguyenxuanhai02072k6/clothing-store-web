@@ -8,7 +8,7 @@
  */
 
 import { VIETNAM_PROVINCES, findProvinceByName, findDistrictByName } from '../data/vietnamLocations';
-import { smartShippingEngine } from '../lib/services/smartShippingEngine';
+import { smartShippingEngine } from '../backend/services/smartShippingEngine';
 import { createOrderAction } from '../backend/actions/orderActions';
 import { prisma } from '../database/db';
 

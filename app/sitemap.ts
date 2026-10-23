@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { prisma } from '../lib/db';
+import { prisma } from '@/database/db';
 import { MOCK_PRODUCTS } from '../data/products';
 
 const siteUrl = 'https://novynwear.com';

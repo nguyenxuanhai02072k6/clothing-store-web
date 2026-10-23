@@ -2,7 +2,7 @@ import React from 'react';
 import Image from 'next/image';
 import { ShieldCheck } from 'lucide-react';
 import { formatPrice } from '../../lib/utils';
-import { ShippingOption } from '../../lib/services/smartShippingEngine';
+import { ShippingOption } from '@/backend/services/smartShippingEngine';
 
 interface CheckoutOrderSummarySidebarProps {
   cart: any[];

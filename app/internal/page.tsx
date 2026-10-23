@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 import { useToast } from '../../context/ToastContext';
-import { getAuditLogsAction } from '../../lib/actions/staffActions';
+import { getAuditLogsAction } from '@/backend/actions/staffActions';
 
 // Layout & Subsystem Components
 import AppSidebar from '../../components/internal/AppSidebar';

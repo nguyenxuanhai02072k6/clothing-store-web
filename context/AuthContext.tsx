@@ -5,11 +5,11 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole, AttendanceLog, LeaveRequest, Product, SalaryRequest, DailyReport, Order, CustomerInfo, PayrollRecord, ExpenseItem, RestockRecord, CartItem, ShiftRequest, Announcement, ShiftSwapRequest, OfficeReservation, WorkspaceTask, WorkspacePost, WikiDoc } from '../types';
 import { MOCK_PRODUCTS } from '../data/products';
 import { useToast } from './ToastContext';
-import { authService } from '../lib/services/authService';
-import { productService } from '../lib/services/productService';
-import { inventoryService } from '../lib/services/inventoryService';
-import { orderService } from '../lib/services/orderService';
-import { financeService } from '../lib/services/financeService';
+import { authService } from '@/backend/services/authService';
+import { productService } from '@/backend/services/productService';
+import { inventoryService } from '@/backend/services/inventoryService';
+import { orderService } from '@/backend/services/orderService';
+import { financeService } from '@/backend/services/financeService';
 import {
   getAttendanceLogsAction,
   getLeaveRequestsAction,
@@ -53,7 +53,7 @@ import {
   getAuditLogsAction,
   addShiftDirectlyAction,
   deleteShiftRequestAction
-} from '../lib/actions/staffActions';
+} from '@/backend/actions/staffActions';
 
 interface AuthContextType {
   currentUser: User | null;

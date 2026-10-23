@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
-import { setSessionCookie } from '@/lib/session';
+import { prisma } from '@/database/db';
+import { setSessionCookie } from '@/backend/security/session';
 import { getSafeAppUrl } from '@/lib/utils';
-import { hashPassword } from '@/lib/security/passwordHash';
+import { hashPassword } from '@/backend/security/passwordHash';
 import crypto from 'crypto';
 
 export async function GET(request: NextRequest) {

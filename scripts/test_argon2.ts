@@ -9,9 +9,9 @@
  * 5. Hành vi đổi mật khẩu (Change Password) lưu trữ trực tiếp bằng Argon2id.
  */
 
-import { hashPassword, verifyPassword, ARGON2_OPTIONS } from '../lib/security/passwordHash';
+import { hashPassword, verifyPassword, ARGON2_OPTIONS } from '../backend/security/passwordHash';
 import * as bcrypt from 'bcryptjs';
-import { prisma } from '../lib/db';
+import { prisma } from '../database/db';
 import { loginAction, registerAction, changePasswordAction } from '../backend/actions/authActions';
 
 async function runArgon2Tests() {

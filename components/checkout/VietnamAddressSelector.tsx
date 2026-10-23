@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { MapPin, Navigation, Sparkles, Building2, Store } from 'lucide-react';
 import { VIETNAM_PROVINCES, Province, District } from '../../data/vietnamLocations';
-import { smartShippingEngine, SmartShippingResult } from '../../lib/services/smartShippingEngine';
+import { smartShippingEngine, SmartShippingResult } from '@/backend/services/smartShippingEngine';
 
 export interface AddressSelectorValue {
   province: string;

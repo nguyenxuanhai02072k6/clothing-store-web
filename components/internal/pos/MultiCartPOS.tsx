@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { updateCRMClientLoyaltyAction } from '../../../lib/actions/erpActions';
+import { updateCRMClientLoyaltyAction } from '@/backend/actions/erpActions';
 import { VoucherQrScannerModal } from '../../common/VoucherQrScannerModal';
 import { extractVoucherCodeFromQR } from '../../../lib/voucherQr';
 import { formatPrice } from '../../../lib/utils';

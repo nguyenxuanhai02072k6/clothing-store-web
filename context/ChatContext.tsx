@@ -2,7 +2,7 @@
  
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { chatService, ChatSession, ChatMessage } from '../lib/services/chatService';
+import { chatService, ChatSession, ChatMessage } from '@/backend/services/chatService';
 import { useAuth } from './AuthContext';
 
 interface ChatContextType {

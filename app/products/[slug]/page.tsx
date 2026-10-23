@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getProductDetailsAction, getProductsAction } from '../../../lib/actions/productActions';
+import { getProductDetailsAction, getProductsAction } from '@/backend/actions/productActions';
 import { MOCK_PRODUCTS } from '../../../data/products';
 import ProductDetailClient from '../../../components/product/ProductDetailClient';
 

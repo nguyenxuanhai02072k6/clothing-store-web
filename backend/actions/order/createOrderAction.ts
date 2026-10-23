@@ -5,7 +5,7 @@ import { getSessionUser } from '@/backend/security/session';
 import { createPaymentGatewayUrl } from '@/backend/services/paymentService';
 import { sendOrderConfirmationEmail } from '@/backend/services/emailService';
 import { stockReservationEngine } from '@/backend/security/stockReservationEngine';
-import { smartShippingEngine } from '@/lib/services/smartShippingEngine';
+import { smartShippingEngine } from '@/backend/services/smartShippingEngine';
 import { getCustomerTier } from '@/types';
 import { checkoutSchema } from './orderSchemas';
 

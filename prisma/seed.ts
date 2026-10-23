@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { hashPassword } from '../lib/security/passwordHash';
+import { hashPassword } from '@/backend/security/passwordHash';
 import { MOCK_PRODUCTS } from '../data/products';
-import { prisma } from '../lib/db';
+import { prisma } from '@/database/db';
 
 type SeedUser = {
   id: string;

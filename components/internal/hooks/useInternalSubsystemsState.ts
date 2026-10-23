@@ -5,7 +5,7 @@ import {
   getInventoryTransfersAction,
   getDamagedGoodsAction,
   getCashReconciliationsAction,
-} from '../../../lib/actions/erpActions';
+} from '@/backend/actions/erpActions';
 
 export function useInternalSubsystemsState() {
   // POS States

@@ -5,8 +5,8 @@
  * và Bộ đệm In-Memory Atomic Lock chống tranh chấp hàng triệu người cùng giật hàng.
  */
 
-import { prisma } from '../lib/db';
-import { stockReservationEngine } from '../lib/security/stockReservationEngine';
+import { prisma } from '../database/db';
+import { stockReservationEngine } from '../backend/security/stockReservationEngine';
 import { createOrderAction, reserveCartStockAction, releaseCartStockAction } from '../backend/actions/orderActions';
 
 async function runStockReservationTests() {

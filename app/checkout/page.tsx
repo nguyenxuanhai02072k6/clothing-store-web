@@ -7,7 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { AddressSelectorValue } from '../../components/checkout/VietnamAddressSelector';
-import { ShippingOption } from '../../lib/services/smartShippingEngine';
+import { ShippingOption } from '@/backend/services/smartShippingEngine';
 import { getCustomerTier } from '../../types';
 import { FormErrors, CheckoutStep } from '../../components/checkout/checkoutTypes';
 import { CheckoutStepper } from '../../components/checkout/CheckoutStepper';
