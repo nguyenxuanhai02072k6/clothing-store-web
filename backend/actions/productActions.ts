@@ -3,6 +3,7 @@
 import { prisma } from '@/database/db';
 import { verifySession } from '@/backend/security/session';
 import { z } from 'zod';
+import { MOCK_PRODUCTS, Product } from '@/data/products';
 
 const PRODUCT_ADMIN_ROLES = ['director', 'manager', 'accountant'];
 
@@ -81,7 +82,7 @@ function mapProduct(dbProd: any) {
   };
 }
 
-export async function getProductsAction() {
+export async function getProductsAction(): Promise<Product[]> {
   try {
     const dbProds = await prisma.product.findMany({
       where: { isActive: true },
@@ -94,14 +95,17 @@ export async function getProductsAction() {
       }
     });
     
-    return dbProds.map((p: any) => mapProduct(p));
+    if (dbProds && dbProds.length > 0) {
+      return dbProds.map((p: any) => mapProduct(p));
+    }
+    return MOCK_PRODUCTS;
   } catch (error) {
-    console.error('getProductsAction error:', error);
-    return [];
+    console.error('getProductsAction error (falling back to MOCK_PRODUCTS):', error);
+    return MOCK_PRODUCTS;
   }
 }
 
-export async function getProductDetailsAction(slug: string) {
+export async function getProductDetailsAction(slug: string): Promise<Product | null> {
   try {
     const dbProd = await prisma.product.findFirst({
       where: { slug, isActive: true },
@@ -114,11 +118,11 @@ export async function getProductDetailsAction(slug: string) {
       }
     });
     
-    if (!dbProd) return null;
-    return mapProduct(dbProd);
+    if (dbProd) return mapProduct(dbProd);
+    return MOCK_PRODUCTS.find((p: Product) => p.slug === slug) || null;
   } catch (error) {
-    console.error('getProductDetailsAction error:', error);
-    return null;
+    console.error('getProductDetailsAction error (falling back to MOCK_PRODUCTS):', error);
+    return MOCK_PRODUCTS.find((p: Product) => p.slug === slug) || null;
   }
 }
 

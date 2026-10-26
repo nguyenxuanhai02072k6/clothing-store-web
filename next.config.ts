@@ -30,6 +30,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  outputFileTracingIncludes: {
+    '/**': ['./database/seed.db', './dev.db'],
+  },
   async headers() {
     return [
       {

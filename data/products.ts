@@ -1,4 +1,5 @@
 import { Product } from '../types';
+export type { Product };
 
 export const MOCK_PRODUCTS: Product[] = [
   // 1. TOPS

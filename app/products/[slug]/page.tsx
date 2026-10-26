@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getProductDetailsAction, getProductsAction } from '@/backend/actions/productActions';
-import { MOCK_PRODUCTS } from '../../../data/products';
+import { MOCK_PRODUCTS, Product } from '../../../data/products';
 import ProductDetailClient from '../../../components/product/ProductDetailClient';
 
 interface PageProps {
@@ -62,9 +62,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
   }
 
   // Fetch related products for recommendations
-  const allProducts = (await getProductsAction()) || MOCK_PRODUCTS;
+  const allProducts: Product[] = (await getProductsAction()) || MOCK_PRODUCTS;
   const relatedProducts = allProducts
-    .filter((p) => p.id !== product.id && p.category === product.category)
+    .filter((p: Product) => p.id !== product.id && p.category === product.category)
     .slice(0, 4);
 
   // Schema.org Product Structured Data
