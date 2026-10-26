@@ -94,12 +94,12 @@ export default function AccountPage() {
     }
   };
 
-  // Redirect internal staff to /internal
+  // Redirect internal staff to /internal with full page navigation to ensure session cookie is sent
   useEffect(() => {
     if (currentUser && currentUser.role !== 'customer') {
-      router.push('/internal');
+      window.location.href = '/internal';
     }
-  }, [currentUser, router]);
+  }, [currentUser]);
 
   // Address Book states
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -142,7 +142,7 @@ export default function AccountPage() {
             showToast={showToast}
             onSuccessRedirect={(email) => {
               if (email !== 'customer@novynwear.com') {
-                router.push('/internal');
+                window.location.href = '/internal';
               }
             }}
           />
