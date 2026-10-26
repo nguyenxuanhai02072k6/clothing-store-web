@@ -1,81 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles, ChevronUp, ChevronDown, Key, Copy, Check, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-const DEMO_ACCOUNTS = [
-  {
-    role: 'director',
-    title: 'Giám Đốc (Director)',
-    badge: 'Toàn Quyền ERP',
-    badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
-    name: 'Trần Quốc Bảo',
-    email: 'director@novynwear.com',
-    desc: 'Báo cáo doanh số toàn chuỗi, duyệt tăng lương, duyệt giá sản phẩm & bảng biểu tài chính',
-    icon: '👑'
-  },
-  {
-    role: 'manager',
-    title: 'Quản Lý Cửa Hàng (Store Manager)',
-    badge: 'Chi Nhánh Q1',
-    badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
-    name: 'Nguyễn Huy Hoàng',
-    email: 'manager.q1@novynwear.com',
-    desc: 'Vận hành chi nhánh, duyệt ca kíp, nhập hàng và chấm công nhân sự',
-    icon: '🏢'
-  },
-  {
-    role: 'cashier',
-    title: 'Thu Ngân POS (Cashier)',
-    badge: 'POS Tại Quầy',
-    badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    name: 'Nguyễn Thuỳ Lan',
-    email: 'cashier.q1@novynwear.com',
-    desc: 'Quẹt mã vạch POS, tích điểm thành viên VIP, khóa két & đối soát tiền cuối ngày',
-    icon: '💳'
-  },
-  {
-    role: 'accountant',
-    title: 'Kế Toán Trưởng (Accountant)',
-    badge: 'Tài Chính & Thuế',
-    badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    name: 'Phạm Thu Thảo',
-    email: 'accountant@novynwear.com',
-    desc: 'Quản lý thu chi, bảng chi lương, tính thuế TNDN & quyết toán sổ sách kỳ',
-    icon: '📊'
-  },
-  {
-    role: 'cskh',
-    title: 'CSKH (Support Specialist)',
-    badge: 'Live Chat & Khiếu Nại',
-    badgeColor: 'bg-teal-50 text-teal-700 border-teal-200',
-    name: 'Mai An CSKH',
-    email: 'cskh@novynwear.com',
-    desc: 'Tiếp nhận Live Chat với khách online, xử lý phiếu đổi size, bảo hành sản phẩm',
-    icon: '💬'
-  },
-  {
-    role: 'stocker',
-    title: 'Thủ Kho (Warehouse Stocker)',
-    badge: 'Kho Vận & Hàng Lỗi',
-    badgeColor: 'bg-orange-50 text-orange-700 border-orange-200',
-    name: 'Trần Minh Hải',
-    email: 'stocker.q1@novynwear.com',
-    desc: 'Kiểm kê tồn kho, lập phiếu điều chuyển kho Q1 - Thảo Điền, lập biên bản hàng lỗi',
-    icon: '📦'
-  },
-  {
-    role: 'customer',
-    title: 'Khách Hàng VIP (Customer)',
-    badge: 'Gold Tier 5%',
-    badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
-    name: 'Lâm Khánh Vy',
-    email: 'customer@novynwear.com',
-    desc: 'Mua sắm trực tuyến, tích lũy điểm VIP, đổi voucher giảm giá độc quyền',
-    icon: '🛍️'
-  }
-];
 
 interface AccountAuthFormProps {
   login: (email: string, pass: string) => Promise<boolean>;
@@ -95,36 +21,6 @@ export default function AccountAuthForm({
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-
-  // Demo Accounts states
-  const [isDemoLoggingIn, setIsDemoLoggingIn] = useState<string | null>(null);
-  const [copiedPassword, setCopiedPassword] = useState(false);
-  const [showDemoAccounts, setShowDemoAccounts] = useState(true);
-
-  const handleDemoLogin = async (demoEmail: string) => {
-    setIsDemoLoggingIn(demoEmail);
-    setEmail(demoEmail);
-    setPassword('NovynDev!2026');
-    showToast(`Đang đăng nhập demo: ${demoEmail}...`, 'info');
-    try {
-      const success = await login(demoEmail, 'NovynDev!2026');
-      if (success) {
-        showToast('Đăng nhập tài khoản demo thành công!', 'success');
-        onSuccessRedirect(demoEmail);
-      }
-    } finally {
-      setIsDemoLoggingIn(null);
-    }
-  };
-
-  const handleCopyPassword = () => {
-    if (typeof navigator !== 'undefined') {
-      navigator.clipboard.writeText('NovynDev!2026');
-      setCopiedPassword(true);
-      showToast('Đã sao chép mật khẩu: NovynDev!2026', 'success');
-      setTimeout(() => setCopiedPassword(false), 2000);
-    }
-  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,86 +206,7 @@ export default function AccountAuthForm({
           </a>
         </div>
 
-        {/* QUICK DEMO LOGIN PANEL */}
-        <div className="mt-6 pt-6 border-t border-brand-border">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-bold uppercase tracking-wider text-brand-text">Tài Khoản Demo (1-Click Login)</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowDemoAccounts(!showDemoAccounts)}
-              className="text-[10px] font-bold text-brand-muted hover:text-brand-text flex items-center gap-1 cursor-pointer transition-colors"
-            >
-              {showDemoAccounts ? 'Thu gọn' : 'Xem tất cả (7 vai trò)'}
-              {showDemoAccounts ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-
-          {/* Password indicator bar */}
-          <div className="flex items-center justify-between p-2.5 rounded-xl bg-neutral-50 border border-brand-border text-xs mb-3">
-            <div className="flex items-center gap-2">
-              <Key className="w-3.5 h-3.5 text-brand-muted shrink-0" />
-              <span className="text-[11px] text-brand-muted font-medium">Mật khẩu chung:</span>
-              <code className="bg-white px-2 py-0.5 rounded border border-brand-border font-mono text-[11px] font-bold text-brand-text">NovynDev!2026</code>
-            </div>
-            <button
-              type="button"
-              onClick={handleCopyPassword}
-              className="text-[10px] font-bold uppercase tracking-wider text-brand-accent hover:text-neutral-900 flex items-center gap-1 cursor-pointer transition-colors"
-              title="Sao chép mật khẩu demo"
-            >
-              {copiedPassword ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedPassword ? 'Đã chép' : 'Sao chép'}</span>
-            </button>
-          </div>
-
-          {/* Demo Accounts List */}
-          {showDemoAccounts && (
-            <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  disabled={isDemoLoggingIn !== null}
-                  onClick={() => handleDemoLogin(acc.email)}
-                  className="w-full text-left p-3 rounded-xl border border-brand-border hover:border-brand-accent/50 bg-white hover:bg-neutral-50/80 transition-all flex items-center justify-between gap-3 group cursor-pointer shadow-2xs active:scale-[0.99] disabled:opacity-50"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xl shrink-0 select-none">{acc.icon}</span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs font-bold text-brand-text truncate group-hover:text-brand-accent transition-colors">
-                          {acc.title}
-                        </span>
-                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider border shrink-0 ${acc.badgeColor}`}>
-                          {acc.badge}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-brand-muted block truncate">
-                        {acc.name} &bull; <span className="font-mono">{acc.email}</span>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="shrink-0 flex items-center gap-1.5 text-brand-accent text-[11px] font-bold group-hover:translate-x-0.5 transition-transform">
-                    {isDemoLoggingIn === acc.email ? (
-                      <span className="text-[10px] text-brand-muted animate-pulse">Đang vào...</span>
-                    ) : (
-                      <>
-                        <span className="hidden sm:inline text-[10px] uppercase tracking-wider">Đăng nhập</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 text-center">
+        <div className="mt-6 text-center">
           <span className="text-[10px] text-brand-muted">
             Bằng việc tiếp tục, bạn đồng ý với Điều khoản và Chính sách của Novyn Wear.
           </span>
