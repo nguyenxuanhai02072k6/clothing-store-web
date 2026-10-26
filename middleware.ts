@@ -8,19 +8,26 @@ const STAFF_ROLES = ['director', 'manager', 'accountant', 'cskh', 'employee', 'c
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Global IP Rate Limiter (Protects against F5 spam, HTTP flood & DoS)
-  const clientIp =
-    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-    request.headers.get('x-real-ip') ||
-    '127.0.0.1';
+  // 1. Skip Rate Limiter for Next.js internal prefetch requests & RSC payloads
+  const isPrefetch =
+    request.headers.get('purpose') === 'prefetch' ||
+    request.headers.get('x-purpose') === 'prefetch' ||
+    request.headers.get('next-router-prefetch') === '1' ||
+    request.nextUrl.searchParams.has('_rsc');
 
-  const rateCheck = await globalIpLimiter.check(clientIp);
-  if (!rateCheck.success) {
-    const retryAfterSec = Math.ceil(rateCheck.retryAfterMs / 1000);
-    const acceptHeader = request.headers.get('accept') || '';
+  if (!isPrefetch) {
+    const clientIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+      request.headers.get('x-real-ip') ||
+      '127.0.0.1';
 
-    if (acceptHeader.includes('text/html')) {
-      const html = `<!DOCTYPE html>
+    const rateCheck = await globalIpLimiter.check(clientIp);
+    if (!rateCheck.success) {
+      const retryAfterSec = Math.ceil(rateCheck.retryAfterMs / 1000);
+      const acceptHeader = request.headers.get('accept') || '';
+
+      if (acceptHeader.includes('text/html')) {
+        const html = `<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="utf-8">
@@ -45,34 +52,35 @@ export async function middleware(request: NextRequest) {
   </div>
 </body>
 </html>`;
-      return new NextResponse(html, {
-        status: 429,
-        headers: {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Retry-After': String(retryAfterSec),
-          'X-RateLimit-Limit': String(rateCheck.limit),
-          'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': String(rateCheck.resetTime)
-        }
-      });
-    }
-
-    return NextResponse.json(
-      {
-        error: 'Too Many Requests',
-        message: `Bạn đang thao tác quá nhanh hoặc spam F5. Vui lòng thử lại sau ${retryAfterSec} giây.`,
-        retryAfter: retryAfterSec
-      },
-      {
-        status: 429,
-        headers: {
-          'Retry-After': String(retryAfterSec),
-          'X-RateLimit-Limit': String(rateCheck.limit),
-          'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': String(rateCheck.resetTime)
-        }
+        return new NextResponse(html, {
+          status: 429,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Retry-After': String(retryAfterSec),
+            'X-RateLimit-Limit': String(rateCheck.limit),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(rateCheck.resetTime)
+          }
+        });
       }
-    );
+
+      return NextResponse.json(
+        {
+          error: 'Too Many Requests',
+          message: `Bạn đang thao tác quá nhanh hoặc spam F5. Vui lòng thử lại sau ${retryAfterSec} giây.`,
+          retryAfter: retryAfterSec
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfterSec),
+            'X-RateLimit-Limit': String(rateCheck.limit),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(rateCheck.resetTime)
+          }
+        }
+      );
+    }
   }
 
   // 2. Protect internal ERP routes on server-side
