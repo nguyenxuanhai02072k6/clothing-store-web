@@ -8,10 +8,15 @@ const globalForPrisma = globalThis as unknown as {
 const getPrismaInstance = () => {
   const url = process.env.DATABASE_URL ?? 'file:./dev.db';
 
-  // Configured with 5000ms busy_timeout for concurrency resilience
+  // If connected to a PostgreSQL database (e.g. Neon, Supabase, Vercel Postgres)
+  if (url.startsWith('postgres://') || url.startsWith('postgresql://')) {
+    return new PrismaClient();
+  }
+
+  // Configured with 5000ms busy_timeout for SQLite concurrency resilience in dev
   const adapter = new PrismaBetterSqlite3({
     url,
-    timeout: 5000
+    timeout: 5000,
   });
 
   return new PrismaClient({ adapter });

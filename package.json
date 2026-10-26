@@ -5,8 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "postinstall": "prisma generate",
-    "build": "prisma generate && next build --webpack",
+    "build": "node ./scripts/prebuild.js && prisma generate && next build --webpack",
     "start": "next start",
+    "db:push": "npx prisma db push",
+    "db:seed": "npx tsx prisma/seed.ts",
+    "db:studio": "npx prisma studio",
     "lint": "eslint"
   },
   "dependencies": {
