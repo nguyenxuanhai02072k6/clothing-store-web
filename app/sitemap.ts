@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { prisma } from '@/database/db';
 import { MOCK_PRODUCTS } from '../data/products';
 
-const siteUrl = 'https://novynwear.com';
+const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://clothing-store-web-ten.vercel.app').replace(/\/+$/, '');
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes = [

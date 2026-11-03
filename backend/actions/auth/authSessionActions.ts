@@ -137,30 +137,33 @@ export async function changePasswordAction(userId: string, currentPassword: stri
       return { success: false, message: 'Bạn không có quyền thực hiện thao tác đổi mật khẩu cho tài khoản này' };
     }
 
-    const parsed = z.object({
-      userId: z.string().min(1),
-      currentPassword: z.string().min(1, 'Vui lòng nhập mật khẩu hiện tại'),
-      newPassword: passwordSchema,
-    }).safeParse({ userId, currentPassword, newPassword });
-
-    if (!parsed.success) {
-      return { success: false, message: parsed.error.issues[0]?.message || 'Thông tin đổi mật khẩu không hợp lệ' };
-    }
-
     const user = await prisma.user.findUnique({
-      where: { id: parsed.data.userId }
+      where: { id: userId }
     });
 
     if (!user || !user.isActive) {
       return { success: false, message: 'Tài khoản không tồn tại hoặc đã bị khóa' };
     }
 
-    const verifyResult = await verifyPassword(parsed.data.currentPassword, user.password);
-    if (!verifyResult.isValid) {
-      return { success: false, message: 'Mật khẩu hiện tại không đúng' };
+    const isOAuthAccount = user.id.startsWith('usr-google-') || user.id.startsWith('usr-fb-');
+
+    // If standard user or current password provided, verify it
+    if (!isOAuthAccount || currentPassword) {
+      if (!currentPassword) {
+        return { success: false, message: 'Vui lòng nhập mật khẩu hiện tại' };
+      }
+      const verifyResult = await verifyPassword(currentPassword, user.password);
+      if (!verifyResult.isValid) {
+        return { success: false, message: 'Mật khẩu hiện tại không đúng' };
+      }
     }
 
-    const hashedPassword = await hashPassword(parsed.data.newPassword);
+    const parsedPassword = passwordSchema.safeParse(newPassword);
+    if (!parsedPassword.success) {
+      return { success: false, message: parsedPassword.error.issues[0]?.message || 'Mật khẩu mới không hợp lệ' };
+    }
+
+    const hashedPassword = await hashPassword(parsedPassword.data);
 
     await prisma.user.update({
       where: { id: userId },
@@ -170,7 +173,9 @@ export async function changePasswordAction(userId: string, currentPassword: stri
     await prisma.auditLog.create({
       data: {
         action: 'USER_PASSWORD_CHANGE',
-        details: `Người dùng ${user.email} đã đổi mật khẩu`,
+        details: isOAuthAccount && !currentPassword 
+          ? `Người dùng mạng xã hội ${user.email} đã thiết lập mật khẩu đăng nhập trực tiếp`
+          : `Người dùng ${user.email} đã đổi mật khẩu`,
         performedById: user.id,
         performedByName: user.name,
       }

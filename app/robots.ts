@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const siteUrl = 'https://novynwear.com';
+const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://clothing-store-web-ten.vercel.app').replace(/\/+$/, '');
 
 export default function robots(): MetadataRoute.Robots {
   return {

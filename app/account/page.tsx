@@ -47,7 +47,18 @@ export default function AccountPage() {
       showToast('Đăng nhập thành công! Chào mừng bạn quay lại.', 'success');
       window.history.replaceState({}, '', window.location.pathname);
     } else if (oauthError) {
-      showToast(decodeURIComponent(oauthError) || 'Đăng nhập mạng xã hội thất bại!', 'error');
+      const errorMap: Record<string, string> = {
+        GOOGLE_KEYS_MISSING: 'Tính năng đăng nhập Google chưa được cấu hình API keys trên máy chủ.',
+        FACEBOOK_KEYS_MISSING: 'Tính năng đăng nhập Facebook chưa được cấu hình App ID trên máy chủ.',
+        INVALID_OAUTH_STATE: 'Phiên xác thực bảo mật đã hết hạn. Vui lòng bấm thử lại.',
+        DEMO_DISABLED_IN_PRODUCTION: 'Chế độ đăng nhập demo không khả dụng trên môi trường thực tế.',
+        MISSING_CODE: 'Không nhận được mã xác thực từ dịch vụ đăng nhập.',
+        FETCH_USER_FAILED: 'Không thể đồng bộ hồ sơ người dùng từ mạng xã hội.',
+        TOKEN_EXCHANGE_FAILED: 'Xác thực tài khoản với nhà cung cấp thất bại.',
+        access_denied: 'Bạn đã hủy thao tác đăng nhập mạng xã hội.'
+      };
+      const friendlyMessage = errorMap[oauthError] || decodeURIComponent(oauthError) || 'Đăng nhập mạng xã hội thất bại. Vui lòng thử lại!';
+      showToast(friendlyMessage, 'error');
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, [refreshUser, showToast]);

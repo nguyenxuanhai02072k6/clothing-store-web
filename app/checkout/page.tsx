@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { AddressSelectorValue } from '../../components/checkout/VietnamAddressSelector';
 import { ShippingOption } from '@/backend/services/smartShippingEngine';
 import { getCustomerTier } from '../../types';
@@ -20,6 +21,7 @@ import { CheckoutSuccessModal } from '../../components/checkout/CheckoutSuccessM
 export default function CheckoutPage() {
   const { cart, cartSubtotal, cartDiscount, memberDiscount, cartShipping, clearCart, appliedPromo } = useCart();
   const { createOrder, currentUser } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
 
   // Form Fields
@@ -36,6 +38,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'vnpay'>('cod');
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('info');
   const [errors, setErrors] = useState<FormErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [generatedOrderId, setGeneratedOrderId] = useState('');
@@ -162,6 +165,7 @@ export default function CheckoutPage() {
     // We are on payment step, confirm everything is validated
     if (!validateInfoStep() || !validateShippingStep()) return;
 
+    setSubmitError(null);
     setIsSubmitting(true);
     
     const finalAddress = addressData?.fullAddress || address;
@@ -196,6 +200,9 @@ export default function CheckoutPage() {
       })
       .catch((err) => {
         console.error('Checkout error:', err);
+        const errorMsg = err?.message || 'Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại sau.';
+        setSubmitError(errorMsg);
+        showToast(errorMsg, 'error');
       })
       .finally(() => {
         setIsSubmitting(false);
@@ -306,6 +313,7 @@ export default function CheckoutPage() {
                 setPaymentMethod={setPaymentMethod}
                 isSubmitting={isSubmitting}
                 onBack={() => setCheckoutStep('shipping')}
+                error={submitError}
               />
             )}
           </form>

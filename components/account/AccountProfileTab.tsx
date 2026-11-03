@@ -20,9 +20,15 @@ export default function AccountProfileTab({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showChangePassword, setShowChangePassword] = useState(false);
 
+  const isOAuthAccount = currentUser?.id?.startsWith('usr-google-') || currentUser?.id?.startsWith('usr-fb-');
+
   const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!oldPassword || !newPassword || !confirmPassword) {
+    if (!isOAuthAccount && !oldPassword) {
+      showToast('Vui lòng điền mật khẩu hiện tại.', 'error');
+      return;
+    }
+    if (!newPassword || !confirmPassword) {
       showToast('Vui lòng điền đầy đủ các trường mật khẩu.', 'error');
       return;
     }
@@ -41,6 +47,7 @@ export default function AccountProfileTab({
       setNewPassword('');
       setConfirmPassword('');
       setShowChangePassword(false);
+      showToast(isOAuthAccount ? 'Thiết lập mật khẩu đăng nhập thành công!' : 'Đổi mật khẩu thành công!', 'success');
     }
   };
 
@@ -90,7 +97,7 @@ export default function AccountProfileTab({
           onClick={() => setShowChangePassword(!showChangePassword)}
           className="flex justify-between items-center w-full text-left font-bold text-xs uppercase tracking-widest text-brand-text cursor-pointer"
         >
-          <span>🔒 Đổi mật khẩu tài khoản</span>
+          <span>{isOAuthAccount ? '🔑 Tạo mật khẩu đăng nhập trực tiếp bằng email' : '🔒 Đổi mật khẩu tài khoản'}</span>
           <span>{showChangePassword ? '▲' : '▼'}</span>
         </button>
         <AnimatePresence>
@@ -102,19 +109,25 @@ export default function AccountProfileTab({
               onSubmit={handleChangePasswordSubmit}
               className="mt-6 space-y-4 overflow-hidden"
             >
-              <div>
-                <label className="text-[9px] font-bold uppercase tracking-widest text-brand-muted block mb-1">
-                  Mật khẩu hiện tại
-                </label>
-                <input
-                  type="password"
-                  required
-                  placeholder="Nhập mật khẩu hiện tại"
-                  value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:border-brand-accent text-xs bg-white"
-                />
-              </div>
+              {isOAuthAccount ? (
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 font-medium">
+                  Tài khoản của bạn hiện đang đăng nhập qua liên kết Google/Facebook. Thiết lập mật khẩu dưới đây sẽ giúp bạn có thể đăng nhập bằng email ({currentUser?.email}) và mật khẩu độc lập bất kỳ lúc nào.
+                </div>
+              ) : (
+                <div>
+                  <label className="text-[9px] font-bold uppercase tracking-widest text-brand-muted block mb-1">
+                    Mật khẩu hiện tại
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Nhập mật khẩu hiện tại"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:border-brand-accent text-xs bg-white"
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-[9px] font-bold uppercase tracking-widest text-brand-muted block mb-1">

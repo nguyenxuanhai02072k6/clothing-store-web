@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Star } from 'lucide-react';
 import { Product } from '../../../types';
@@ -43,6 +43,17 @@ export default function ProductAccordionSection({
   newReviewComment,
   setNewReviewComment
 }: ProductAccordionSectionProps) {
+  const [reviewFilter, setReviewFilter] = useState<'all' | '5star' | 'media' | 'verified'>('all');
+
+  const filteredReviews = useMemo(() => {
+    return reviewsData.filter(r => {
+      if (reviewFilter === '5star') return r.rating === 5;
+      if (reviewFilter === 'media') return Boolean(r.hasMedia || (r.comment && r.comment.length > 80));
+      if (reviewFilter === 'verified') return Boolean(r.verified);
+      return true;
+    });
+  }, [reviewsData, reviewFilter]);
+
   return (
     <section className="mb-24 border-t border-brand-border pt-10">
       <div className="max-w-3xl">
@@ -256,20 +267,27 @@ export default function ProductAccordionSection({
                     </div>
                   </div>
 
-                  {/* Review Filter Tags (aesthetic only) */}
+                  {/* Review Filter Tags */}
                   <div className="flex flex-wrap gap-2 mb-8 justify-between items-center w-full">
                     <div className="flex flex-wrap gap-2">
-                      {['Tất cả', `Hình ảnh/Video (${Math.round(dynamicReviewsCount * 0.4)})`, `5 Sao (${reviewsData.filter((r) => r.rating === 5).length})`, 'Có phản hồi từ NOVYN WEAR'].map((tag, idx) => (
-                        <span
-                          key={tag}
+                      {[
+                        { id: 'all', label: 'Tất cả' },
+                        { id: '5star', label: `5 Sao (${reviewsData.filter((r) => r.rating === 5).length})` },
+                        { id: 'media', label: `Hình ảnh/Chi tiết (${Math.round(dynamicReviewsCount * 0.4)})` },
+                        { id: 'verified', label: 'Xác thực mua hàng' }
+                      ].map((tag) => (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => setReviewFilter(tag.id as any)}
                           className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                            idx === 0
+                            reviewFilter === tag.id
                               ? 'bg-brand-accent text-white border border-brand-accent shadow-none'
-                              : 'bg-white text-brand-muted border border-brand-border hover:bg-brand-bg'
+                              : 'bg-white text-brand-muted border border-brand-border hover:bg-neutral-50'
                           }`}
                         >
-                          {tag}
-                        </span>
+                          {tag.label}
+                        </button>
                       ))}
                     </div>
                     <button
@@ -343,7 +361,12 @@ export default function ProductAccordionSection({
 
                   {/* Detailed Review List */}
                   <div className="space-y-6">
-                    {reviewsData.map((review, idx) => (
+                    {filteredReviews.length === 0 ? (
+                      <div className="text-center py-8 text-xs text-brand-muted bg-neutral-50 rounded-xl border border-dashed border-brand-border">
+                        Không có đánh giá nào phù hợp với bộ lọc đã chọn.
+                      </div>
+                    ) : (
+                      filteredReviews.map((review, idx) => (
                       <div
                         key={idx}
                         className="pb-6 border-b border-brand-border last:border-0 last:pb-0 flex flex-col gap-3"
@@ -397,7 +420,8 @@ export default function ProductAccordionSection({
                           </button>
                         </div>
                       </div>
-                    ))}
+                    ))
+                  )}
                   </div>
                 </div>
               </motion.div>

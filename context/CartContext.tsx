@@ -335,7 +335,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         cart,
         cartCount,
         cartSubtotal,
-        cartDiscount: appliedPromo?.code === 'FREESHIP' ? 30000 : cartDiscount,
+        cartDiscount,
         memberDiscount,
         cartShipping,
         cartTotal,

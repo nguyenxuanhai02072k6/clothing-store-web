@@ -45,7 +45,9 @@ export default function VietnamAddressSelector({
   const [streetAddress, setStreetAddress] = useState<string>(initialStreet);
 
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   // 1. Tìm Object Province đang được chọn
   const currentProvince: Province = useMemo(() => {

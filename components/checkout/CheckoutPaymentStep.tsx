@@ -1,11 +1,12 @@
 import React from 'react';
-import { Truck, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Truck, ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
 
 interface CheckoutPaymentStepProps {
   paymentMethod: 'cod' | 'vnpay';
   setPaymentMethod: (method: 'cod' | 'vnpay') => void;
   isSubmitting: boolean;
   onBack: () => void;
+  error?: string | null;
 }
 
 export function CheckoutPaymentStep({
@@ -13,6 +14,7 @@ export function CheckoutPaymentStep({
   setPaymentMethod,
   isSubmitting,
   onBack,
+  error,
 }: CheckoutPaymentStepProps) {
   return (
     <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col gap-5">
@@ -74,6 +76,13 @@ export function CheckoutPaymentStep({
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2.5 mt-2">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       <div className="flex gap-4 mt-6">
         <button

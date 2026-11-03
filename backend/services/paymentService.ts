@@ -38,6 +38,12 @@ export function createPaymentGatewayUrl(params: {
   ipAddr?: string;
   returnUrl?: string;
 }): string {
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://clothing-store-web-ten.vercel.app').replace(/\/+$/, '');
+  let resolvedReturnUrl = params.returnUrl || `${baseUrl}/checkout`;
+  if (resolvedReturnUrl.startsWith('/')) {
+    resolvedReturnUrl = `${baseUrl}${resolvedReturnUrl}`;
+  }
+
   const queryParams: Record<string, string | number> = {
     vnp_Version: '2.1.0',
     vnp_Command: 'pay',
@@ -48,7 +54,7 @@ export function createPaymentGatewayUrl(params: {
     vnp_OrderInfo: params.orderInfo,
     vnp_OrderType: 'fashion',
     vnp_Locale: 'vn',
-    vnp_ReturnUrl: params.returnUrl || `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/checkout/success`,
+    vnp_ReturnUrl: resolvedReturnUrl,
     vnp_IpAddr: params.ipAddr || '127.0.0.1',
     vnp_CreateDate: new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14),
   };

@@ -102,25 +102,54 @@ export async function saveMediaFile(validated: ValidatedMedia, customDir?: strin
   const randomId = crypto.randomUUID();
   const filename = `${randomId}.${validated.extension}`;
 
-  // Target directory inside Next.js public folder
-  const uploadDir = customDir || path.join(process.cwd(), 'public', 'uploads');
+  // Check if we are running in a serverless read-only environment
+  const isServerless = Boolean(
+    process.env.VERCEL ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.NETLIFY
+  );
 
-  // Ensure directory exists
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+  // If in Serverless without external S3/R2 configured, return a direct secure Data URL
+  if (isServerless) {
+    const base64Data = validated.buffer.toString('base64');
+    const dataUrl = `data:${validated.mimeType};base64,${base64Data}`;
+    return {
+      url: dataUrl,
+      filename,
+      size: validated.size,
+      mimeType: validated.mimeType
+    };
   }
 
-  const filePath = path.join(uploadDir, filename);
-  await fs.promises.writeFile(filePath, validated.buffer);
+  try {
+    // Target directory inside Next.js public folder for local development
+    const uploadDir = customDir || path.join(process.cwd(), 'public', 'uploads');
 
-  const publicUrl = `/uploads/${filename}`;
+    // Ensure directory exists
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
 
-  return {
-    url: publicUrl,
-    filename,
-    size: validated.size,
-    mimeType: validated.mimeType
-  };
+    const filePath = path.join(uploadDir, filename);
+    await fs.promises.writeFile(filePath, validated.buffer);
+
+    return {
+      url: `/uploads/${filename}`,
+      filename,
+      size: validated.size,
+      mimeType: validated.mimeType
+    };
+  } catch (fsError: any) {
+    // Graceful fallback for read-only filesystems (e.g. EROFS)
+    console.warn('[MEDIA SERVICE] Filesystem write failed, falling back to Base64 Data URL:', fsError?.message);
+    const base64Data = validated.buffer.toString('base64');
+    return {
+      url: `data:${validated.mimeType};base64,${base64Data}`,
+      filename,
+      size: validated.size,
+      mimeType: validated.mimeType
+    };
+  }
 }
 
 export const mediaService = {

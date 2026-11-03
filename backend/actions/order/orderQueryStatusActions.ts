@@ -106,22 +106,7 @@ export async function cancelOrderAction(orderId: string, performedById?: string,
         });
       }
 
-      // 4. Reverse loyalty spent amount ONLY if the order was previously completed
-      if (order.status === 'completed') {
-        const customer = await tx.user.findFirst({
-          where: { email: order.customerEmail }
-        });
-        
-        if (customer && customer.role === 'customer') {
-          const newSpent = Math.max(0, (customer.totalSpent || 0) - order.total);
-          await tx.user.update({
-            where: { id: customer.id },
-            data: { totalSpent: newSpent }
-          });
-        }
-      }
-
-      // 5. Audit Log
+      // 4. Audit Log
       await tx.auditLog.create({
         data: {
           action: 'ORDER_CANCEL',
@@ -177,6 +162,18 @@ export async function updateOrderStatusAction(
           await tx.user.update({
             where: { id: customer.id },
             data: { totalSpent: { increment: order.total } }
+          });
+        }
+      } else if (order.status === 'completed' && status !== 'completed') {
+        // Revert loyalty spent amount if order was reverted from completed to shipping/pending
+        const customer = await tx.user.findFirst({
+          where: { email: order.customerEmail }
+        });
+        if (customer && customer.role === 'customer') {
+          const currentSpent = customer.totalSpent || 0;
+          await tx.user.update({
+            where: { id: customer.id },
+            data: { totalSpent: Math.max(0, currentSpent - order.total) }
           });
         }
       }

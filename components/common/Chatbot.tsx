@@ -132,7 +132,7 @@ export const Chatbot: React.FC = () => {
     };
   }, [liveSessionId, chatMode, getCustomerSession, resetToAIGreeting]);
 
-  const handleConnectToAgent = () => {
+  const handleConnectToAgent = async () => {
     setChatMode('connecting');
 
     const customerName = currentUser?.name || 'Khách';
@@ -140,26 +140,40 @@ export const Chatbot: React.FC = () => {
     const customerId = currentUser?.id || `guest-${Date.now()}`;
     const customerAvatar = currentUser?.avatar;
 
-    const sessionId = createChatSession(
-      customerId,
-      customerName,
-      customerEmail,
-      customerAvatar,
-      'Khách hàng cần hỗ trợ tư vấn trực tiếp.'
-    );
-    setLiveSessionId(sessionId);
-    prevMsgCountRef.current = 1;
+    try {
+      const sessionId = await createChatSession(
+        customerId,
+        customerName,
+        customerEmail,
+        customerAvatar,
+        'Khách hàng cần hỗ trợ tư vấn trực tiếp.'
+      );
+      setLiveSessionId(sessionId);
+      prevMsgCountRef.current = 1;
 
-    // Add connecting UI message
-    setMessages(prev => [
-      ...prev,
-      {
-        id: `sys-connecting-${Date.now()}`,
-        sender: 'system',
-        text: 'Đang kết nối với nhân viên CSKH. Vui lòng chờ trong giây lát...',
-        timestamp: new Date(),
-      },
-    ]);
+      // Add connecting UI message
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `sys-connecting-${Date.now()}`,
+          sender: 'system',
+          text: 'Đang kết nối với nhân viên CSKH. Vui lòng chờ trong giây lát...',
+          timestamp: new Date(),
+        },
+      ]);
+    } catch (err) {
+      console.error('Failed to create chat session:', err);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `sys-err-${Date.now()}`,
+          sender: 'system',
+          text: 'Không thể kết nối đến máy chủ CSKH lúc này. Vui lòng thử lại sau hoặc liên hệ Hotline 1900 8899.',
+          timestamp: new Date(),
+        },
+      ]);
+      setChatMode('ai');
+    }
   };
 
   const handleSendMessage = (text: string, isUserText = true) => {

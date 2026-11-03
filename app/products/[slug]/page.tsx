@@ -22,6 +22,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const imageUrl = product.images?.[0] || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=1200';
   const pageTitle = `${product.name} | NOVYN WEAR - Quiet Luxury`;
   const pageDescription = product.description.slice(0, 160);
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://clothing-store-web-ten.vercel.app').replace(/\/+$/, '');
 
   return {
     title: pageTitle,
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title: `${product.name} - NOVYN WEAR`,
       description: pageDescription,
-      url: `https://novynwear.com/products/${product.slug}`,
+      url: `${appUrl}/products/${product.slug}`,
       siteName: 'NOVYN WEAR - Thời Trang Quiet Luxury',
       images: [
         {
@@ -48,7 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       images: [imageUrl],
     },
     alternates: {
-      canonical: `https://novynwear.com/products/${product.slug}`,
+      canonical: `${appUrl}/products/${product.slug}`,
     },
   };
 }

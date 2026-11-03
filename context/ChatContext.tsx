@@ -9,7 +9,7 @@ interface ChatContextType {
   chatSessions: ChatSession[];
   activeSessions: ChatSession[];
   waitingSessions: ChatSession[];
-  createChatSession: (customerId: string, customerName: string, customerEmail: string, customerAvatar?: string, initialMessage?: string) => string;
+  createChatSession: (customerId: string, customerName: string, customerEmail: string, customerAvatar?: string, initialMessage?: string) => Promise<string>;
   sendCustomerMessage: (sessionId: string, text: string, senderName: string) => void;
   sendCskhMessage: (sessionId: string, text: string, cskhName: string) => void;
   acceptSession: (sessionId: string, cskhName: string) => void;
@@ -51,18 +51,24 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(interval);
   }, [isStaff]);
 
-  const createChatSession = (
+  const createChatSession = async (
     customerId: string,
     customerName: string,
     customerEmail: string,
     customerAvatar?: string,
     initialMessage?: string
-  ): string => {
-    const sessionId = `chat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    chatService.createChatSession(customerId, customerName, customerEmail, customerAvatar, initialMessage).then(() => {
-      chatService.getChatSessions().then(setChatSessions);
-    });
-    return sessionId;
+  ): Promise<string> => {
+    const realSessionId = await chatService.createChatSession(
+      customerId,
+      customerName,
+      customerEmail,
+      customerAvatar,
+      initialMessage
+    );
+    if (isStaff) {
+      chatService.getChatSessions().then(setChatSessions).catch(() => {});
+    }
+    return realSessionId;
   };
 
   const sendCustomerMessage = (sessionId: string, text: string, senderName: string) => {

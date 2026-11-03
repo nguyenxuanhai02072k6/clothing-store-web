@@ -284,11 +284,12 @@ export async function createOrderAction(rawInput: any) {
 
     let paymentUrl: string | undefined = undefined;
     if (input.paymentMethod === 'vnpay') {
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://clothing-store-web-ten.vercel.app').replace(/\/+$/, '');
       paymentUrl = createPaymentGatewayUrl({
         orderId: result.orderId,
         amount: result.total,
         orderInfo: `Thanh toan don hang ${result.orderId}`,
-        returnUrl: `/checkout?orderId=${result.orderId}`
+        returnUrl: `${appUrl}/checkout?orderId=${result.orderId}`
       });
     }
 

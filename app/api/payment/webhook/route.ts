@@ -89,7 +89,7 @@ async function handlePaymentNotification(params: Record<string, string>) {
   // 2. Query Order from Database
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { payment: true }
+    include: { payment: true, items: true }
   });
 
   if (!order) {
@@ -163,7 +163,7 @@ async function handlePaymentNotification(params: Record<string, string>) {
         }
       });
     } else {
-      // Payment Failed
+      // Payment Failed: Update payment status and cancel order, restoring inventory
       await tx.payment.upsert({
         where: { orderId: order.id },
         update: {
@@ -179,10 +179,43 @@ async function handlePaymentNotification(params: Record<string, string>) {
         }
       });
 
+      if (order.status !== 'cancelled') {
+        // Mark order as cancelled
+        await tx.order.update({
+          where: { id: order.id },
+          data: { status: 'cancelled' }
+        });
+
+        // Restore reserved inventory back to warehouse stock
+        for (const item of order.items) {
+          await tx.inventoryItem.update({
+            where: {
+              variantId_branchName: {
+                variantId: item.variantId,
+                branchName: order.branchName
+              }
+            },
+            data: {
+              quantity: { increment: item.quantity }
+            }
+          });
+
+          await tx.inventoryTransaction.create({
+            data: {
+              variantId: item.variantId,
+              branchName: order.branchName,
+              quantity: item.quantity,
+              type: 'return',
+              reason: `Hoàn kho do thanh toán trực tuyến thất bại (Đơn ${order.id})`
+            }
+          });
+        }
+      }
+
       await tx.auditLog.create({
         data: {
           action: 'PAYMENT_WEBHOOK_FAILED',
-          details: `Thanh toán thất bại cho đơn ${order.id} (Mã lỗi: ${responseCode})`
+          details: `Thanh toán thất bại cho đơn ${order.id} (Mã lỗi: ${responseCode}). Đã hoàn trả tồn kho sản phẩm.`
         }
       });
     }
