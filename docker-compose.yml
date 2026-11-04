@@ -1,0 +1,38 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: novyn-clothing-store
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - SESSION_SECRET=novyn-wear-secure-docker-session-secret-change-me-in-production-2026
+      # Database Configuration:
+      # Default: Uses SQLite with persistent Docker volume mount
+      - DATABASE_URL=file:./database/seed.db
+      # To switch to external PostgreSQL, set:
+      # - DATABASE_URL=postgresql://user:password@host:5432/dbname?schema=public
+      # Social OAuth Keys (optional):
+      # - GOOGLE_CLIENT_ID=your_google_client_id
+      # - GOOGLE_CLIENT_SECRET=your_google_client_secret
+      # - FACEBOOK_CLIENT_ID=your_fb_app_id
+      # - FACEBOOK_CLIENT_SECRET=your_fb_app_secret
+    volumes:
+      # Persist SQLite database files across container restarts
+      - novyn_db_data:/app/database
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  novyn_db_data:
+    driver: local
