@@ -199,22 +199,48 @@ export const DEFAULT_PER_ROLE: Partial<Record<UserRole, string>> = {
 
 // Map alias cũ (activeTab giá trị) -> node.id. Dùng bởi sidebar/renderer khi
 // chưa migrates hoàn toàn (legacy fallback, Task 5).
+// Mở rộng (Task 3): gộp đầy đủ alias mà AppSidebar.isItemActive cũ biết,
+// gồm cả alias của item legacy POS/CSKH/KHO (target = id item legacy).
 export const LEGACY_ROUTE_MAP: Record<string, string> = {
-  'director-global-finance': 'finance-p-l',
   'finance-p-l': 'finance-p-l',
+  'finance-profit': 'finance-p-l',
+  'director-global-finance': 'finance-p-l',
+  'accountant-global-finance': 'finance-p-l',
   'finance-costs': 'finance-costs',
   'costs': 'finance-costs',
   'finance-payroll': 'finance-payroll',
+  'staff': 'finance-payroll',
+  'director-hr-payroll': 'finance-payroll',
+  'accountant-hr-payroll': 'finance-payroll',
+  'accountant-kpi-payroll': 'finance-payroll',
   'finance-recon': 'finance-recon',
   'recon': 'finance-recon',
+  'accountant-finance-recon': 'finance-recon',
   'staff-schedule': 'staff-schedule',
   'shifts': 'staff-schedule',
+  'manager-shift-overview': 'staff-schedule',
+  'manager-staff-console': 'staff-schedule',
   'attendance': 'attendance',
+  'employee-shifts-clock': 'attendance',
+  'employee-hr-requests': 'attendance',
   'products-database': 'products-database',
   'announcements': 'announcements',
   'audit-logs': 'audit-logs',
   'settings': 'settings',
+  'settings-tab': 'settings',
   'overview': 'overview',
+  // Alias item legacy POS/CSKH/KHO (giữ active-state đúng như isItemActive cũ)
+  'pos': 'pos-sales',
+  'cskh-orders': 'sales-orders-list',
+  'cskh-live-chat': 'cskh-hub',
+  'cskh-customers-tickets': 'returns-exchange',
+  'customers': 'customers-list',
+  'cskh-customers': 'customers-list',
+  'customers-vip': 'customers-list',
+  'cskh-customers-vip': 'customers-list',
+  'branch-stock': 'stocker-inventory',
+  'manager-stock': 'restock',
+  'accountant-operations': 'restock',
 };
 
 export function getNodesForRole(role: UserRole): NavNode[] {
@@ -223,4 +249,117 @@ export function getNodesForRole(role: UserRole): NavNode[] {
 
 export function getActiveNode(id: string): NavNode | undefined {
   return NAV_NODES.find((n) => n.id === id);
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar builder (Task 3) — nguồn sự thật cho sidebar + AppHeader.
+// Nhóm vùng quản trị/tài chính lấy items từ NAV_NODES (dedupe finance-recon);
+// nhóm POS/CSKH/KHO giữ nguyên dữ liệu legacy (không đổi behavior — lát sau).
+// icon ở dạng string; AppSidebar map sang lucide.
+// ---------------------------------------------------------------------------
+
+export interface SidebarItem {
+  id: string;
+  name: string;
+  icon: string;
+  badgeKey?: 'pendingOrders' | 'lowStock' | 'announcements' | 'pendingHr';
+  workspace?: string;
+}
+
+export interface SidebarGroup {
+  title: string;
+  workspace: string;
+  items: SidebarItem[];
+}
+
+type LegacyItem = SidebarItem & { allowedRoles?: UserRole[] };
+
+const LEGACY_GROUPS: Array<{ title: string; workspace: string; groupRoles?: UserRole[]; items: LegacyItem[] }> = [
+  {
+    title: 'BÁN HÀNG & POS',
+    workspace: 'pos',
+    groupRoles: ['director', 'manager', 'employee', 'cashier'],
+    items: [
+      { id: 'pos-sales', name: 'Quầy POS Bán Lẻ', icon: 'ShoppingBag', allowedRoles: ['director', 'manager', 'employee', 'cashier'], workspace: 'pos' },
+      { id: 'sales-orders-list', name: 'Danh sách đơn hàng', icon: 'FileText', badgeKey: 'pendingOrders', workspace: 'pos' },
+      // finance-recon ĐÃ BỎ: gộp về nút tài chính (registry), tránh trùng 2 lần.
+    ],
+  },
+  {
+    title: 'CSKH & CRM',
+    workspace: 'cskh',
+    groupRoles: ['director', 'manager', 'cskh'],
+    items: [
+      { id: 'cskh-hub', name: 'CSKH Console (Live Chat)', icon: 'MessageSquare', allowedRoles: ['director', 'manager', 'cskh'], workspace: 'cskh' },
+      { id: 'returns-exchange', name: 'Phiếu đổi trả & Khiếu nại', icon: 'RotateCcw', allowedRoles: ['director', 'manager', 'cskh', 'employee', 'cashier'], workspace: 'cskh' },
+      { id: 'customers-list', name: 'Khách hàng & Hạng VIP', icon: 'Crown', allowedRoles: ['director', 'manager', 'cskh', 'employee', 'cashier'], workspace: 'cskh' },
+      { id: 'reviews', name: 'Đánh giá từ khách', icon: 'Star', allowedRoles: ['director', 'cskh', 'manager'], workspace: 'cskh' },
+      { id: 'ai-copilot', name: 'Trợ lý AI Marketing', icon: 'Sparkles', allowedRoles: ['director', 'manager', 'cskh'], workspace: 'cskh' },
+    ],
+  },
+  {
+    title: 'KHO VẬN & HÀNG HÓA',
+    workspace: 'warehouse',
+    groupRoles: ['director', 'manager', 'stocker', 'accountant'],
+    items: [
+      { id: 'stocker-inventory', name: 'Tồn kho 2 chi nhánh', icon: 'Layers', badgeKey: 'lowStock', allowedRoles: ['director', 'manager', 'stocker', 'accountant', 'cashier', 'employee'], workspace: 'warehouse' },
+      { id: 'stocker-transfer', name: 'Điều chuyển kho', icon: 'ArrowRightLeft', allowedRoles: ['director', 'manager', 'stocker', 'accountant'], workspace: 'warehouse' },
+      { id: 'damaged-goods', name: 'Biên bản hàng lỗi', icon: 'AlertTriangle', allowedRoles: ['director', 'manager', 'stocker', 'cskh', 'accountant'], workspace: 'warehouse' },
+      { id: 'restock', name: 'Phiếu nhập hàng', icon: 'FileDown', allowedRoles: ['director', 'manager', 'stocker', 'accountant'], workspace: 'warehouse' },
+    ],
+  },
+];
+
+// Nhóm quản trị/tài chính: items từ NAV_NODES (name/role/badge lấy đúng từ node).
+// groupRoles giữ gate nhóm Y HOOI menuGroups cũ (TỔNG QUAN [d,m], VẬN HÀNH không gate,
+// QUẢN TRỊ [d,m,a] — logout cũng bị gate bởi nhóm này, đúng hiện trạng).
+// TÀI CHÍNH thêm cashier: gộp finance-recon về đây nên phải giữ đường vào của cashier.
+const REGISTRY_GROUPS: Array<{ title: string; workspace: string; groupRoles?: UserRole[]; nodeIds: string[] }> = [
+  { title: 'TỔNG QUAN', workspace: 'management', groupRoles: ['director', 'manager'], nodeIds: ['overview'] },
+  { title: 'TÀI CHÍNH & KẾ TOÁN', workspace: 'finance', groupRoles: ['director', 'manager', 'accountant', 'cashier'], nodeIds: ['finance-costs', 'finance-payroll', 'finance-recon', 'finance-p-l'] },
+  { title: 'VẬN HÀNH & NHÂN SỰ', workspace: 'management', nodeIds: ['staff-schedule', 'attendance'] },
+  { title: 'QUẢN TRỊ HỆ THỐNG', workspace: 'management', groupRoles: ['director', 'manager', 'accountant'], nodeIds: ['products-database', 'announcements', 'audit-logs', 'settings'] },
+];
+
+// Thứ tự nhóm giữ y hệt menuGroups hiện tại.
+const GROUP_ORDER = [
+  'TỔNG QUAN',
+  'BÁN HÀNG & POS',
+  'CSKH & CRM',
+  'KHO VẬN & HÀNG HÓA',
+  'TÀI CHÍNH & KẾ TOÁN',
+  'VẬN HÀNH & NHÂN SỰ',
+  'QUẢN TRỊ HỆ THỐNG',
+];
+
+export function buildSidebarGroups(role: UserRole): SidebarGroup[] {
+  const out: SidebarGroup[] = [];
+  for (const title of GROUP_ORDER) {
+    const reg = REGISTRY_GROUPS.find((g) => g.title === title);
+    const leg = LEGACY_GROUPS.find((g) => g.title === title);
+    const groupRoles = reg?.groupRoles ?? leg?.groupRoles;
+    if (groupRoles && !groupRoles.includes(role)) continue;
+
+    const items: SidebarItem[] = [];
+    if (reg) {
+      for (const id of reg.nodeIds) {
+        const n = getActiveNode(id);
+        if (!n || !n.allowedRoles.includes(role)) continue;
+        items.push({ id: n.id, name: n.name, icon: n.icon, badgeKey: n.badge, workspace: reg.workspace });
+      }
+    }
+    if (leg) {
+      for (const it of leg.items) {
+        if (it.allowedRoles && !it.allowedRoles.includes(role)) continue;
+        items.push({ id: it.id, name: it.name, icon: it.icon, badgeKey: it.badgeKey, workspace: leg.workspace });
+      }
+    }
+    if (title === 'QUẢN TRỊ HỆ THỐNG') {
+      items.push({ id: 'logout', name: 'Đăng xuất', icon: 'LogOut', workspace: 'management' });
+    }
+    if (items.length > 0) {
+      out.push({ title, workspace: reg?.workspace ?? leg?.workspace ?? 'management', items });
+    }
+  }
+  return out;
 }

@@ -4,6 +4,7 @@ import {
   getActiveNode,
   DEFAULT_PER_ROLE,
   LEGACY_ROUTE_MAP,
+  buildSidebarGroups,
 } from '../components/internal/nav/nav-registry';
 import type { UserRole } from '../types';
 
@@ -64,6 +65,35 @@ expect(subVisible('attendance', 'clock', 'employee'), 'attendance: sub-tab clock
 // products-database DÙNG CHUNG thanh 5 sub-tab kho (getSubTabs case 134) — phải giữ đủ 5
 expect(getActiveNode('products-database')?.subTabs.length === 5, 'products-database: thanh 5 sub-tab kho (khớp getSubTabs case 134)');
 expect(subVisible('products-database', 'list', 'stocker'), 'products-database: sub-tab list cho stocker');
+
+// 8. buildSidebarGroups — sidebar được dựng từ registry + legacy, gộp finance-recon, lọc role
+const directorGroups = buildSidebarGroups('director');
+const reconInDirector = directorGroups.flatMap(g => g.items).filter(i => i.id === 'finance-recon');
+expect(reconInDirector.length === 1, 'director: finance-recon chỉ hiện DUY NHẤT 1 lần (gộp POS + Tài chính)');
+expect(
+  directorGroups.find(g => g.title === 'TÀI CHÍNH & KẾ TOÁN')?.items.some(i => i.id === 'finance-recon') === true,
+  'finance-recon nằm trong nhóm TÀI CHÍNH & KẾ TOÁN (không còn ở POS)'
+);
+
+const cashierGroups = buildSidebarGroups('cashier');
+expect(
+  cashierGroups.flatMap(g => g.items).some(i => i.id === 'finance-recon') === true,
+  'cashier VẪN thấy finance-recon sau khi gộp (giữ đường vào)'
+);
+expect(
+  cashierGroups.flatMap(g => g.items).some(i => i.id === 'audit-logs') === false,
+  'cashier KHÔNG thấy audit-logs (allowedRoles chỉ director)'
+);
+expect(cashierGroups.length <= 5, `cashier thấy ${cashierGroups.length} nhóm (<=5)`);
+
+expect(
+  directorGroups.some(g => g.items.some(i => i.id === 'logout')),
+  'logout nằm trong một nhóm (QUẢN TRỊ HỆ THỐNG)'
+);
+// Thứ tự chuẩn: TÀI CHÍNH xuất hiện trước VẬN HÀNH
+const idxFinance = directorGroups.findIndex(g => g.title === 'TÀI CHÍNH & KẾ TOÁN');
+const idxHr = directorGroups.findIndex(g => g.title === 'VẬN HÀNH & NHÂN SỰ');
+expect(idxFinance !== -1 && idxHr !== -1 && idxFinance < idxHr, 'TÀI CHÍNH xếp trước VẬN HÀNH (giữ thứ tự hiện tại)');
 
 if (failed > 0) {
   console.error(`\n❌ NAV REGISTRY TEST: ${failed} assertions THẤT BẠI`);

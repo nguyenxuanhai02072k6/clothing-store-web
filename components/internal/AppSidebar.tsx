@@ -9,7 +9,6 @@ import {
   Box,
   Layers,
   ArrowRightLeft,
-  Users,
   Clock,
   DollarSign,
   Megaphone,
@@ -33,23 +32,37 @@ import {
   Sparkles,
   FileSpreadsheet
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { buildSidebarGroups, LEGACY_ROUTE_MAP } from './nav/nav-registry';
 
-export interface MenuItem {
-  id: string;
-  name: string;
-  icon: React.ComponentType<any>;
-  allowedRoles?: string[];
-  badgeKey?: 'pendingOrders' | 'lowStock' | 'announcements' | 'pendingHr';
-  workspace?: 'pos' | 'cskh' | 'warehouse' | 'finance' | 'management';
-}
-
-export interface MenuGroup {
-  title: string;
-  workspace?: 'pos' | 'cskh' | 'warehouse' | 'finance' | 'management';
-  allowedRoles?: string[];
-  items: MenuItem[];
-}
+// Map icon theo TÊN string từ NavRegistry (registry là pure data, không giữ
+// component React) — Task 3: sidebar render từ nguồn sự thật duy nhất.
+const ICONS: Record<string, LucideIcon> = {
+  LayoutGrid,
+  ShoppingBag,
+  FileText,
+  MessageSquare,
+  RotateCcw,
+  Crown,
+  Star,
+  Sparkles,
+  Layers,
+  ArrowRightLeft,
+  AlertTriangle,
+  FileDown,
+  DollarSign,
+  FileSpreadsheet,
+  ClipboardCheck,
+  TrendingUp,
+  Calendar,
+  Clock,
+  Box,
+  Megaphone,
+  History,
+  Settings,
+  LogOut
+};
 
 export interface AppSidebarProps {
   currentUser: any;
@@ -66,80 +79,9 @@ export interface AppSidebarProps {
   pendingHrCount?: number;
 }
 
-export const menuGroups: MenuGroup[] = [
-  {
-    title: 'TỔNG QUAN',
-    workspace: 'management',
-    allowedRoles: ['director', 'manager'],
-    items: [
-      { id: 'overview', name: 'Dashboard', icon: LayoutGrid, workspace: 'management' }
-    ]
-  },
-  {
-    title: 'BÁN HÀNG & POS',
-    workspace: 'pos',
-    allowedRoles: ['director', 'manager', 'employee', 'cashier'],
-    items: [
-      { id: 'pos-sales', name: 'Quầy POS Bán Lẻ', icon: ShoppingBag, allowedRoles: ['director', 'manager', 'employee', 'cashier'], workspace: 'pos' },
-      { id: 'sales-orders-list', name: 'Danh sách đơn hàng', icon: FileText, badgeKey: 'pendingOrders', workspace: 'pos' },
-      { id: 'finance-recon', name: 'Chốt ca & Đối soát két', icon: ClipboardCheck, allowedRoles: ['director', 'manager', 'accountant', 'cashier'], workspace: 'pos' }
-    ]
-  },
-  {
-    title: 'CSKH & CRM',
-    workspace: 'cskh',
-    allowedRoles: ['director', 'manager', 'cskh'],
-    items: [
-      { id: 'cskh-hub', name: 'CSKH Console (Live Chat)', icon: MessageSquare, allowedRoles: ['director', 'manager', 'cskh'], workspace: 'cskh' },
-      { id: 'returns-exchange', name: 'Phiếu đổi trả & Khiếu nại', icon: RotateCcw, allowedRoles: ['director', 'manager', 'cskh', 'employee', 'cashier'], workspace: 'cskh' },
-      { id: 'customers-list', name: 'Khách hàng & Hạng VIP', icon: Crown, allowedRoles: ['director', 'manager', 'cskh', 'employee', 'cashier'], workspace: 'cskh' },
-      { id: 'reviews', name: 'Đánh giá từ khách', icon: Star, allowedRoles: ['director', 'cskh', 'manager'], workspace: 'cskh' },
-      { id: 'ai-copilot', name: 'Trợ lý AI Marketing', icon: Sparkles, allowedRoles: ['director', 'manager', 'cskh'], workspace: 'cskh' }
-    ]
-  },
-  {
-    title: 'KHO VẬN & HÀNG HÓA',
-    workspace: 'warehouse',
-    allowedRoles: ['director', 'manager', 'stocker', 'accountant'],
-    items: [
-      { id: 'stocker-inventory', name: 'Tồn kho 2 chi nhánh', icon: Layers, badgeKey: 'lowStock', allowedRoles: ['director', 'manager', 'stocker', 'accountant', 'cashier', 'employee'], workspace: 'warehouse' },
-      { id: 'stocker-transfer', name: 'Điều chuyển kho', icon: ArrowRightLeft, allowedRoles: ['director', 'manager', 'stocker', 'accountant'], workspace: 'warehouse' },
-      { id: 'damaged-goods', name: 'Biên bản hàng lỗi', icon: AlertTriangle, allowedRoles: ['director', 'manager', 'stocker', 'cskh', 'accountant'], workspace: 'warehouse' },
-      { id: 'restock', name: 'Phiếu nhập hàng', icon: FileDown, allowedRoles: ['director', 'manager', 'stocker', 'accountant'], workspace: 'warehouse' }
-    ]
-  },
-  {
-    title: 'TÀI CHÍNH & KẾ TOÁN',
-    workspace: 'finance',
-    allowedRoles: ['director', 'manager', 'accountant'],
-    items: [
-      { id: 'finance-costs', name: 'Sổ quỹ Thu - Chi', icon: DollarSign, allowedRoles: ['director', 'manager', 'accountant'], workspace: 'finance' },
-      { id: 'finance-payroll', name: 'Bảng lương & Hoa hồng', icon: FileSpreadsheet, allowedRoles: ['director', 'manager', 'accountant'], workspace: 'finance' },
-      { id: 'finance-recon', name: 'Duyệt đối soát két POS', icon: ClipboardCheck, allowedRoles: ['director', 'manager', 'accountant'], workspace: 'finance' },
-      { id: 'finance-p-l', name: 'Báo cáo Lợi nhuận P&L', icon: TrendingUp, allowedRoles: ['director', 'manager', 'accountant'], workspace: 'finance' }
-    ]
-  },
-  {
-    title: 'VẬN HÀNH & NHÂN SỰ',
-    workspace: 'management',
-    items: [
-      { id: 'staff-schedule', name: 'Lịch ca & Nhân sự', icon: Calendar, badgeKey: 'pendingHr', allowedRoles: ['director', 'manager', 'accountant'], workspace: 'management' },
-      { id: 'attendance', name: 'Chấm công & Ca trực', icon: Clock, workspace: 'management' }
-    ]
-  },
-  {
-    title: 'QUẢN TRỊ HỆ THỐNG',
-    workspace: 'management',
-    allowedRoles: ['director', 'manager', 'accountant'],
-    items: [
-      { id: 'products-database', name: 'Danh mục & Bảng giá', icon: Box, allowedRoles: ['director', 'manager', 'accountant', 'employee', 'cashier', 'stocker', 'cskh'], workspace: 'management' },
-      { id: 'announcements', name: 'Thông báo điều hành', icon: Megaphone, allowedRoles: ['director', 'manager', 'accountant'], badgeKey: 'announcements', workspace: 'management' },
-      { id: 'audit-logs', name: 'Nhật ký an ninh', icon: History, allowedRoles: ['director'], workspace: 'management' },
-      { id: 'settings', name: 'Cài đặt thương hiệu', icon: Settings, allowedRoles: ['director', 'manager'], workspace: 'management' },
-      { id: 'logout', name: 'Đăng xuất', icon: LogOut }
-    ]
-  }
-];
+// `menuGroups` cũ đã thay thế: dữ liệu sidebar giờ đến từ NavRegistry
+// (buildSidebarGroups) + nhóm POS/CSKH/KHO legacy giữ nguyên trong registry module.
+// AppHeader đọc title/breadcrumbs từ cùng một nguồn (nav-registry).
 
 export default function AppSidebar({
   currentUser,
@@ -178,11 +120,6 @@ export default function AppSidebar({
     }));
   };
 
-  const hasAccess = (item: MenuItem) => {
-    if (!item.allowedRoles) return true;
-    return currentUser && item.allowedRoles.includes(currentUser.role);
-  };
-
   const getRoleName = (role: string) => {
     switch (role) {
       case 'director': return 'Giám đốc';
@@ -207,27 +144,15 @@ export default function AppSidebar({
     }
   };
 
-  const isItemActive = (itemId: string) => {
-    if (activeTab === itemId) return true;
-    if (itemId === 'pos-sales' && (activeTab === 'pos-sales' || activeTab === 'pos')) return true;
-    if (itemId === 'sales-orders-list' && (activeTab === 'sales-orders-list' || activeTab === 'cskh-orders')) return true;
-    if (itemId === 'cskh-hub' && (activeTab === 'cskh-hub' || activeTab === 'cskh-live-chat')) return true;
-    if (itemId === 'returns-exchange' && (activeTab === 'returns-exchange' || activeTab === 'cskh-customers-tickets')) return true;
-    if (itemId === 'customers-list' && (activeTab === 'customers-list' || activeTab === 'customers' || activeTab === 'cskh-customers' || activeTab === 'customers-vip' || activeTab === 'cskh-customers-vip')) return true;
-    if (itemId === 'stocker-inventory' && (activeTab === 'stocker-inventory' || activeTab === 'branch-stock')) return true;
-    if (itemId === 'stocker-transfer' && activeTab === 'stocker-transfer') return true;
-    if (itemId === 'damaged-goods' && activeTab === 'damaged-goods') return true;
-    if (itemId === 'restock' && (activeTab === 'restock' || activeTab === 'manager-stock' || activeTab === 'accountant-operations')) return true;
-    if (itemId === 'finance-costs' && (activeTab === 'finance-costs' || activeTab === 'costs')) return true;
-    if (itemId === 'finance-payroll' && (activeTab === 'finance-payroll' || activeTab === 'staff' || activeTab === 'director-hr-payroll' || activeTab === 'accountant-hr-payroll' || activeTab === 'accountant-kpi-payroll')) return true;
-    if (itemId === 'finance-recon' && (activeTab === 'finance-recon' || activeTab === 'recon' || activeTab === 'accountant-finance-recon')) return true;
-    if (itemId === 'finance-p-l' && (activeTab === 'finance-p-l' || activeTab === 'finance-profit' || activeTab === 'director-global-finance' || activeTab === 'accountant-global-finance')) return true;
-    if (itemId === 'staff-schedule' && (activeTab === 'staff-schedule' || activeTab === 'shifts' || activeTab === 'manager-shift-overview' || activeTab === 'manager-staff-console')) return true;
-    if (itemId === 'attendance' && (activeTab === 'attendance' || activeTab === 'employee-shifts-clock' || activeTab === 'employee-hr-requests')) return true;
-    if (itemId === 'products-database' && activeTab === 'products-database') return true;
-    if (itemId === 'settings' && (activeTab === 'settings' || activeTab === 'settings-tab')) return true;
-    return false;
-  };
+  // Source: NavRegistry (Task 3) — danh sách nhóm/item + quyền được lọc sẵn
+  // theo role bên registry (thay cho menuGroups + hasAccess + group.allowedRoles).
+  const sidebarGroups = currentUser ? buildSidebarGroups(currentUser.role) : [];
+
+  // Active-state theo nguồn sự thật duy nhất: mọi alias activeTab → item id
+  // chuẩn qua LEGACY_ROUTE_MAP (thay ~30 if-chains cũ). Item active khi
+  // id của nó bằng item chuẩn mà activeTab trỏ tới.
+  const activeItemTarget = LEGACY_ROUTE_MAP[activeTab] ?? activeTab;
+  const isItemActive = (itemId: string) => itemId === activeItemTarget;
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-[#211D1A] text-[#766B63] select-none">
@@ -326,15 +251,12 @@ export default function AppSidebar({
         </div>
       )}
 
-      {/* Menu Groups */}
+      {/* Menu Groups — render từ NavRegistry (buildSidebarGroups đã lọc theo role) */}
       <div className="flex-1 overflow-y-auto py-5 px-3 space-y-6 scrollbar-thin scrollbar-thumb-[#322A26] scrollbar-track-transparent">
-        {menuGroups
+        {sidebarGroups
           .filter(group => selectedWorkspace === 'all' || group.workspace === selectedWorkspace)
           .map((group) => {
-          if (group.allowedRoles && currentUser && !group.allowedRoles.includes(currentUser.role)) {
-            return null;
-          }
-          const visibleItems = group.items.filter(hasAccess);
+          const visibleItems = group.items;
           if (visibleItems.length === 0) return null;
 
           const isCollapsedGroup = collapsedGroups[group.title] && !isCollapsed;
@@ -365,7 +287,7 @@ export default function AppSidebar({
                     className="space-y-0.5 overflow-hidden"
                   >
                     {visibleItems.map((item) => {
-                      const Icon = item.icon;
+                      const Icon = ICONS[item.icon] ?? LayoutGrid;
                       const isActive = isItemActive(item.id);
                       const badgeValue = getBadgeValue(item.badgeKey);
                       const isLogout = item.id === 'logout';

@@ -21,7 +21,7 @@ import {
   Layers,
   LayoutGrid
 } from 'lucide-react';
-import { menuGroups, MenuItem } from './AppSidebar';
+import { buildSidebarGroups } from './nav/nav-registry';
 import CommandPalette from './CommandPalette';
 
 interface AppHeaderProps {
@@ -99,7 +99,11 @@ export default function AppHeader({
 
   const currentWorkspace = getActiveWorkspace(activeTab);
 
-  // Find page title from menuGroups
+  // Title/breadcrumbs nguồn từ NavRegistry (cùng data sidebar) — lọc theo role
+  // hiện tại để tên item khớp đúng những gì user thấy ở sidebar.
+  const sidebarGroups = currentUser ? buildSidebarGroups(currentUser.role) : [];
+
+  // Find page title from sidebar registry
   const getPageTitle = () => {
     if (activeTab === 'cskh-hub' || activeTab === 'cskh-live-chat') return 'CSKH Console (Live Chat)';
     if (activeTab === 'sales-orders-list' || activeTab === 'cskh-orders') return 'Danh sách đơn hàng';
@@ -111,7 +115,7 @@ export default function AppHeader({
     if (activeTab === 'damaged-goods') return 'Biên bản hàng lỗi';
 
     let title = 'Hệ thống vận hành';
-    menuGroups.forEach((g) => {
+    sidebarGroups.forEach((g) => {
       const match = g.items.find((i) => i.id === activeTab);
       if (match) title = match.name;
     });
@@ -120,7 +124,7 @@ export default function AppHeader({
 
   const getBreadcrumbs = () => {
     let groupTitle = 'Vận hành';
-    menuGroups.forEach((g) => {
+    sidebarGroups.forEach((g) => {
       const match = g.items.find((i) => i.id === activeTab);
       if (match) groupTitle = g.title;
     });
