@@ -3,7 +3,7 @@
 # ===================================================
 # Stage 1: Base image with native build dependencies
 # ===================================================
-FROM node:20-bookworm-slim AS base
+FROM node:22-bookworm-slim AS base
 WORKDIR /app
 
 # Install native compilation dependencies required by better-sqlite3 and argon2
@@ -21,8 +21,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 FROM base AS deps
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci
+# Copy files required for dependency install & prisma postinstall hook
+COPY package.json package-lock.json prisma.config.ts ./
+COPY scripts ./scripts
+COPY prisma ./prisma
+
+# Ensure active schema is set before postinstall runs prisma generate
+RUN node ./scripts/prebuild.js && npm ci
 
 # ===================================================
 # Stage 3: Build the Next.js production application
@@ -42,7 +47,7 @@ RUN npm run build
 # ===================================================
 # Stage 4: Production runner with non-root security
 # ===================================================
-FROM node:20-bookworm-slim AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 # Install minimal runtime requirements (curl for healthcheck, openssl for Prisma)
