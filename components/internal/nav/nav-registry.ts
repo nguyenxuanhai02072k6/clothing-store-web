@@ -72,6 +72,7 @@ export const NAV_NODES: NavNode[] = [
       { id: 'approval', name: 'Xếp lịch & Duyệt phép', visibleFor: ADMIN },
       { id: 'staff', name: 'Nhân sự & Tạo tài khoản', visibleFor: ADMIN },
       { id: 'payroll', name: 'Lương & Hoa hồng', visibleFor: ['director', 'accountant'] },
+      { id: 'requests', name: 'Đơn từ yêu cầu', visibleFor: ['employee', 'cashier', 'stocker', 'cskh'] },
     ],
     component: 'staff-schedule',
   },
@@ -135,7 +136,7 @@ export const NAV_NODES: NavNode[] = [
     component: 'settings',
   },
   {
-    id: 'expenses',
+    id: 'finance-costs',
     name: 'Sổ quỹ Thu - Chi',
     icon: 'DollarSign',
     group: 'finance',
@@ -151,7 +152,7 @@ export const NAV_NODES: NavNode[] = [
     group: 'finance',
     allowedRoles: ADMIN,
     defaultSubTab: 'payroll',
-    subTabs: [{ id: 'payroll', name: 'Lương & Hoa hồng', visibleFor: ADMIN }],
+    subTabs: [{ id: 'payroll', name: 'Lương & Hoa hồng', visibleFor: ['director', 'accountant'] }],
     component: 'finance-payroll',
   },
   // GỘP: hiện `finance-recon` nằm ở cả POS lẫn Tài chính (menuGroups 85 & 118).
@@ -167,7 +168,7 @@ export const NAV_NODES: NavNode[] = [
     component: 'finance-recon',
   },
   {
-    id: 'director-pl',
+    id: 'finance-p-l',
     name: 'Báo cáo Lợi nhuận P&L',
     icon: 'TrendingUp',
     group: 'finance',
@@ -175,7 +176,6 @@ export const NAV_NODES: NavNode[] = [
     defaultSubTab: 'p-l',
     subTabs: [
       { id: 'p-l', name: 'Báo cáo P&L & Thuế', visibleFor: ['director', 'accountant'] },
-      { id: 'costs', name: 'Chi phí vận hành', visibleFor: ADMIN },
     ],
     component: 'director-pl',
   },
@@ -191,10 +191,10 @@ export const DEFAULT_PER_ROLE: Partial<Record<UserRole, string>> = {
 // Map alias cũ (activeTab giá trị) -> node.id. Dùng bởi sidebar/renderer khi
 // chưa migrates hoàn toàn (legacy fallback, Task 5).
 export const LEGACY_ROUTE_MAP: Record<string, string> = {
-  'director-global-finance': 'director-pl',
-  'finance-p-l': 'director-pl',
-  'finance-costs': 'expenses',
-  'costs': 'expenses',
+  'director-global-finance': 'finance-p-l',
+  'finance-p-l': 'finance-p-l',
+  'finance-costs': 'finance-costs',
+  'costs': 'finance-costs',
   'finance-payroll': 'finance-payroll',
   'finance-recon': 'finance-recon',
   'recon': 'finance-recon',

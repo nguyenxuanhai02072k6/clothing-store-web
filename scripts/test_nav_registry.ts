@@ -5,6 +5,7 @@ import {
   DEFAULT_PER_ROLE,
   LEGACY_ROUTE_MAP,
 } from '../components/internal/nav/nav-registry';
+import type { UserRole } from '../types';
 
 let failed = 0;
 function expect(cond: boolean, msg: string) {
@@ -39,14 +40,24 @@ expect(
 // 4. cashier sidebar gọn (<= 4 node)
 expect(getNodesForRole('cashier').length <= 4, `cashier thấy ${getNodesForRole('cashier').length} node (<=4)`);
 
-// 5. getActiveNode trả đúng node (node id khớp alias chuẩn của sidebar)
-expect(getActiveNode('director-pl')?.id === 'director-pl', 'getActiveNode("director-pl") trả đúng node');
+// 5. getActiveNode trả đúng node (node id = alias chuẩn của activeTab/sidebar)
+expect(getActiveNode('finance-p-l')?.id === 'finance-p-l', 'getActiveNode("finance-p-l") trả đúng node');
 
 // 6. Mọi legacy route đều map tới một node id hợp lệ (không trống)
 expect(
   Object.values(LEGACY_ROUTE_MAP).every((v) => v.length > 0),
   'mọi legacy route đều có node target không rỗng'
 );
+
+// 7. fidelity subTabs (khớp getSubTabs hiện tại, useInternalNavigationState 113-223)
+const subVisible = (id: string, sub: string, role: string) =>
+  getActiveNode(id)?.subTabs.some((s) => s.id === sub && s.visibleFor.includes(role as UserRole)) ?? false;
+expect(subVisible('finance-p-l', 'p-l', 'director'), 'finance-p-l: sub-tab p-l cho director');
+expect(subVisible('finance-recon', 'recon', 'cashier'), 'finance-recon: sub-tab recon cho cashier');
+expect(subVisible('staff-schedule', 'payroll', 'director'), 'staff-schedule: sub-tab payroll cho director');
+expect(subVisible('staff-schedule', 'requests', 'employee'), 'staff-schedule: sub-tab requests cho employee');
+expect(subVisible('attendance', 'approval', 'manager'), 'attendance: sub-tab approval cho manager');
+expect(subVisible('attendance', 'clock', 'employee'), 'attendance: sub-tab clock cho employee');
 
 if (failed > 0) {
   console.error(`\n❌ NAV REGISTRY TEST: ${failed} assertions THẤT BẠI`);
