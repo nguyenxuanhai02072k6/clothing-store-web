@@ -52,12 +52,18 @@ expect(
 // 7. fidelity subTabs (khớp getSubTabs hiện tại, useInternalNavigationState 113-223)
 const subVisible = (id: string, sub: string, role: string) =>
   getActiveNode(id)?.subTabs.some((s) => s.id === sub && s.visibleFor.includes(role as UserRole)) ?? false;
-expect(subVisible('finance-p-l', 'p-l', 'director'), 'finance-p-l: sub-tab p-l cho director');
-expect(subVisible('finance-recon', 'recon', 'cashier'), 'finance-recon: sub-tab recon cho cashier');
+// 4 nút tài chính riêng (finance-p-l/costs/payroll/recon) KHÔNG có case trong getSubTabs
+// → default [] → panel đơn, không có thanh sub-tab. Gộp chung thành 1 nút chỉ ở "finance-profit"
+// (nút khác, thuộc lát sau). Nên registry giữ subTabs: [] — KHÔNG thêm UI mới.
+expect(getActiveNode('finance-p-l')?.subTabs.length === 0, 'finance-p-l: panel đơn, không thanh sub-tab (khớp getSubTabs default)');
+expect(getActiveNode('finance-recon')?.subTabs.length === 0, 'finance-recon: panel đơn, không thanh sub-tab (khớp getSubTabs default)');
 expect(subVisible('staff-schedule', 'payroll', 'director'), 'staff-schedule: sub-tab payroll cho director');
 expect(subVisible('staff-schedule', 'requests', 'employee'), 'staff-schedule: sub-tab requests cho employee');
 expect(subVisible('attendance', 'approval', 'manager'), 'attendance: sub-tab approval cho manager');
 expect(subVisible('attendance', 'clock', 'employee'), 'attendance: sub-tab clock cho employee');
+// products-database DÙNG CHUNG thanh 5 sub-tab kho (getSubTabs case 134) — phải giữ đủ 5
+expect(getActiveNode('products-database')?.subTabs.length === 5, 'products-database: thanh 5 sub-tab kho (khớp getSubTabs case 134)');
+expect(subVisible('products-database', 'list', 'stocker'), 'products-database: sub-tab list cho stocker');
 
 if (failed > 0) {
   console.error(`\n❌ NAV REGISTRY TEST: ${failed} assertions THẤT BẠI`);

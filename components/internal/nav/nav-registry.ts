@@ -97,8 +97,17 @@ export const NAV_NODES: NavNode[] = [
     icon: 'Box',
     group: 'management',
     allowedRoles: ALL,
+    // Thanh 5 sub-tab KHO (khớp getSubTabs case 134: products-database dùng chung thanh
+    // warehouse matrix/transfer/damaged/restock/list, state productsInventorySubTab).
+    // Giữ 100% tính năng: item quản trị này cũng mở được các panel kho như item KHO.
     defaultSubTab: 'list',
-    subTabs: [{ id: 'list', name: 'Danh mục & Bảng giá', visibleFor: ALL }],
+    subTabs: [
+      { id: 'matrix', name: 'Tồn kho chi nhánh', visibleFor: ALL },
+      { id: 'transfer', name: 'Điều chuyển kho', visibleFor: ALL },
+      { id: 'damaged', name: 'Biên bản hàng lỗi', visibleFor: ALL },
+      { id: 'restock', name: 'Phiếu nhập hàng (Restock)', visibleFor: ['director', 'accountant', 'manager', 'stocker'] },
+      { id: 'list', name: 'Danh mục & Bảng giá', visibleFor: ALL },
+    ],
     component: 'products-database',
   },
   {
@@ -118,8 +127,8 @@ export const NAV_NODES: NavNode[] = [
     icon: 'History',
     group: 'management',
     allowedRoles: ['director'],
-    defaultSubTab: 'audit',
-    subTabs: [{ id: 'audit', name: 'Nhật ký hoạt động', visibleFor: ['director'] }],
+    // Panel đơn (DirectorOperationsTab: sub 'audit') — trùng khớp getSubTabs (item audit-logs)
+    subTabs: [],
     component: 'audit-logs',
   },
   {
@@ -127,11 +136,13 @@ export const NAV_NODES: NavNode[] = [
     name: 'Cài đặt thương hiệu',
     icon: 'Settings',
     group: 'management',
-    allowedRoles: ['director', 'manager'],
+    // Mở rộng thêm accountant: hôm nay họ đạt config brand/channels qua thanh gia đình
+    // (item announcements có accountant, menuGroups:136). Tách ra riêng nên phải giữ quyền.
+    allowedRoles: ['director', 'manager', 'accountant'],
     defaultSubTab: 'brand',
     subTabs: [
-      { id: 'brand', name: 'Cấu hình chi nhánh', visibleFor: ['director', 'manager'] },
-      { id: 'channels', name: 'Đồng bộ đa kênh', visibleFor: ['director', 'manager'] },
+      { id: 'brand', name: 'Cấu hình chi nhánh', visibleFor: ['director', 'manager', 'accountant'] },
+      { id: 'channels', name: 'Đồng bộ đa kênh', visibleFor: ['director', 'accountant'] },
     ],
     component: 'settings',
   },
@@ -141,8 +152,8 @@ export const NAV_NODES: NavNode[] = [
     icon: 'DollarSign',
     group: 'finance',
     allowedRoles: ADMIN,
-    defaultSubTab: 'costs',
-    subTabs: [{ id: 'costs', name: 'Chi phí vận hành', visibleFor: ADMIN }],
+    // Panel đơn (ExpensesManagementTab) — getSubTabs KHÔNG có case riêng → default []
+    subTabs: [],
     component: 'expenses',
   },
   {
@@ -151,8 +162,8 @@ export const NAV_NODES: NavNode[] = [
     icon: 'FileSpreadsheet',
     group: 'finance',
     allowedRoles: ADMIN,
-    defaultSubTab: 'payroll',
-    subTabs: [{ id: 'payroll', name: 'Lương & Hoa hồng', visibleFor: ['director', 'accountant'] }],
+    // Panel đơn (AccountantPayrollSubsystem) — getSubTabs default → []
+    subTabs: [],
     component: 'finance-payroll',
   },
   // GỘP: hiện `finance-recon` nằm ở cả POS lẫn Tài chính (menuGroups 85 & 118).
@@ -163,8 +174,8 @@ export const NAV_NODES: NavNode[] = [
     icon: 'ClipboardCheck',
     group: 'finance',
     allowedRoles: ['director', 'manager', 'accountant', 'cashier'],
-    defaultSubTab: 'recon',
-    subTabs: [{ id: 'recon', name: 'Đối soát két tiền', visibleFor: ['director', 'accountant', 'cashier'] }],
+    // Panel đơn (FinanceReconSubsystem) — getSubTabs default → []
+    subTabs: [],
     component: 'finance-recon',
   },
   {
@@ -173,10 +184,8 @@ export const NAV_NODES: NavNode[] = [
     icon: 'TrendingUp',
     group: 'finance',
     allowedRoles: ADMIN,
-    defaultSubTab: 'p-l',
-    subTabs: [
-      { id: 'p-l', name: 'Báo cáo P&L & Thuế', visibleFor: ['director', 'accountant'] },
-    ],
+    // Panel đơn (DirectorPLViewTab / AccountantFinancePLTab) — getSubTabs default → []
+    subTabs: [],
     component: 'director-pl',
   },
 ];
