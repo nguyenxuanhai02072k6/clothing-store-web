@@ -26,6 +26,24 @@ export type TabComponentKey =
   | 'finance-recon'
   | 'manager-reports';
 
+// Contract guard (Task 4): renderer truy vấn getActiveNode(activeTab).component và
+// render theo map TabComponentKey → component React. Mọi node.component PHẢI thuộc
+// danh sách này — nếu node trả ra key lạ, renderer render rỗng → test bắt ngay.
+export const COMPONENT_KEYS: readonly TabComponentKey[] = [
+  'overview',
+  'director-pl',
+  'expenses',
+  'finance-payroll',
+  'staff-schedule',
+  'attendance',
+  'announcements',
+  'audit-logs',
+  'settings',
+  'products-database',
+  'finance-recon',
+  'manager-reports',
+];
+
 export type GroupKey = 'management' | 'finance';
 
 export interface NavNode {

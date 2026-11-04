@@ -2,6 +2,11 @@
 
 import React from 'react';
 import { ERPSubsystems } from '../ERPSubsystems';
+import { SettingsSubsystem } from '../subsystems/SettingsSubsystem';
+import FinanceReconSubsystem from '../subsystems/FinanceReconSubsystem';
+import { AccountantPayrollSubsystem } from '../subsystems/AccountantPayrollSubsystem';
+import { ProductsDatabaseSubsystem } from '../subsystems/ProductsDatabaseSubsystem';
+import { getActiveNode } from '../nav/nav-registry';
 import PermissionGuard from '../PermissionGuard';
 import CampaignCopilot from '../CampaignCopilot';
 
@@ -213,6 +218,112 @@ export const InternalTabRenderer: React.FC<InternalTabRendererProps> = ({
 }) => {
   return (
     <>
+      {/* --- REGISTRY-DRIVEN (Task 4): node.component render trực tiếp ---
+          6 node vùng quản trị lấy component từ NavRegistry. Các case legacy
+          TRÙNG KEY trực tiếp (finance-p-l/finance-payroll/finance-costs/
+          finance-recon/products-database/settings) đã bị suppress ở ERPSubsystems
+          chain + các domain block bên dưới; alias "gia đình sub-tab"
+          (finance-profit & financeProfitSubTab, staff-schedule & staffScheduleSubTab...)
+          và vùng POS/CSKH/KHO giữ nguyên cho lát sau (Task 5). */}
+      {(() => {
+        const node = getActiveNode(activeTab);
+        if (!node) return null;
+        const subs = subsystemsState;
+        switch (node.component) {
+          case 'finance-recon':
+            return (
+              <FinanceReconSubsystem
+                currentUser={currentUser}
+                allOrders={allOrders}
+                posHistory={subs.posHistory}
+                expensesList={expensesList}
+                restockRecords={restockRecords}
+                payrollRecords={payrollRecords}
+                usersList={usersList}
+                cashReconciliations={subs.cashReconciliations}
+                setCashReconciliations={subs.setCashReconciliations}
+                showToast={showToast}
+              />
+            );
+          case 'finance-payroll':
+            return (
+              <AccountantPayrollSubsystem
+                usersList={usersList}
+                posHistory={subs.posHistory}
+                shiftRequests={shiftRequests}
+                attendanceLogs={attendanceLogs}
+                showToast={showToast}
+              />
+            );
+          case 'products-database':
+            return (
+              <ProductsDatabaseSubsystem
+                currentUser={currentUser}
+                productsList={productsList}
+                updateGlobalProductDetails={updateGlobalProductDetails}
+                addGlobalProduct={addGlobalProduct}
+                deleteGlobalProduct={deleteGlobalProduct}
+                showToast={showToast}
+              />
+            );
+          case 'settings':
+            return <SettingsSubsystem />;
+          case 'director-pl':
+            return currentUser.role === 'director' ? (
+              <DirectorPLViewTab
+                currentUser={currentUser}
+                allOrders={allOrders}
+                restockRecords={restockRecords}
+                expensesList={expensesList}
+                usersList={usersList}
+                productsList={productsList}
+                taxRecords={taxRecords}
+                getDailyFinances={getDailyFinances}
+                calculatePIT={calculatePIT}
+                exportTaxRecordsToCSV={exportTaxRecordsToCSV}
+                exportDailyPLToCSV={exportDailyPLToCSV}
+                exportPLToCSV={exportPLToCSV}
+              />
+            ) : currentUser.role === 'accountant' ? (
+              <AccountantFinancePLTab
+                currentUser={currentUser}
+                allOrders={allOrders}
+                restockRecords={restockRecords}
+                expensesList={expensesList}
+                usersList={usersList}
+                productsList={productsList}
+                taxRecords={taxRecords}
+                getDailyFinances={getDailyFinances}
+                getPeriodFinances={getPeriodFinances}
+                calculateDynamicPITForSalary={calculateDynamicPITForSalary}
+                handleSaveTaxRecord={handleSaveTaxRecord}
+                handleDeleteTaxRecord={handleDeleteTaxRecord}
+                exportTaxRecordsToCSV={exportTaxRecordsToCSV}
+                exportDailyPLToCSV={exportDailyPLToCSV}
+                exportPLToCSV={exportPLToCSV}
+                updateGlobalProductPrice={updateGlobalProductPrice}
+                updateGlobalProductDetails={updateGlobalProductDetails}
+                deleteGlobalProduct={deleteGlobalProduct}
+                addGlobalProduct={addGlobalProduct}
+              />
+            ) : null;
+          case 'expenses':
+            return (
+              <ExpensesManagementTab
+                expensesList={expensesList}
+                addExpense={addExpense}
+                deleteExpense={deleteExpense}
+                showToast={showToast}
+              />
+            );
+          default:
+            // Các key còn lại (overview, staff-schedule, attendance, announcements,
+            // audit-logs, manager-reports) do domain blocks bên dưới render —
+            // block 16 (finance-costs) đã suppress vì expenses render ở đây.
+            return null;
+        }
+      })()}
+
       {/* Tab Level Permission Guards */}
       {activeTab === 'finance-profit' && !['director', 'accountant', 'manager'].includes(currentUser.role) && (
         <PermissionGuard allowedRoles={['director', 'accountant', 'manager']} currentUser={currentUser}>
@@ -232,16 +343,21 @@ export const InternalTabRenderer: React.FC<InternalTabRendererProps> = ({
           activeTab === 'stocker-inventory' || (activeTab === 'products-inventory' && productsInventorySubTab === 'matrix') ? 'stocker-inventory' :
           activeTab === 'stocker-transfer' || (activeTab === 'products-inventory' && productsInventorySubTab === 'transfer') ? 'stocker-transfer' :
           activeTab === 'damaged-goods' || (activeTab === 'products-inventory' && productsInventorySubTab === 'damaged') ? 'damaged-goods' :
-          activeTab === 'products-database' || (activeTab === 'products-inventory' && productsInventorySubTab === 'list') ? 'products-database' :
+          activeTab === 'products-inventory' && productsInventorySubTab === 'list' ? 'products-database' :
           activeTab === 'returns-exchange' || (activeTab === 'sales-orders' && salesOrdersSubTab === 'returns') ? 'returns-exchange' :
           activeTab === 'customers-list' || activeTab === 'cskh-hub' || activeTab === 'customers' || activeTab === 'cskh-customers' ? 'customers-list' :
           activeTab === 'customers-vip' ? 'cskh-customers-vip' :
-          activeTab === 'finance-recon' || activeTab === 'recon' || (activeTab === 'finance-profit' && financeProfitSubTab === 'recon') ? 'accountant-finance-recon' :
-          activeTab === 'finance-payroll' ? 'accountant-kpi-payroll' :
+          // 'finance-recon' + 'finance-payroll' đã giao cho registry block (Task 4);
+          // alias 'recon' gia đình finance-profit giữ nguyên (Task 5 migrates).
+          (activeTab === 'finance-profit' && financeProfitSubTab === 'recon') ? 'accountant-finance-recon' :
           activeTab === 'ai-copilot' || (activeTab === 'promotions' && promotionsSubTab === 'ai-marketing') ? 'ai-copilot' :
           activeTab === 'coupons-management' || (activeTab === 'promotions' && promotionsSubTab === 'coupons') ? 'coupons-management' :
-          activeTab === 'settings' || activeTab === 'settings-tab' || (activeTab === 'settings-roles' && settingsRolesSubTab === 'brand') ? 'settings-tab' :
+          activeTab === 'settings-tab' || (activeTab === 'settings-roles' && settingsRolesSubTab === 'brand') ? 'settings-tab' :
           activeTab === 'settings-roles' && settingsRolesSubTab === 'channels' ? 'omnichannel' :
+          // Node id trực tiếp do registry block render (Task 4) — ERP hub phải
+          // render null (key '' → default) để tránh double-render; alias gia
+          // đình (recon, accountant-kpi-payroll, settings-tab...) giữ nguyên.
+          activeTab === 'products-database' || activeTab === 'finance-payroll' || activeTab === 'finance-recon' || activeTab === 'settings' ? '' :
           activeTab
         }
         currentUser={currentUser}
@@ -432,8 +548,10 @@ export const InternalTabRenderer: React.FC<InternalTabRendererProps> = ({
         />
       )}
 
-      {/* 13. Director Global Finance & P&L */}
-      {(activeTab === 'director-global-finance' || activeTab === 'finance-p-l' || (activeTab === 'finance-profit' && financeProfitSubTab === 'p-l')) && currentUser.role === 'director' && (
+      {/* 13. Director Global Finance & P&L
+          'finance-p-l' (direct node id) đã giao cho registry block — giữ alias gia đình
+          (director-global-finance / finance-profit + p-l) cho Task 5. */}
+      {(activeTab === 'director-global-finance' || (activeTab === 'finance-profit' && financeProfitSubTab === 'p-l')) && currentUser.role === 'director' && (
         <DirectorPLViewTab
           currentUser={currentUser}
           allOrders={allOrders}
@@ -450,8 +568,9 @@ export const InternalTabRenderer: React.FC<InternalTabRendererProps> = ({
         />
       )}
 
-      {/* 14. Accountant Payroll & Staff Operations */}
-      {(activeTab === 'accountant-hr-payroll' || activeTab === 'finance-payroll' || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'payroll')) && currentUser.role === 'accountant' && (
+      {/* 14. Accountant Payroll & Staff Operations
+          'finance-payroll' (direct node id) đã giao cho registry block. */}
+      {(activeTab === 'accountant-hr-payroll' || (activeTab === 'staff-schedule' && staffScheduleSubTab === 'payroll')) && currentUser.role === 'accountant' && (
         <AccountantPayrollTab
           currentUser={currentUser}
           usersList={usersList}
@@ -465,8 +584,9 @@ export const InternalTabRenderer: React.FC<InternalTabRendererProps> = ({
         />
       )}
 
-      {/* 15. Accountant Global Finance, Tax Settlement & Product CRUD */}
-      {(activeTab === 'accountant-global-finance' || activeTab === 'finance-p-l' || (activeTab === 'finance-profit' && financeProfitSubTab === 'p-l')) && currentUser.role === 'accountant' && (
+      {/* 15. Accountant Global Finance, Tax Settlement & Product CRUD
+          'finance-p-l' (direct node id) đã giao cho registry block. */}
+      {(activeTab === 'accountant-global-finance' || (activeTab === 'finance-profit' && financeProfitSubTab === 'p-l')) && currentUser.role === 'accountant' && (
         <AccountantFinancePLTab
           currentUser={currentUser}
           allOrders={allOrders}
@@ -490,8 +610,9 @@ export const InternalTabRenderer: React.FC<InternalTabRendererProps> = ({
         />
       )}
 
-      {/* 16. Expenses Management */}
-      {((activeTab === 'finance-profit' && financeProfitSubTab === 'costs') || activeTab === 'costs' || activeTab === 'finance-costs') && ['director', 'accountant', 'manager'].includes(currentUser.role) && (
+      {/* 16. Expenses Management
+          'finance-costs' (direct node id) đã giao cho registry block. */}
+      {((activeTab === 'finance-profit' && financeProfitSubTab === 'costs') || activeTab === 'costs') && ['director', 'accountant', 'manager'].includes(currentUser.role) && (
         <ExpensesManagementTab
           expensesList={expensesList}
           addExpense={addExpense}

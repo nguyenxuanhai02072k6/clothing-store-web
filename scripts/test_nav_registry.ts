@@ -5,6 +5,7 @@ import {
   DEFAULT_PER_ROLE,
   LEGACY_ROUTE_MAP,
   buildSidebarGroups,
+  COMPONENT_KEYS,
 } from '../components/internal/nav/nav-registry';
 import type { UserRole } from '../types';
 
@@ -94,6 +95,19 @@ expect(
 const idxFinance = directorGroups.findIndex(g => g.title === 'TÀI CHÍNH & KẾ TOÁN');
 const idxHr = directorGroups.findIndex(g => g.title === 'VẬN HÀNH & NHÂN SỰ');
 expect(idxFinance !== -1 && idxHr !== -1 && idxFinance < idxHr, 'TÀI CHÍNH xếp trước VẬN HÀNH (giữ thứ tự hiện tại)');
+
+// 9. Task 4 contract — mọi node.component phải render được qua COMPONENT_KEYS
+//    (guard: renderer đọc getActiveNode(activeTab).component; key lạ → render rỗng).
+//    Bản thân JSX của renderer KHÔNG test được bằng tsx → xác nhận bằng npm run build
+//    + bộ regression (run_all_tests).
+expect(
+  NAV_NODES.every((n) => COMPONENT_KEYS.includes(n.component)),
+  'mọi node.component thuộc COMPONENT_KEYS (contract renderer Task 4)'
+);
+expect(
+  COMPONENT_KEYS.length === 12,
+  `COMPONENT_KEYS giữ đúng 12 key (hiện ${COMPONENT_KEYS.length})`
+);
 
 if (failed > 0) {
   console.error(`\n❌ NAV REGISTRY TEST: ${failed} assertions THẤT BẠI`);
