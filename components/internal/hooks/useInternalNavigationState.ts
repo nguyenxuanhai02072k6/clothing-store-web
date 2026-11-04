@@ -331,9 +331,55 @@ export function useInternalNavigationState({ currentUser }: NavigationHookProps)
     }
   };
 
+  // Sub-tab hiện tại (dẫn xuất từ activeTab + 8 sub-tab state). page.tsx (Task 6)
+  // dùng giá trị này để highlight pill; giữ công thức đúng như page.tsx cũ.
+  const currentSubTab =
+    activeTab === 'sales-orders'
+      ? salesOrdersSubTab
+      : activeTab === 'products-inventory' ||
+        activeTab === 'stocker-inventory' ||
+        activeTab === 'stocker-transfer' ||
+        activeTab === 'damaged-goods' ||
+        activeTab === 'restock' ||
+        activeTab === 'products-database'
+      ? activeTab === 'stocker-inventory'
+        ? 'matrix'
+        : activeTab === 'stocker-transfer'
+        ? 'transfer'
+        : activeTab === 'damaged-goods'
+        ? 'damaged'
+        : activeTab === 'restock'
+        ? 'restock'
+        : activeTab === 'products-database'
+        ? 'list'
+        : productsInventorySubTab
+      : activeTab === 'staff-schedule'
+      ? staffScheduleSubTab
+      : activeTab === 'attendance'
+      ? attendanceSubTab
+      : activeTab === 'finance-profit'
+      ? financeProfitSubTab
+      : activeTab === 'promotions'
+      ? promotionsSubTab
+      : activeTab === 'settings-roles' ||
+        activeTab === 'settings' ||
+        activeTab === 'announcements' ||
+        activeTab === 'audit-logs'
+      ? activeTab === 'announcements'
+        ? 'announcements'
+        : activeTab === 'audit-logs'
+        ? 'audit-logs'
+        : activeTab === 'settings'
+        ? 'brand'
+        : settingsRolesSubTab
+      : activeTab === 'customers'
+      ? customersSubTab
+      : '';
+
   return {
     activeTab,
     setActiveTab,
+    currentSubTab,
     salesOrdersSubTab,
     setSalesOrdersSubTab,
     productsInventorySubTab,

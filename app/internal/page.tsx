@@ -290,48 +290,7 @@ export default function InternalDashboardPage() {
                     {/* Horizontal Sub-tabs Navigation */}
                     {(() => {
                       const subTabs = nav.getSubTabs();
-                      const currentSubTab =
-                        nav.activeTab === 'sales-orders'
-                          ? nav.salesOrdersSubTab
-                          : nav.activeTab === 'products-inventory' ||
-                            nav.activeTab === 'stocker-inventory' ||
-                            nav.activeTab === 'stocker-transfer' ||
-                            nav.activeTab === 'damaged-goods' ||
-                            nav.activeTab === 'restock' ||
-                            nav.activeTab === 'products-database'
-                          ? nav.activeTab === 'stocker-inventory'
-                            ? 'matrix'
-                            : nav.activeTab === 'stocker-transfer'
-                            ? 'transfer'
-                            : nav.activeTab === 'damaged-goods'
-                            ? 'damaged'
-                            : nav.activeTab === 'restock'
-                            ? 'restock'
-                            : nav.activeTab === 'products-database'
-                            ? 'list'
-                            : nav.productsInventorySubTab
-                          : nav.activeTab === 'staff-schedule'
-                          ? nav.staffScheduleSubTab
-                          : nav.activeTab === 'attendance'
-                          ? nav.attendanceSubTab
-                          : nav.activeTab === 'finance-profit'
-                          ? nav.financeProfitSubTab
-                          : nav.activeTab === 'promotions'
-                          ? nav.promotionsSubTab
-                          : nav.activeTab === 'settings-roles' ||
-                            nav.activeTab === 'settings' ||
-                            nav.activeTab === 'announcements' ||
-                            nav.activeTab === 'audit-logs'
-                          ? nav.activeTab === 'announcements'
-                            ? 'announcements'
-                            : nav.activeTab === 'audit-logs'
-                            ? 'audit-logs'
-                            : nav.activeTab === 'settings'
-                            ? 'brand'
-                            : nav.settingsRolesSubTab
-                          : nav.activeTab === 'customers'
-                          ? nav.customersSubTab
-                          : '';
+                      const currentSubTab = nav.currentSubTab;
 
                       if (subTabs.length === 0) return null;
                       return (
