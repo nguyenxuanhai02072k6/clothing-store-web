@@ -109,6 +109,24 @@ expect(
   `COMPONENT_KEYS giữ đúng 12 key (hiện ${COMPONENT_KEYS.length})`
 );
 
+// 10. Task 5 contract — hook đọc DEFAULT_PER_ROLE + LEGACY_ROUTE_MAP; guard
+//     pure-data để landing/alias không rơi về node cấm hoặc id không tồn tại.
+// (a) DEFAULT_PER_ROLE[role] luôn là node mà role được phép mở (landing hợp lệ).
+const ROLE_IDS: string[] = ['customer', 'employee', 'manager', 'director', 'accountant', 'cskh', 'cashier', 'stocker'];
+expect(
+  Object.entries(DEFAULT_PER_ROLE).every(
+    ([role, target]) =>
+      ROLE_IDS.includes(role) &&
+      getActiveNode(target)?.allowedRoles.includes(role as UserRole) === true
+  ),
+  'DEFAULT_PER_ROLE: mọi role landing về node được phép (không cấm)'
+);
+// (b) Nhóm admin (director/manager) landing trong DEFAULT_PER_ROLE (registry-driven).
+expect(
+  ['director', 'manager'].every((r) => r in DEFAULT_PER_ROLE),
+  'DEFAULT_PER_ROLE phủ đủ director + manager (vùng quản trị slice 1)'
+);
+
 if (failed > 0) {
   console.error(`\n❌ NAV REGISTRY TEST: ${failed} assertions THẤT BẠI`);
   process.exit(1);

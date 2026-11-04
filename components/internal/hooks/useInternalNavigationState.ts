@@ -1,8 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
+import type { UserRole } from '@/types';
+import { getActiveNode, DEFAULT_PER_ROLE } from '@/components/internal/nav/nav-registry';
 
 interface NavigationHookProps {
   currentUser: any;
 }
+
+// 6 node quản trị (slice 1) đọc thanh sub-tab + landing từ registry. alias
+// gia đình tài chính (finance-profit, 3 pill p-l/recon/costs) KỲ GIỮ legacy —
+// không chạy qua LEGACY_ROUTE_MAP trong getSubTabs vì sẽ nuốt mất thanh 3-pill
+// (alias-routing của vùng ngoài slice 1 được AppSidebar (Task 3) xử lý).
+const REGISTRY_SUBTAB_NODES = new Set([
+  'staff-schedule',
+  'attendance',
+  'products-database',
+  'announcements',
+  'audit-logs',
+  'settings',
+]);
 
 export function useInternalNavigationState({ currentUser }: NavigationHookProps) {
   // Active Tab & Subtabs
@@ -38,19 +53,24 @@ export function useInternalNavigationState({ currentUser }: NavigationHookProps)
   useEffect(() => {
     if (!currentUser?.role || hasInitializedRoleTab.current) return;
     hasInitializedRoleTab.current = true;
-    if (activeTab === 'overview') {
-      if (['cashier', 'employee'].includes(currentUser.role)) {
-        setActiveTab('pos-sales');
-        setSalesOrdersSubTab('pos');
-      } else if (currentUser.role === 'cskh') {
-        setActiveTab('cskh-hub');
-      } else if (currentUser.role === 'stocker') {
-        setActiveTab('stocker-inventory');
-        setProductsInventorySubTab('matrix');
-      } else if (currentUser.role === 'accountant') {
-        setActiveTab('finance-costs');
-        setFinanceProfitSubTab('costs');
-      }
+    if (activeTab !== 'overview') return;
+    const role = currentUser.role as UserRole;
+    // Nhóm quản trị: landing đọc từ registry (DEFAULT_PER_ROLE); vai ngoài slice
+    // (POS/CSKH/KHO/tài chính) giữ nhánh legacy đến lát sau.
+    const registryLanding = DEFAULT_PER_ROLE[role];
+    if (registryLanding) {
+      setActiveTab(registryLanding);
+    } else if (['cashier', 'employee'].includes(role)) {
+      setActiveTab('pos-sales');
+      setSalesOrdersSubTab('pos');
+    } else if (role === 'cskh') {
+      setActiveTab('cskh-hub');
+    } else if (role === 'stocker') {
+      setActiveTab('stocker-inventory');
+      setProductsInventorySubTab('matrix');
+    } else if (role === 'accountant') {
+      setActiveTab('finance-costs');
+      setFinanceProfitSubTab('costs');
     }
   }, [currentUser?.role, activeTab]);
 
@@ -111,6 +131,25 @@ export function useInternalNavigationState({ currentUser }: NavigationHookProps)
   };
 
   const getSubTabs = () => {
+    const role = currentUser?.role as UserRole | undefined;
+    // Slice 1: vùng quản trị (director/manager/accountant) đọc thanh sub-tab cho
+    // 6 node quản trị từ registry (node.subTabs ∩ visibleFor). Thanh này được đối
+    // chiếu 1-1 với switch legacy khi viết registry (Task 2); các node tách gia
+    // đình (announcements/audit-logs/settings) chuyển từ thanh 4-pill cũ sang
+    // thanh riêng theo node — đúng thiết kế "giảm loạn". Vai ngoài vùng
+    // (floor staff, POS/CSKH/KHO) giữ switch legacy để thanh pill byte-identical.
+    if (
+      role &&
+      ['director', 'manager', 'accountant'].includes(role) &&
+      REGISTRY_SUBTAB_NODES.has(activeTab)
+    ) {
+      const node = getActiveNode(activeTab);
+      if (node) {
+        return node.subTabs
+          .filter((s) => s.visibleFor.includes(role))
+          .map((s) => ({ id: s.id, name: s.name }));
+      }
+    }
     switch (activeTab) {
       case 'sales-orders': {
         const tabs = [];
