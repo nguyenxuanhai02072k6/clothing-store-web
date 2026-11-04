@@ -13,13 +13,15 @@ async function runF5RateLimiterTests() {
   await globalIpLimiter.reset(spammerIp);
   await globalIpLimiter.reset(innocentIp);
 
-  // 1. Kiểm thử mô phỏng Spam F5 (Gửi 85 requests dồn dập từ 1 IP)
-  console.log('1. Mô phỏng 1 IP bấm giữ F5 liên tục 85 lần trong vài giây...');
+  // 1. Kiểm thử mô phỏng Spam F5 (Gửi 305 requests dồn dập từ 1 IP)
+  // Ngưỡng hiện hành của globalIpLimiter là 300 req/phút (rateLimiter.ts:215) —
+  // giữ cao để không chặn duyệt web hợp lệ; test khớp ngưỡng đó.
+  console.log('1. Mô phỏng 1 IP bấm giữ F5 liên tục 305 lần trong vài giây...');
   let allowedCount = 0;
   let blockedCount = 0;
   let sampleBlockedResponse: any = null;
 
-  for (let i = 1; i <= 85; i++) {
+  for (let i = 1; i <= 305; i++) {
     const req = new NextRequest('http://localhost:3000/products', {
       headers: {
         'x-forwarded-for': spammerIp,
@@ -38,8 +40,8 @@ async function runF5RateLimiterTests() {
 
   console.log(`   👉 Kết quả: ${allowedCount} request đầu được thông qua, ${blockedCount} request sau bị CHẶN ĐỨNG ngay tức khắc.`);
 
-  if (allowedCount === 80 && blockedCount === 5) {
-    console.log('   ✅ Bộ lọc chặn chính xác 100% tại ngưỡng 80 request/phút của IP!');
+  if (allowedCount === 300 && blockedCount === 5) {
+    console.log('   ✅ Bộ lọc chặn chính xác 100% tại ngưỡng 300 request/phút của IP!');
   } else {
     throw new Error(`❌ Ngưỡng chặn không đúng: Allowed=${allowedCount}, Blocked=${blockedCount}`);
   }
@@ -51,7 +53,7 @@ async function runF5RateLimiterTests() {
   const remainingHeader = sampleBlockedResponse.headers.get('X-RateLimit-Remaining');
   const bodyText = await sampleBlockedResponse.text();
 
-  if (retryAfter && limitHeader === '80' && remainingHeader === '0' && bodyText.includes('Thao tác quá nhanh')) {
+  if (retryAfter && limitHeader === '300' && remainingHeader === '0' && bodyText.includes('Thao tác quá nhanh')) {
     console.log(`   ✅ Status 429 chuẩn quốc tế. Retry-After: ${retryAfter}s, Limit: ${limitHeader}, HTML giao diện thông báo tiếng Việt hiển thị hoàn hảo.`);
   } else {
     throw new Error(`❌ Thiếu hoặc sai định dạng headers bảo mật 429!`);
