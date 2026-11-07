@@ -24,7 +24,19 @@ export type TabComponentKey =
   | 'settings'
   | 'products-database'
   | 'finance-recon'
-  | 'manager-reports';
+  | 'manager-reports'
+  // Slice 2: vùng POS / CSKH / KHO — mỗi node là 1 component key riêng.
+  | 'pos-sales'
+  | 'sales-orders-list'
+  | 'cskh-hub'
+  | 'returns-exchange'
+  | 'customers-list'
+  | 'reviews'
+  | 'ai-copilot'
+  | 'stocker-inventory'
+  | 'stocker-transfer'
+  | 'damaged-goods'
+  | 'restock';
 
 // Contract guard (Task 4): renderer truy vấn getActiveNode(activeTab).component và
 // render theo map TabComponentKey → component React. Mọi node.component PHẢI thuộc
@@ -42,9 +54,21 @@ export const COMPONENT_KEYS: readonly TabComponentKey[] = [
   'products-database',
   'finance-recon',
   'manager-reports',
+  // Slice 2: region POS / CSKH / KHO (11 keys — mỗi node là 1 component key)
+  'pos-sales',
+  'sales-orders-list',
+  'cskh-hub',
+  'returns-exchange',
+  'customers-list',
+  'reviews',
+  'ai-copilot',
+  'stocker-inventory',
+  'stocker-transfer',
+  'damaged-goods',
+  'restock',
 ];
 
-export type GroupKey = 'management' | 'finance';
+export type GroupKey = 'management' | 'finance' | 'pos' | 'cskh' | 'warehouse';
 
 export interface NavNode {
   id: string;
@@ -205,6 +229,116 @@ export const NAV_NODES: NavNode[] = [
     // Panel đơn (DirectorPLViewTab / AccountantFinancePLTab) — getSubTabs default → []
     subTabs: [],
     component: 'director-pl',
+  },
+
+  // -------------------------------------------------------------------------
+  // Slice 2: vùng POS / CSKH / KHO nâng lên thành node thật trong NAV_NODES.
+  // Roles / badge / icon / name copy VERBATIM từ LEGACY_GROUPS (nav-registry
+  // cũ) — không suy đoán, không "fix". Sub-tab: [] vì các nút này hiện không
+  // có thanh pill riêng (vùng KHO dùng thanh 5-pill của products-inventory,
+  // giữ nguyên ở hook — xem Global Constraints của plan slice 2).
+  // -------------------------------------------------------------------------
+  {
+    id: 'pos-sales',
+    name: 'Quầy POS Bán Lẻ',
+    icon: 'ShoppingBag',
+    group: 'pos',
+    allowedRoles: ['director', 'manager', 'employee', 'cashier'],
+    subTabs: [],
+    component: 'pos-sales',
+  },
+  {
+    id: 'sales-orders-list',
+    name: 'Danh sách đơn hàng',
+    icon: 'FileText',
+    group: 'pos',
+    // LEGACY_GROUPS không khai báo allowedRoles → hiện cho mọi staff trong nhóm.
+    allowedRoles: ALL,
+    badge: 'pendingOrders',
+    subTabs: [],
+    component: 'sales-orders-list',
+  },
+  {
+    id: 'cskh-hub',
+    name: 'CSKH Console (Live Chat)',
+    icon: 'MessageSquare',
+    group: 'cskh',
+    allowedRoles: ['director', 'manager', 'cskh'],
+    subTabs: [],
+    component: 'cskh-hub',
+  },
+  {
+    id: 'returns-exchange',
+    name: 'Phiếu đổi trả & Khiếu nại',
+    icon: 'RotateCcw',
+    group: 'cskh',
+    allowedRoles: ['director', 'manager', 'cskh', 'employee', 'cashier'],
+    subTabs: [],
+    component: 'returns-exchange',
+  },
+  {
+    id: 'customers-list',
+    name: 'Khách hàng & Hạng VIP',
+    icon: 'Crown',
+    group: 'cskh',
+    allowedRoles: ['director', 'manager', 'cskh', 'employee', 'cashier'],
+    subTabs: [],
+    component: 'customers-list',
+  },
+  {
+    id: 'reviews',
+    name: 'Đánh giá từ khách',
+    icon: 'Star',
+    group: 'cskh',
+    allowedRoles: ['director', 'cskh', 'manager'],
+    subTabs: [],
+    component: 'reviews',
+  },
+  {
+    id: 'ai-copilot',
+    name: 'Trợ lý AI Marketing',
+    icon: 'Sparkles',
+    group: 'cskh',
+    allowedRoles: ['director', 'manager', 'cskh'],
+    subTabs: [],
+    component: 'ai-copilot',
+  },
+  {
+    id: 'stocker-inventory',
+    name: 'Tồn kho 2 chi nhánh',
+    icon: 'Layers',
+    group: 'warehouse',
+    allowedRoles: ['director', 'manager', 'stocker', 'accountant', 'cashier', 'employee'],
+    badge: 'lowStock',
+    subTabs: [],
+    component: 'stocker-inventory',
+  },
+  {
+    id: 'stocker-transfer',
+    name: 'Điều chuyển kho',
+    icon: 'ArrowRightLeft',
+    group: 'warehouse',
+    allowedRoles: ['director', 'manager', 'stocker', 'accountant'],
+    subTabs: [],
+    component: 'stocker-transfer',
+  },
+  {
+    id: 'damaged-goods',
+    name: 'Biên bản hàng lỗi',
+    icon: 'AlertTriangle',
+    group: 'warehouse',
+    allowedRoles: ['director', 'manager', 'stocker', 'cskh', 'accountant'],
+    subTabs: [],
+    component: 'damaged-goods',
+  },
+  {
+    id: 'restock',
+    name: 'Phiếu nhập hàng',
+    icon: 'FileDown',
+    group: 'warehouse',
+    allowedRoles: ['director', 'manager', 'stocker', 'accountant'],
+    subTabs: [],
+    component: 'restock',
   },
 ];
 

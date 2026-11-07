@@ -39,8 +39,13 @@ expect(
   'audit-logs allowedRoles chỉ chứa director'
 );
 
-// 4. cashier sidebar gọn (<= 4 node)
-expect(getNodesForRole('cashier').length <= 4, `cashier thấy ${getNodesForRole('cashier').length} node (<=4)`);
+// 4. cashier sidebar gọn (<= 4 mục hiển thị)
+//    Slice 2: đo bằng ITEM SIDEBAR (buildSidebarGroups), không phải
+//    getNodesForRole — permission surface rộng hơn sidebar (vài node thuộc
+//    nhóm mà vai này không vào, vd returns-exchange của nhóm CSKH).
+//    Ý định assertion giữ nguyên: sidebar của cashier phải gọn.
+const cashierSidebarItems = buildSidebarGroups('cashier').reduce((n, g) => n + g.items.length, 0);
+expect(cashierSidebarItems <= 4, `cashier thấy ${cashierSidebarItems} mục sidebar (<=4)`);
 
 // 5. getActiveNode trả đúng node (node id = alias chuẩn của activeTab/sidebar)
 expect(getActiveNode('finance-p-l')?.id === 'finance-p-l', 'getActiveNode("finance-p-l") trả đúng node');
@@ -105,8 +110,8 @@ expect(
   'mọi node.component thuộc COMPONENT_KEYS (contract renderer Task 4)'
 );
 expect(
-  COMPONENT_KEYS.length === 12,
-  `COMPONENT_KEYS giữ đúng 12 key (hiện ${COMPONENT_KEYS.length})`
+  COMPONENT_KEYS.length === 23,
+  `COMPONENT_KEYS giữ đúng 23 key (hiện ${COMPONENT_KEYS.length})`
 );
 
 // 10. Task 5 contract — hook đọc DEFAULT_PER_ROLE + LEGACY_ROUTE_MAP; guard
@@ -126,6 +131,15 @@ expect(
   ['director', 'manager'].every((r) => r in DEFAULT_PER_ROLE),
   'DEFAULT_PER_ROLE phủ đủ director + manager (vùng quản trị slice 1)'
 );
+
+// 11. Slice 2 data — POS/CSKH/KHO nodes exist + correct roles + dedup survives
+expect(getActiveNode('cskh-hub')?.allowedRoles.join(',') === 'director,manager,cskh', 'cskh-hub roles = director,manager,cskh');
+expect(getActiveNode('stocker-inventory')?.allowedRoles.includes('employee') === true, 'stocker-inventory visible to employee');
+expect(getActiveNode('ai-copilot')?.allowedRoles.includes('cashier') === false, 'ai-copilot NOT visible to cashier');
+expect(NAV_NODES.filter((n) => n.id === 'finance-recon').length === 1, 'finance-recon deduped to 1 node after region promotion');
+const cashierItems = getNodesForRole('cashier').map((n) => n.id);
+expect(cashierItems.includes('pos-sales') && cashierItems.includes('finance-recon'), 'cashier sees pos + finance-recon');
+expect(cashierItems.includes('cskh-hub') === false, 'cashier does NOT see cskh-hub');
 
 if (failed > 0) {
   console.error(`\n❌ NAV REGISTRY TEST: ${failed} assertions THẤT BẠI`);
