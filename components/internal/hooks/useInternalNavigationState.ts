@@ -55,22 +55,15 @@ export function useInternalNavigationState({ currentUser }: NavigationHookProps)
     hasInitializedRoleTab.current = true;
     if (activeTab !== 'overview') return;
     const role = currentUser.role as UserRole;
-    // Nhóm quản trị: landing đọc từ registry (DEFAULT_PER_ROLE); vai ngoài slice
-    // (POS/CSKH/KHO/tài chính) giữ nhánh legacy đến lát sau.
-    const registryLanding = DEFAULT_PER_ROLE[role];
-    if (registryLanding) {
-      setActiveTab(registryLanding);
-    } else if (['cashier', 'employee'].includes(role)) {
-      setActiveTab('pos-sales');
-      setSalesOrdersSubTab('pos');
-    } else if (role === 'cskh') {
-      setActiveTab('cskh-hub');
-    } else if (role === 'stocker') {
-      setActiveTab('stocker-inventory');
-      setProductsInventorySubTab('matrix');
-    } else if (role === 'accountant') {
-      setActiveTab('finance-costs');
-      setFinanceProfitSubTab('costs');
+    // Slice 2: MỌI vai landing đọc từ registry (DEFAULT_PER_ROLE). Sub-tab
+    // mặc định (matrix/pos/costs) lấy từ node.defaultSubTab — khớp legacy
+    // setProductsInventorySubTab / setSalesOrdersSubTab / setFinanceProfitSubTab.
+    const landing = DEFAULT_PER_ROLE[role];
+    if (landing) {
+      setActiveTab(landing);
+      const sub = getActiveNode(landing)?.defaultSubTab;
+      if (sub === 'matrix') setProductsInventorySubTab('matrix');
+      if (sub === 'pos') setSalesOrdersSubTab('pos');
     }
   }, [currentUser?.role, activeTab]);
 

@@ -160,6 +160,20 @@ expect(rv('branch-stock')?.node?.id === 'stocker-inventory', 'legacy alias branc
 expect(rv('recon')?.node?.id === 'finance-recon', 'legacy alias recon → finance-recon');
 expect(rv('unknown-id-xyz')?.node === undefined, 'unknown id → undefined node (graceful)');
 
+// 13. Slice 2 — DEFAULT_PER_ROLE phủ MỌI vai (landing đọc từ registry, không hardcode)
+expect(DEFAULT_PER_ROLE['cskh'] === 'cskh-hub', 'cskh lands cskh-hub');
+expect(DEFAULT_PER_ROLE['stocker'] === 'stocker-inventory', 'stocker lands stocker-inventory');
+expect(
+  DEFAULT_PER_ROLE['cashier'] === 'pos-sales' && DEFAULT_PER_ROLE['employee'] === 'pos-sales',
+  'cashier/employee land pos-sales'
+);
+expect(DEFAULT_PER_ROLE['accountant'] === 'finance-costs', 'accountant lands finance-costs');
+// stocker phải mở sub-tab 'matrix' (tương đương setProductsInventorySubTab('matrix') cũ)
+expect(
+  getActiveNode('stocker-inventory')?.defaultSubTab === 'matrix',
+  'stocker-inventory defaultSubTab = matrix (khớp landing legacy)'
+);
+
 if (failed > 0) {
   console.error(`\n❌ NAV REGISTRY TEST: ${failed} assertions THẤT BẠI`);
   process.exit(1);

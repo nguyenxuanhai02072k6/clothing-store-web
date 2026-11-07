@@ -244,6 +244,8 @@ export const NAV_NODES: NavNode[] = [
     icon: 'ShoppingBag',
     group: 'pos',
     allowedRoles: ['director', 'manager', 'employee', 'cashier'],
+    // Landing của cashier/employee mở sub-tab 'pos' (khớp setSalesOrdersSubTab('pos') cũ).
+    defaultSubTab: 'pos',
     subTabs: [],
     component: 'pos-sales',
   },
@@ -310,6 +312,8 @@ export const NAV_NODES: NavNode[] = [
     group: 'warehouse',
     allowedRoles: ['director', 'manager', 'stocker', 'accountant', 'cashier', 'employee'],
     badge: 'lowStock',
+    // Landing của vai stocker mở sub-tab 'matrix' (khớp setProductsInventorySubTab('matrix') cũ).
+    defaultSubTab: 'matrix',
     subTabs: [],
     component: 'stocker-inventory',
   },
@@ -343,10 +347,15 @@ export const NAV_NODES: NavNode[] = [
 ];
 
 // Vai nào thì rớt vào nút nào (thay useEffect hardcode dòng 38-55 hook).
-// Chỉ định nghĩa nhóm quản trị; POS/CSKH/Kho giữ ở lượt sau.
+// Slice 2: phủ MỌI vai — mọi landing đọc từ đây, hook không còn if/else.
 export const DEFAULT_PER_ROLE: Partial<Record<UserRole, string>> = {
   director: 'overview',
   manager: 'overview',
+  cashier: 'pos-sales',
+  employee: 'pos-sales',
+  cskh: 'cskh-hub',
+  stocker: 'stocker-inventory',
+  accountant: 'finance-costs',
 };
 
 // Map alias cũ (activeTab giá trị) -> node.id gốc.
