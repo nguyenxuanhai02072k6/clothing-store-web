@@ -349,11 +349,11 @@ export const DEFAULT_PER_ROLE: Partial<Record<UserRole, string>> = {
   manager: 'overview',
 };
 
-// Map alias cũ (activeTab giá trị) -> node.id. Dùng bởi sidebar/renderer khi
-// chưa migrates hoàn toàn (legacy fallback, Task 5).
-// Mở rộng (Task 3): gộp đầy đủ alias mà AppSidebar.isItemActive cũ biết,
-// gồm cả alias của item legacy POS/CSKH/KHO (target = id item legacy).
-export const LEGACY_ROUTE_MAP: Record<string, string> = {
+// Map alias cũ (activeTab giá trị) -> node.id gốc.
+// Slice 2: superset của LEGACY_ROUTE_MAP cũ — thêm mọi id lá vùng POS/CSKH/KHO
+// trỏ về chính nó (nay đã là node thật trong NAV_NODES).
+// Dùng bởi resolveNav() để chuẩn hoá mọi activeTab về node gốc.
+export const NAV_ALIAS: Record<string, string> = {
   'finance-p-l': 'finance-p-l',
   'finance-profit': 'finance-p-l',
   'director-global-finance': 'finance-p-l',
@@ -393,7 +393,32 @@ export const LEGACY_ROUTE_MAP: Record<string, string> = {
   'branch-stock': 'stocker-inventory',
   'manager-stock': 'restock',
   'accountant-operations': 'restock',
+  // Slice 2: id lá vùng POS/CSKH/KHO — giờ là node thật, trỏ về chính nó.
+  'pos-sales': 'pos-sales',
+  'sales-orders-list': 'sales-orders-list',
+  'cskh-hub': 'cskh-hub',
+  'returns-exchange': 'returns-exchange',
+  'customers-list': 'customers-list',
+  'reviews': 'reviews',
+  'ai-copilot': 'ai-copilot',
+  'stocker-inventory': 'stocker-inventory',
+  'stocker-transfer': 'stocker-transfer',
+  'damaged-goods': 'damaged-goods',
+  'restock': 'restock',
 };
+
+/**
+ * Chuẩn hoá activeTab (id lá hoặc alias cũ) về node gốc trong NAV_NODES.
+ * - `node`: node tương ứng, hoặc undefined nếu id không xác định (graceful).
+ * - `subTab`: sub-tab mặc định của node (dùng để highlight pill / landing).
+ *   'shifts' → staff-schedule (defaultSubTab 'shifts' của node) — không cần
+ *   special-case vì defaultSubTab đã được set ở NAV_NODES.
+ */
+export function resolveNav(activeTab: string): { node?: NavNode; subTab?: string } {
+  const canonical = NAV_ALIAS[activeTab] ?? activeTab;
+  const node = getActiveNode(canonical);
+  return { node, subTab: node?.defaultSubTab };
+}
 
 export function getNodesForRole(role: UserRole): NavNode[] {
   return NAV_NODES.filter((n) => n.allowedRoles.includes(role));

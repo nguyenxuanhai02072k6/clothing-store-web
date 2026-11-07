@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { buildSidebarGroups, LEGACY_ROUTE_MAP } from './nav/nav-registry';
+import { buildSidebarGroups, NAV_ALIAS } from './nav/nav-registry';
 
 // Map icon theo TÊN string từ NavRegistry (registry là pure data, không giữ
 // component React) — Task 3: sidebar render từ nguồn sự thật duy nhất.
@@ -149,9 +149,9 @@ export default function AppSidebar({
   const sidebarGroups = currentUser ? buildSidebarGroups(currentUser.role) : [];
 
   // Active-state theo nguồn sự thật duy nhất: mọi alias activeTab → item id
-  // chuẩn qua LEGACY_ROUTE_MAP (thay ~30 if-chains cũ). Item active khi
+  // chuẩn qua NAV_ALIAS (thay ~30 if-chains cũ). Item active khi
   // id của nó bằng item chuẩn mà activeTab trỏ tới.
-  const activeItemTarget = LEGACY_ROUTE_MAP[activeTab] ?? activeTab;
+  const activeItemTarget = NAV_ALIAS[activeTab] ?? activeTab;
   const isItemActive = (itemId: string) => itemId === activeItemTarget;
 
   const sidebarContent = (

@@ -3,9 +3,10 @@ import {
   getNodesForRole,
   getActiveNode,
   DEFAULT_PER_ROLE,
-  LEGACY_ROUTE_MAP,
+  NAV_ALIAS,
   buildSidebarGroups,
   COMPONENT_KEYS,
+  resolveNav,
 } from '../components/internal/nav/nav-registry';
 import type { UserRole } from '../types';
 
@@ -50,10 +51,14 @@ expect(cashierSidebarItems <= 4, `cashier thấy ${cashierSidebarItems} mục si
 // 5. getActiveNode trả đúng node (node id = alias chuẩn của activeTab/sidebar)
 expect(getActiveNode('finance-p-l')?.id === 'finance-p-l', 'getActiveNode("finance-p-l") trả đúng node');
 
-// 6. Mọi legacy route đều map tới một node id hợp lệ (không trống)
+// 6. Mọi alias đều map tới một node id hợp lệ (không trống VÀ node tồn tại)
 expect(
-  Object.values(LEGACY_ROUTE_MAP).every((v) => v.length > 0),
-  'mọi legacy route đều có node target không rỗng'
+  Object.values(NAV_ALIAS).every((v) => v.length > 0),
+  'mọi alias đều có node target không rỗng'
+);
+expect(
+  Object.values(NAV_ALIAS).every((v) => getActiveNode(v) !== undefined),
+  'mọi alias trỏ tới node CÓ THẬT trong NAV_NODES (không alias lơ lửng)'
 );
 
 // 7. fidelity subTabs (khớp getSubTabs hiện tại, useInternalNavigationState 113-223)
@@ -114,7 +119,7 @@ expect(
   `COMPONENT_KEYS giữ đúng 23 key (hiện ${COMPONENT_KEYS.length})`
 );
 
-// 10. Task 5 contract — hook đọc DEFAULT_PER_ROLE + LEGACY_ROUTE_MAP; guard
+// 10. Task 5 contract — hook đọc DEFAULT_PER_ROLE + NAV_ALIAS; guard
 //     pure-data để landing/alias không rơi về node cấm hoặc id không tồn tại.
 // (a) DEFAULT_PER_ROLE[role] luôn là node mà role được phép mở (landing hợp lệ).
 const ROLE_IDS: string[] = ['customer', 'employee', 'manager', 'director', 'accountant', 'cskh', 'cashier', 'stocker'];
@@ -140,6 +145,20 @@ expect(NAV_NODES.filter((n) => n.id === 'finance-recon').length === 1, 'finance-
 const cashierItems = getNodesForRole('cashier').map((n) => n.id);
 expect(cashierItems.includes('pos-sales') && cashierItems.includes('finance-recon'), 'cashier sees pos + finance-recon');
 expect(cashierItems.includes('cskh-hub') === false, 'cashier does NOT see cskh-hub');
+
+// 12. Slice 2 — resolveNav: alias-normalizer (id + legacy alias → node gốc)
+const rv = (id: string) => resolveNav(id);
+expect(rv('pos-sales')?.node?.id === 'pos-sales', 'pos-sales canonical');
+expect(rv('sales-orders-list')?.node?.id === 'sales-orders-list', 'sales-orders-list canonical');
+expect(rv('cskh-hub')?.node?.id === 'cskh-hub', 'cskh-hub canonical');
+expect(
+  rv('shifts')?.node?.id === 'staff-schedule' && rv('shifts')?.subTab === 'shifts',
+  'shifts → staff-schedule/sub shifts'
+);
+expect(rv('manager-shift-overview')?.node?.id === 'staff-schedule', 'legacy alias manager-shift-overview → staff-schedule');
+expect(rv('branch-stock')?.node?.id === 'stocker-inventory', 'legacy alias branch-stock → stocker-inventory');
+expect(rv('recon')?.node?.id === 'finance-recon', 'legacy alias recon → finance-recon');
+expect(rv('unknown-id-xyz')?.node === undefined, 'unknown id → undefined node (graceful)');
 
 if (failed > 0) {
   console.error(`\n❌ NAV REGISTRY TEST: ${failed} assertions THẤT BẠI`);

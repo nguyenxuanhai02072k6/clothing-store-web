@@ -8,8 +8,8 @@ interface NavigationHookProps {
 
 // 6 node quản trị (slice 1) đọc thanh sub-tab + landing từ registry. alias
 // gia đình tài chính (finance-profit, 3 pill p-l/recon/costs) KỲ GIỮ legacy —
-// không chạy qua LEGACY_ROUTE_MAP trong getSubTabs vì sẽ nuốt mất thanh 3-pill
-// (alias-routing của vùng ngoài slice 1 được AppSidebar (Task 3) xử lý).
+// không chạy qua NAV_ALIAS trong getSubTabs vì sẽ nuốt mất thanh 3-pill
+// (alias-routing của vùng ngoài slice 1 được AppSidebar xử lý).
 const REGISTRY_SUBTAB_NODES = new Set([
   'staff-schedule',
   'attendance',
