@@ -90,8 +90,12 @@ export function useInternalNavigationState({ currentUser }: NavigationHookProps)
   }, [currentUser]);
 
   const setCurrentSubTab = (id: string) => {
-    if (activeTab === 'sales-orders') setSalesOrdersSubTab(id);
-    else if (
+    // Task 4: branch gia đình POS/CSKH (sales-orders/customers/promotions) +
+    // finance-profit đã XÓA — không còn producer setActiveTab cho các id này
+    // (grep gate Task 4 step 1; alias chuẩn là các id lá pos-sales/
+    // sales-orders-list/customers-list/... do handleSidebarChange xử lý).
+    // Giữ: thanh 5-pill KHO (stocker-*/restock/products-database) + nhân sự + settings.
+    if (
       activeTab === 'products-inventory' ||
       activeTab === 'stocker-inventory' ||
       activeTab === 'stocker-transfer' ||
@@ -107,8 +111,6 @@ export function useInternalNavigationState({ currentUser }: NavigationHookProps)
       else if (id === 'list') setActiveTab('products-database');
     } else if (activeTab === 'staff-schedule') setStaffScheduleSubTab(id);
     else if (activeTab === 'attendance') setAttendanceSubTab(id);
-    else if (activeTab === 'finance-profit') setFinanceProfitSubTab(id);
-    else if (activeTab === 'promotions') setPromotionsSubTab(id);
     else if (
       activeTab === 'settings-roles' ||
       activeTab === 'settings' ||
@@ -120,7 +122,7 @@ export function useInternalNavigationState({ currentUser }: NavigationHookProps)
       else if (id === 'brand') setActiveTab('settings');
       else if (id === 'channels') setActiveTab('settings-roles');
       else if (id === 'audit-logs') setActiveTab('audit-logs');
-    } else if (activeTab === 'customers') setCustomersSubTab(id);
+    }
   };
 
   const getSubTabs = () => {
@@ -144,20 +146,10 @@ export function useInternalNavigationState({ currentUser }: NavigationHookProps)
       }
     }
     switch (activeTab) {
-      case 'sales-orders': {
-        const tabs = [];
-        if (['director', 'manager', 'employee', 'cashier'].includes(currentUser?.role)) {
-          tabs.push({ id: 'pos', name: 'Quầy bán hàng POS' });
-        }
-        tabs.push({ id: 'list', name: 'Danh sách đơn hàng' });
-        if (['director', 'manager', 'cskh', 'employee', 'cashier'].includes(currentUser?.role)) {
-          tabs.push({ id: 'returns', name: 'Đổi trả & Khiếu nại' });
-        }
-        if (currentUser?.role === 'cskh') {
-          tabs.push({ id: 'chat', name: 'Chat Trực tiếp' });
-        }
-        return tabs;
-      }
+      // Task 4: case 'sales-orders' / 'customers' / 'promotions' / 'finance-profit'
+      // đã XÓA — các id cha này không còn producer (grep gate Task 4 step 1).
+      // Thanh pill tương ứng giờ đến từ node lá (pos-sales/sales-orders-list/
+      // customers-list/reviews/finance-recon...) qua handleSidebarChange.
       case 'products-inventory':
       case 'stocker-inventory':
       case 'stocker-transfer':
@@ -202,26 +194,6 @@ export function useInternalNavigationState({ currentUser }: NavigationHookProps)
         }
         return tabs;
       }
-      case 'finance-profit': {
-        const tabs = [];
-        if (['director', 'accountant'].includes(currentUser?.role)) {
-          tabs.push({ id: 'p-l', name: 'Báo cáo P&L & Thuế' });
-        }
-        if (['director', 'accountant', 'cashier'].includes(currentUser?.role)) {
-          tabs.push({ id: 'recon', name: 'Đối soát két tiền' });
-        }
-        if (['director', 'accountant', 'manager'].includes(currentUser?.role)) {
-          tabs.push({ id: 'costs', name: 'Chi phí vận hành' });
-        }
-        return tabs;
-      }
-      case 'promotions': {
-        const tabs = [{ id: 'coupons', name: 'Mã giảm giá' }];
-        if (['director', 'accountant', 'cskh'].includes(currentUser?.role)) {
-          tabs.push({ id: 'ai-marketing', name: 'Chiến dịch & Trợ lý AI' });
-        }
-        return tabs;
-      }
       case 'settings-roles':
       case 'settings':
       case 'announcements':
@@ -236,16 +208,6 @@ export function useInternalNavigationState({ currentUser }: NavigationHookProps)
         }
         if (['director'].includes(currentUser?.role)) {
           tabs.push({ id: 'audit-logs', name: 'Nhật ký hoạt động' });
-        }
-        return tabs;
-      }
-      case 'customers': {
-        const tabs = [
-          { id: 'list', name: 'Danh sách khách' },
-          { id: 'vip', name: 'Thành viên VIP' },
-        ];
-        if (['director', 'manager', 'cskh'].includes(currentUser?.role)) {
-          tabs.push({ id: 'reviews', name: 'Phản hồi đánh giá' });
         }
         return tabs;
       }

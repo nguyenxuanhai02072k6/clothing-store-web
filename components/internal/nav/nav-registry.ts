@@ -233,8 +233,8 @@ export const NAV_NODES: NavNode[] = [
 
   // -------------------------------------------------------------------------
   // Slice 2: vùng POS / CSKH / KHO nâng lên thành node thật trong NAV_NODES.
-  // Roles / badge / icon / name copy VERBATIM từ LEGACY_GROUPS (nav-registry
-  // cũ) — không suy đoán, không "fix". Sub-tab: [] vì các nút này hiện không
+  // Roles / badge / icon / name copy VERBATIM từ mảng sidebar legacy (slice 1)
+  // — không suy đoán, không "fix". Sub-tab: [] vì các nút này hiện không
   // có thanh pill riêng (vùng KHO dùng thanh 5-pill của products-inventory,
   // giữ nguyên ở hook — xem Global Constraints của plan slice 2).
   // -------------------------------------------------------------------------
@@ -254,7 +254,7 @@ export const NAV_NODES: NavNode[] = [
     name: 'Danh sách đơn hàng',
     icon: 'FileText',
     group: 'pos',
-    // LEGACY_GROUPS không khai báo allowedRoles → hiện cho mọi staff trong nhóm.
+    // Node này không giới hạn vai → hiện cho mọi staff trong nhóm.
     allowedRoles: ALL,
     badge: 'pendingOrders',
     subTabs: [],
@@ -438,9 +438,9 @@ export function getActiveNode(id: string): NavNode | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Sidebar builder (Task 3) — nguồn sự thật cho sidebar + AppHeader.
-// Nhóm vùng quản trị/tài chính lấy items từ NAV_NODES (dedupe finance-recon);
-// nhóm POS/CSKH/KHO giữ nguyên dữ liệu legacy (không đổi behavior — lát sau).
+// Sidebar builder (Task 4) — nguồn sự thật DUY NHẤT cho sidebar + AppHeader.
+// Mọi nhóm (quản trị/tài chính + POS/CSKH/KHO) đều lấy items từ NAV_NODES
+// theo nodeIds + allowedRoles, gate nhóm theo groupRoles, sắp theo GROUP_ORDER.
 // icon ở dạng string; AppSidebar map sang lucide.
 // ---------------------------------------------------------------------------
 
@@ -458,50 +458,16 @@ export interface SidebarGroup {
   items: SidebarItem[];
 }
 
-type LegacyItem = SidebarItem & { allowedRoles?: UserRole[] };
-
-const LEGACY_GROUPS: Array<{ title: string; workspace: string; groupRoles?: UserRole[]; items: LegacyItem[] }> = [
-  {
-    title: 'BÁN HÀNG & POS',
-    workspace: 'pos',
-    groupRoles: ['director', 'manager', 'employee', 'cashier'],
-    items: [
-      { id: 'pos-sales', name: 'Quầy POS Bán Lẻ', icon: 'ShoppingBag', allowedRoles: ['director', 'manager', 'employee', 'cashier'], workspace: 'pos' },
-      { id: 'sales-orders-list', name: 'Danh sách đơn hàng', icon: 'FileText', badgeKey: 'pendingOrders', workspace: 'pos' },
-      // finance-recon ĐÃ BỎ: gộp về nút tài chính (registry), tránh trùng 2 lần.
-    ],
-  },
-  {
-    title: 'CSKH & CRM',
-    workspace: 'cskh',
-    groupRoles: ['director', 'manager', 'cskh'],
-    items: [
-      { id: 'cskh-hub', name: 'CSKH Console (Live Chat)', icon: 'MessageSquare', allowedRoles: ['director', 'manager', 'cskh'], workspace: 'cskh' },
-      { id: 'returns-exchange', name: 'Phiếu đổi trả & Khiếu nại', icon: 'RotateCcw', allowedRoles: ['director', 'manager', 'cskh', 'employee', 'cashier'], workspace: 'cskh' },
-      { id: 'customers-list', name: 'Khách hàng & Hạng VIP', icon: 'Crown', allowedRoles: ['director', 'manager', 'cskh', 'employee', 'cashier'], workspace: 'cskh' },
-      { id: 'reviews', name: 'Đánh giá từ khách', icon: 'Star', allowedRoles: ['director', 'cskh', 'manager'], workspace: 'cskh' },
-      { id: 'ai-copilot', name: 'Trợ lý AI Marketing', icon: 'Sparkles', allowedRoles: ['director', 'manager', 'cskh'], workspace: 'cskh' },
-    ],
-  },
-  {
-    title: 'KHO VẬN & HÀNG HÓA',
-    workspace: 'warehouse',
-    groupRoles: ['director', 'manager', 'stocker', 'accountant'],
-    items: [
-      { id: 'stocker-inventory', name: 'Tồn kho 2 chi nhánh', icon: 'Layers', badgeKey: 'lowStock', allowedRoles: ['director', 'manager', 'stocker', 'accountant', 'cashier', 'employee'], workspace: 'warehouse' },
-      { id: 'stocker-transfer', name: 'Điều chuyển kho', icon: 'ArrowRightLeft', allowedRoles: ['director', 'manager', 'stocker', 'accountant'], workspace: 'warehouse' },
-      { id: 'damaged-goods', name: 'Biên bản hàng lỗi', icon: 'AlertTriangle', allowedRoles: ['director', 'manager', 'stocker', 'cskh', 'accountant'], workspace: 'warehouse' },
-      { id: 'restock', name: 'Phiếu nhập hàng', icon: 'FileDown', allowedRoles: ['director', 'manager', 'stocker', 'accountant'], workspace: 'warehouse' },
-    ],
-  },
-];
-
-// Nhóm quản trị/tài chính: items từ NAV_NODES (name/role/badge lấy đúng từ node).
-// groupRoles giữ gate nhóm Y HOOI menuGroups cũ (TỔNG QUAN [d,m], VẬN HÀNH không gate,
-// QUẢN TRỊ [d,m,a] — logout cũng bị gate bởi nhóm này, đúng hiện trạng).
-// TÀI CHÍNH thêm cashier: gộp finance-recon về đây nên phải giữ đường vào của cashier.
+// MỌI nhóm: items từ NAV_NODES. groupRoles giữ gate nhóm Y HOOI menuGroups cũ
+// (TỔNG QUAN [d,m]; POS [d,m,e,cashier]; CSKH [d,m,cskh]; KHO [d,m,stocker,a];
+// VẬN HÀNH không gate; QUẢN TRỊ [d,m,a] — logout cũng bị gate bởi nhóm này,
+// đúng hiện trạng). TÀI CHÍNH thêm cashier: gộp finance-recon về đây nên phải
+// giữ đường vào của cashier.
 const REGISTRY_GROUPS: Array<{ title: string; workspace: string; groupRoles?: UserRole[]; nodeIds: string[] }> = [
   { title: 'TỔNG QUAN', workspace: 'management', groupRoles: ['director', 'manager'], nodeIds: ['overview'] },
+  { title: 'BÁN HÀNG & POS', workspace: 'pos', groupRoles: ['director', 'manager', 'employee', 'cashier'], nodeIds: ['pos-sales', 'sales-orders-list'] },
+  { title: 'CSKH & CRM', workspace: 'cskh', groupRoles: ['director', 'manager', 'cskh'], nodeIds: ['cskh-hub', 'returns-exchange', 'customers-list', 'reviews', 'ai-copilot'] },
+  { title: 'KHO VẬN & HÀNG HÓA', workspace: 'warehouse', groupRoles: ['director', 'manager', 'stocker', 'accountant'], nodeIds: ['stocker-inventory', 'stocker-transfer', 'damaged-goods', 'restock'] },
   { title: 'TÀI CHÍNH & KẾ TOÁN', workspace: 'finance', groupRoles: ['director', 'manager', 'accountant', 'cashier'], nodeIds: ['finance-costs', 'finance-payroll', 'finance-recon', 'finance-p-l'] },
   { title: 'VẬN HÀNH & NHÂN SỰ', workspace: 'management', nodeIds: ['staff-schedule', 'attendance'] },
   { title: 'QUẢN TRỊ HỆ THỐNG', workspace: 'management', groupRoles: ['director', 'manager', 'accountant'], nodeIds: ['products-database', 'announcements', 'audit-logs', 'settings'] },
@@ -522,29 +488,20 @@ export function buildSidebarGroups(role: UserRole): SidebarGroup[] {
   const out: SidebarGroup[] = [];
   for (const title of GROUP_ORDER) {
     const reg = REGISTRY_GROUPS.find((g) => g.title === title);
-    const leg = LEGACY_GROUPS.find((g) => g.title === title);
-    const groupRoles = reg?.groupRoles ?? leg?.groupRoles;
-    if (groupRoles && !groupRoles.includes(role)) continue;
+    if (!reg) continue;
+    if (reg.groupRoles && !reg.groupRoles.includes(role)) continue;
 
     const items: SidebarItem[] = [];
-    if (reg) {
-      for (const id of reg.nodeIds) {
-        const n = getActiveNode(id);
-        if (!n || !n.allowedRoles.includes(role)) continue;
-        items.push({ id: n.id, name: n.name, icon: n.icon, badgeKey: n.badge, workspace: reg.workspace });
-      }
-    }
-    if (leg) {
-      for (const it of leg.items) {
-        if (it.allowedRoles && !it.allowedRoles.includes(role)) continue;
-        items.push({ id: it.id, name: it.name, icon: it.icon, badgeKey: it.badgeKey, workspace: leg.workspace });
-      }
+    for (const id of reg.nodeIds) {
+      const n = getActiveNode(id);
+      if (!n || !n.allowedRoles.includes(role)) continue;
+      items.push({ id: n.id, name: n.name, icon: n.icon, badgeKey: n.badge, workspace: reg.workspace });
     }
     if (title === 'QUẢN TRỊ HỆ THỐNG') {
       items.push({ id: 'logout', name: 'Đăng xuất', icon: 'LogOut', workspace: 'management' });
     }
     if (items.length > 0) {
-      out.push({ title, workspace: reg?.workspace ?? leg?.workspace ?? 'management', items });
+      out.push({ title, workspace: reg.workspace, items });
     }
   }
   return out;

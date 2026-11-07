@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
 import {
   NAV_NODES,
   getNodesForRole,
@@ -173,6 +175,28 @@ expect(
   getActiveNode('stocker-inventory')?.defaultSubTab === 'matrix',
   'stocker-inventory defaultSubTab = matrix (khớp landing legacy)'
 );
+
+// 14. Slice 2 Task 4 — sidebar các vùng POS/CSKH/KHO single-sourced từ NAV_NODES:
+//     pin behavior (giữ nguyên output cũ) + pin cấu trúc (không còn
+//     LEGACY_GROUPS trong file registry).
+const cskhItems = buildSidebarGroups('cskh').flatMap(g => g.items.map(i => i.id));
+expect(cskhItems.includes('cskh-hub') && cskhItems.includes('customers-list') && cskhItems.includes('ai-copilot'), 'cskh sees CSKH items');
+expect(cskhItems.includes('pos-sales') === false, 'cskh does NOT see pos-sales');
+const stockerItems = buildSidebarGroups('stocker').flatMap(g => g.items.map(i => i.id));
+expect(stockerItems.includes('stocker-transfer') && stockerItems.includes('restock'), 'stocker sees kho items');
+expect(buildSidebarGroups('director').flatMap(g => g.items).filter(i => i.id === 'finance-recon').length === 1, 'director finance-recon single');
+
+// Cấu trúc: sidebar phải được dựng CHỈ từ NAV_NODES + GROUP_ORDER — không còn
+// mảng legacy thứ hai (LEGACY_GROUPS) song song. Pin file-level để refactor Task 4
+// không bị regress về 2 nguồn dữ liệu.
+const registrySource = readFileSync(resolvePath(process.cwd(), 'components/internal/nav/nav-registry.ts'), 'utf8');
+expect(registrySource.includes('LEGACY_GROUPS') === false, 'registry không còn LEGACY_GROUPS (mọi nhóm nguồn từ NAV_NODES)');
+expect(registrySource.includes('LegacyItem') === false, 'registry không còn LegacyItem');
+// POS group phải có groupRoles gate đúng (kể cả item sales-orders-list — ALL roles
+// của node, không phải gate nhóm cũ thiếu item-level filter).
+const posGroup = buildSidebarGroups('employee').find(g => g.title === 'BÁN HÀNG & POS');
+expect(posGroup?.items.some(i => i.id === 'sales-orders-list') === true, 'employee sees sales-orders-list (item level = node.allowedRoles)');
+expect(buildSidebarGroups('cashier').find(g => g.title === 'CSKH & CRM') === undefined, 'cashier không thấy nhóm CSKH (group gate)');
 
 if (failed > 0) {
   console.error(`\n❌ NAV REGISTRY TEST: ${failed} assertions THẤT BẠI`);
