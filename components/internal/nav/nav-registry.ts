@@ -423,10 +423,152 @@ export const NAV_ALIAS: Record<string, string> = {
  *   'shifts' → staff-schedule (defaultSubTab 'shifts' của node) — không cần
  *   special-case vì defaultSubTab đã được set ở NAV_NODES.
  */
-export function resolveNav(activeTab: string): { node?: NavNode; subTab?: string } {
+// ---------------------------------------------------------------------------
+// Task 5 — canonicalize + mapping đích ERP.
+//
+// CẢNH BÁO: không phải mọi alias nên canonicalize. Các id sau đây được loại
+// khỏi canonicalize vì renderer xử lý chúng bằng điều kiện
+// `activeTab === <parent> && <subTab> === <x>` — canonicalize sẽ XÓA phân biệt
+// sub-tab và/hoặc tạo double-render (registry block + domain block cùng bật):
+//   - id GIA ĐÌNH (parent của thanh pill): sales-orders, customers, promotions,
+//     products-inventory, finance-profit
+//   - 'costs' → finance-costs: registry block đã render ExpensesManagementTab,
+//     block 16 cũng render → double
+//   - 'director-global-finance'/'accountant-global-finance' → finance-p-l:
+//     block 13/15 render PL tab → double
+//   - 'director-hr-payroll'/'accountant-hr-payroll' → finance-payroll:
+//     block 14 render AccountantPayrollTab → registry sẽ thêm panel thứ 2
+//   - 'customers-vip'/'cskh-customers-vip' → customers-list: block 18 legacy
+//     không bật cho 2 id này
+//   - 'staff' → finance-payroll: legacy ERP hub render null cho id này
+// ---------------------------------------------------------------------------
+const NON_CANONICAL_IDS = new Set([
+  'sales-orders',
+  'customers',
+  'promotions',
+  'products-inventory',
+  'finance-profit',
+  'costs',
+  'director-global-finance',
+  'accountant-global-finance',
+  'director-hr-payroll',
+  'accountant-hr-payroll',
+  'customers-vip',
+  'cskh-customers-vip',
+  'staff',
+]);
+
+/**
+ * Task 5: canonicalize activeTab về node gốc (chỉ với id lá/alias hợp lệ).
+ * Id GIA ĐÌNH trong NON_CANONICAL_IDS cố ý trả undefined để renderer giữ
+ * nhánh `parent && subTab` cũ — xem resolveNav.
+ */
+export function resolveNode(activeTab: string): NavNode | undefined {
+  if (NON_CANONICAL_IDS.has(activeTab)) return undefined;
   const canonical = NAV_ALIAS[activeTab] ?? activeTab;
-  const node = getActiveNode(canonical);
+  return getActiveNode(canonical);
+}
+
+/**
+ * Chuẩn hoá activeTab (id lá hoặc alias cũ) về node gốc trong NAV_NODES.
+ * - `node`: node tương ứng, hoặc undefined nếu id không xác định (graceful).
+ * - `subTab`: sub-tab mặc định của node (dùng để highlight pill / landing).
+ */
+export function resolveNav(activeTab: string): { node?: NavNode; subTab?: string } {
+  const node = resolveNode(activeTab);
   return { node, subTab: node?.defaultSubTab };
+}
+
+// Component do registry block render trực tiếp (renderer switch). ERP hub
+// phải trả '' cho các id này để tránh double-render.
+// CHỈ 4 component — đúng bằng 4 id mà if-chain cũ suppress ('').
+// 'finance-p-l'/'finance-costs' KHÔNG nằm trong danh sách này: legacy truyền
+// thẳng id xuống hub (hub không có case → default → null), nên trả '' cũng tương
+// đương về RENDER nhưng khác chuỗi — pin tương đương yêu cầu giữ chuỗi.
+const REGISTRY_RENDERED_COMPONENTS = new Set<TabComponentKey>([
+  'finance-recon',
+  'finance-payroll',
+  'products-database',
+  'settings',
+]);
+
+// Đích ERP hub theo id — transcription NGUYÊN VĂN từ if-chain cũ trong
+// InternalTabRenderer (dòng ~341-361). Bảng này KHÔNG canonicalize: giữ đúng
+// hành vi cũ cho mọi id, kể cả id đã chết.
+const ERP_TARGET: Record<string, string> = {
+  'pos-sales': 'pos-sales',
+  'stocker-inventory': 'stocker-inventory',
+  'stocker-transfer': 'stocker-transfer',
+  'damaged-goods': 'damaged-goods',
+  'returns-exchange': 'returns-exchange',
+  'customers-list': 'customers-list',
+  'cskh-hub': 'customers-list',
+  'cskh-customers': 'customers-list',
+  'customers-vip': 'cskh-customers-vip',
+  'cskh-live-chat': 'customers-list',
+  'ai-copilot': 'ai-copilot',
+  'settings-tab': 'settings-tab',
+  // Node id trực tiếp do registry block render → ERP hub render null.
+  'products-database': '',
+  'finance-payroll': '',
+  'finance-recon': '',
+  'settings': '',
+  // Alias của node do registry block render → '' (registry render, chống double).
+  'recon': '',
+  'accountant-kpi-payroll': '',
+};
+
+export interface ErpSubTabState {
+  sales?: string;
+  products?: string;
+  finance?: string;
+  promotions?: string;
+  settings?: string;
+}
+
+/**
+ * Task 5: đích tab cho ERPSubsystems — thuần dữ liệu, test được.
+ * Trả về id mà ERPSubsystems switch nhận, hoặc '' (→ default → null) khi
+ * node đã được registry block render (chống double-render).
+ */
+export function resolveErpTab(activeTab: string, subs: ErpSubTabState = {}): string {
+  // Gia đình (parent) — mapping legacy, giữ nguyên.
+  if (activeTab === 'sales-orders') {
+    if (subs.sales === 'pos') return 'pos-sales';
+    if (subs.sales === 'returns') return 'returns-exchange';
+    return 'sales-orders';
+  }
+  if (activeTab === 'products-inventory') {
+    if (subs.products === 'matrix') return 'stocker-inventory';
+    if (subs.products === 'transfer') return 'stocker-transfer';
+    if (subs.products === 'damaged') return 'damaged-goods';
+    if (subs.products === 'list') return 'products-database';
+    return 'products-inventory';
+  }
+  if (activeTab === 'customers') return 'customers-list';
+  if (activeTab === 'promotions') {
+    if (subs.promotions === 'ai-marketing') return 'ai-copilot';
+    if (subs.promotions === 'coupons') return 'coupons-management';
+    return 'promotions';
+  }
+  if (activeTab === 'finance-profit') {
+    if (subs.finance === 'recon') return 'accountant-finance-recon';
+    return 'finance-profit';
+  }
+  if (activeTab === 'settings-roles') {
+    if (subs.settings === 'brand') return 'settings-tab';
+    if (subs.settings === 'channels') return 'omnichannel';
+    return 'settings-roles';
+  }
+
+  const target = ERP_TARGET[activeTab];
+  if (target !== undefined) return target;
+
+  // Id lá của registry → nếu registry block render thì hub phải null.
+  const node = resolveNode(activeTab);
+  if (node && REGISTRY_RENDERED_COMPONENTS.has(node.component)) return '';
+
+  return activeTab;
 }
 
 export function getNodesForRole(role: UserRole): NavNode[] {

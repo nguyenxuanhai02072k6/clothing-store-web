@@ -9,6 +9,8 @@ import {
   buildSidebarGroups,
   COMPONENT_KEYS,
   resolveNav,
+  resolveNode,
+  resolveErpTab,
 } from '../components/internal/nav/nav-registry';
 import type { UserRole } from '../types';
 
@@ -175,6 +177,113 @@ expect(
   getActiveNode('stocker-inventory')?.defaultSubTab === 'matrix',
   'stocker-inventory defaultSubTab = matrix (khớp landing legacy)'
 );
+
+// 15. Slice 2 Task 5 — resolveNode + resolveErpTab: renderer đọc node/đích
+//     ERPSubsystems từ registry thay vì chuỗi if-chain alias rải rác.
+//     Pin BẢN ĐỒ ĐÍCH (giữ nguyên mapping cũ cho mọi id lá reachable).
+expect(resolveNode('cskh-live-chat')?.id === 'cskh-hub', 'alias cskh-live-chat → node cskh-hub');
+expect(resolveNode('shifts')?.id === 'staff-schedule', 'alias shifts → node staff-schedule');
+expect(resolveNode('unknown-id-xyz') === undefined, 'id lạ → undefined node');
+// Id lá (live, producible) luôn canonicalize về chính nó:
+expect(resolveNode('sales-orders-list')?.id === 'sales-orders-list', 'id lá sales-orders-list → node');
+expect(resolveNode('recon')?.id === 'finance-recon', 'alias live recon → node finance-recon');
+expect(resolveNode('branch-stock')?.id === 'stocker-inventory', 'alias live branch-stock → node');
+expect(resolveNode('products-inventory') === undefined, 'id gia đình products-inventory không canonicalize');
+
+expect(resolveErpTab('pos-sales') === 'pos-sales', 'ERP: pos-sales');
+expect(resolveErpTab('sales-orders-list') === 'sales-orders-list', 'ERP: sales-orders-list (không case ERP → null)');
+expect(resolveErpTab('cskh-hub') === 'customers-list', 'ERP: cskh-hub → customers-list (giữ mapping cũ)');
+expect(resolveErpTab('customers-list') === 'customers-list', 'ERP: customers-list');
+expect(resolveErpTab('returns-exchange') === 'returns-exchange', 'ERP: returns-exchange');
+expect(resolveErpTab('ai-copilot') === 'ai-copilot', 'ERP: ai-copilot');
+expect(resolveErpTab('stocker-inventory') === 'stocker-inventory', 'ERP: stocker-inventory');
+expect(resolveErpTab('stocker-transfer') === 'stocker-transfer', 'ERP: stocker-transfer');
+expect(resolveErpTab('damaged-goods') === 'damaged-goods', 'ERP: damaged-goods');
+expect(resolveErpTab('restock') === 'restock', 'ERP: restock');
+expect(resolveErpTab('reviews') === 'reviews', 'ERP: reviews');
+expect(resolveErpTab('overview') === 'overview', 'ERP: overview');
+// Node id trực tiếp do registry block render → ERP hub phải null (chống double-render)
+expect(resolveErpTab('products-database') === '', 'ERP: products-database → null (registry render)');
+expect(resolveErpTab('finance-payroll') === '', 'ERP: finance-payroll → null (registry render)');
+expect(resolveErpTab('finance-recon') === '', 'ERP: finance-recon → null (registry render)');
+expect(resolveErpTab('settings') === '', 'ERP: settings → null (registry render)');
+// settings-roles: đích phụ thuộc sub-tab (brand/channels) — không phải id node
+expect(resolveErpTab('settings-roles', { settings: 'brand' }) === 'settings-tab', 'ERP: settings-roles+brand → settings-tab');
+expect(resolveErpTab('settings-roles', { settings: 'channels' }) === 'omnichannel', 'ERP: settings-roles+channels → omnichannel');
+expect(resolveErpTab('settings-roles', { settings: 'announcements' }) === 'settings-roles', 'ERP: settings-roles+announcements → giữ nguyên');
+// Alias cũ canonicalize về đích tương ứng
+expect(resolveErpTab('cskh-live-chat') === 'customers-list', 'ERP: alias cskh-live-chat → customers-list');
+expect(resolveErpTab('recon') === '', 'ERP: alias recon → finance-recon → null (registry render, chống double)');
+
+// 15b. Task 5 — TƯƠNG ĐƯƠNG TUYỆT ĐỐI với if-chain ERP cũ.
+// Đây là pin quan trọng nhất của Task 5: bảng ERP_TARGET mới PHẢI cho ra
+// đúng đích của if-chain cũ cho MỌI id (kể cả id đã chết). Nếu lệch → double-render
+// hoặc mất panel.
+const legacyErpTarget = (
+  activeTab: string,
+  sales: string,
+  products: string,
+  finance: string,
+  promotions: string,
+  settings: string
+): string => {
+  if (activeTab === 'pos-sales' || (activeTab === 'sales-orders' && sales === 'pos')) return 'pos-sales';
+  if (activeTab === 'stocker-inventory' || (activeTab === 'products-inventory' && products === 'matrix')) return 'stocker-inventory';
+  if (activeTab === 'stocker-transfer' || (activeTab === 'products-inventory' && products === 'transfer')) return 'stocker-transfer';
+  if (activeTab === 'damaged-goods' || (activeTab === 'products-inventory' && products === 'damaged')) return 'damaged-goods';
+  if (activeTab === 'products-inventory' && products === 'list') return 'products-database';
+  if (activeTab === 'returns-exchange' || (activeTab === 'sales-orders' && sales === 'returns')) return 'returns-exchange';
+  if (activeTab === 'customers-list' || activeTab === 'cskh-hub' || activeTab === 'customers' || activeTab === 'cskh-customers') return 'customers-list';
+  if (activeTab === 'customers-vip') return 'cskh-customers-vip';
+  if (activeTab === 'finance-profit' && finance === 'recon') return 'accountant-finance-recon';
+  if (activeTab === 'ai-copilot' || (activeTab === 'promotions' && promotions === 'ai-marketing')) return 'ai-copilot';
+  if (activeTab === 'coupons-management' || (activeTab === 'promotions' && promotions === 'coupons')) return 'coupons-management';
+  if (activeTab === 'settings-tab' || (activeTab === 'settings-roles' && settings === 'brand')) return 'settings-tab';
+  if (activeTab === 'settings-roles' && settings === 'channels') return 'omnichannel';
+  if (activeTab === 'products-database' || activeTab === 'finance-payroll' || activeTab === 'finance-recon' || activeTab === 'settings') return '';
+  return activeTab;
+};
+const ERP_IDS = [
+  'pos-sales', 'sales-orders', 'sales-orders-list', 'stocker-inventory', 'stocker-transfer',
+  'damaged-goods', 'restock', 'products-inventory', 'products-database', 'returns-exchange',
+  'customers-list', 'cskh-hub', 'cskh-customers', 'customers', 'customers-vip', 'cskh-customers-vip',
+  'reviews', 'ai-copilot', 'coupons-management', 'promotions', 'finance-profit', 'finance-p-l',
+  'finance-costs', 'finance-payroll', 'finance-recon', 'recon', 'costs', 'settings', 'settings-tab',
+  'settings-roles', 'omnichannel', 'overview', 'staff-schedule', 'attendance', 'announcements',
+  'audit-logs', 'shifts', 'cskh-live-chat', 'cskh-orders', 'cskh-reviews', 'branch-stock',
+  'manager-stock', 'accountant-operations', 'director-global-finance', 'accountant-global-finance',
+  'director-hr-payroll', 'accountant-hr-payroll', 'accountant-kpi-payroll', 'staff',
+];
+const SUB_VALUES = ['pos', 'list', 'returns', 'chat', 'matrix', 'transfer', 'damaged', 'restock',
+  'recon', 'p-l', 'costs', 'coupons', 'ai-marketing', 'brand', 'channels', 'announcements', 'audit-logs'];
+// Sub-tab defaults (khớp useState trong hook): biến MỘT chiều mỗi lần để
+// mapping mới không lệch if-chain cũ ở ca độc lập.
+const SUB_DEFAULTS = { sales: 'pos', products: 'list', finance: 'p-l', promotions: 'coupons', settings: 'brand' };
+const SUB_DIMS = Object.keys(SUB_DEFAULTS) as Array<keyof typeof SUB_DEFAULTS>;
+let erpMismatch = 0;
+for (const id of ERP_IDS) {
+  // Ca defaults
+  let expected = legacyErpTarget(id, SUB_DEFAULTS.sales, SUB_DEFAULTS.products, SUB_DEFAULTS.finance, SUB_DEFAULTS.promotions, SUB_DEFAULTS.settings);
+  let actual = resolveErpTab(id, { ...SUB_DEFAULTS });
+  if (expected !== actual) {
+    erpMismatch++;
+    console.error(`   ❌ ERP mismatch id=${id} (defaults): cũ=${expected} mới=${actual}`);
+  }
+  // Mỗi chiều × mỗi giá trị (các chiều khác giữ default)
+  for (const dim of SUB_DIMS) {
+    for (const v of SUB_VALUES) {
+      const s = { ...SUB_DEFAULTS, [dim]: v };
+      expected = legacyErpTarget(id, s.sales, s.products, s.finance, s.promotions, s.settings);
+      actual = resolveErpTab(id, s);
+      if (expected !== actual) {
+        erpMismatch++;
+        console.error(`   ❌ ERP mismatch id=${id} ${dim}=${v}: cũ=${expected} mới=${actual}`);
+      }
+    }
+  }
+}
+const erpCases = ERP_IDS.length * (1 + SUB_DIMS.length * SUB_VALUES.length);
+expect(erpMismatch === 0, `ERP mapping tương đương if-chain cũ (${erpCases} ca: ${ERP_IDS.length} ids × chiều sub-tab)`);
 
 // 14. Slice 2 Task 4 — sidebar các vùng POS/CSKH/KHO single-sourced từ NAV_NODES:
 //     pin behavior (giữ nguyên output cũ) + pin cấu trúc (không còn
