@@ -6,7 +6,7 @@ import { SettingsSubsystem } from '../subsystems/SettingsSubsystem';
 import FinanceReconSubsystem from '../subsystems/FinanceReconSubsystem';
 import { AccountantPayrollSubsystem } from '../subsystems/AccountantPayrollSubsystem';
 import { ProductsDatabaseSubsystem } from '../subsystems/ProductsDatabaseSubsystem';
-import { getActiveNode } from '../nav/nav-registry';
+import { resolveNav, resolveErpTab } from '../nav/nav-registry';
 import PermissionGuard from '../PermissionGuard';
 import CampaignCopilot from '../CampaignCopilot';
 
@@ -216,6 +216,11 @@ export const InternalTabRenderer: React.FC<InternalTabRendererProps> = ({
   pendingOrdersCount,
   returnRate,
 }) => {
+  // Task 5: canonicalize activeTab → node registry (mọi alias trỏ về node gốc).
+  // Id GIA ĐÌNH (NON_CANONICAL_IDS: sales-orders, customers, promotions,
+  // products-inventory, finance-profit...) trả undefined → các block bên dưới
+  // vẫn dùng nhánh `parent && subTab` legacy, không đổi behavior.
+  const { node: canonicalNode } = resolveNav(activeTab);
   return (
     <>
       {/* --- REGISTRY-DRIVEN (Task 4): node.component render trực tiếp ---
@@ -224,9 +229,9 @@ export const InternalTabRenderer: React.FC<InternalTabRendererProps> = ({
           finance-recon/products-database/settings) đã bị suppress ở ERPSubsystems
           chain + các domain block bên dưới; alias "gia đình sub-tab"
           (finance-profit & financeProfitSubTab, staff-schedule & staffScheduleSubTab...)
-          và vùng POS/CSKH/KHO giữ nguyên cho lát sau (Task 5). */}
+          giữ nguyên. */}
       {(() => {
-        const node = getActiveNode(activeTab);
+        const node = canonicalNode;
         if (!node) return null;
         const subs = subsystemsState;
         switch (node.component) {
@@ -338,28 +343,13 @@ export const InternalTabRenderer: React.FC<InternalTabRendererProps> = ({
 
       {/* --- ERP SUBSYSTEMS INTEGRATION HUB --- */}
       <ERPSubsystems
-        activeTab={
-          activeTab === 'pos-sales' || (activeTab === 'sales-orders' && salesOrdersSubTab === 'pos') ? 'pos-sales' :
-          activeTab === 'stocker-inventory' || (activeTab === 'products-inventory' && productsInventorySubTab === 'matrix') ? 'stocker-inventory' :
-          activeTab === 'stocker-transfer' || (activeTab === 'products-inventory' && productsInventorySubTab === 'transfer') ? 'stocker-transfer' :
-          activeTab === 'damaged-goods' || (activeTab === 'products-inventory' && productsInventorySubTab === 'damaged') ? 'damaged-goods' :
-          activeTab === 'products-inventory' && productsInventorySubTab === 'list' ? 'products-database' :
-          activeTab === 'returns-exchange' || (activeTab === 'sales-orders' && salesOrdersSubTab === 'returns') ? 'returns-exchange' :
-          activeTab === 'customers-list' || activeTab === 'cskh-hub' || activeTab === 'customers' || activeTab === 'cskh-customers' ? 'customers-list' :
-          activeTab === 'customers-vip' ? 'cskh-customers-vip' :
-          // 'finance-recon' + 'finance-payroll' đã giao cho registry block (Task 4);
-          // alias 'recon' gia đình finance-profit giữ nguyên (Task 5 migrates).
-          (activeTab === 'finance-profit' && financeProfitSubTab === 'recon') ? 'accountant-finance-recon' :
-          activeTab === 'ai-copilot' || (activeTab === 'promotions' && promotionsSubTab === 'ai-marketing') ? 'ai-copilot' :
-          activeTab === 'coupons-management' || (activeTab === 'promotions' && promotionsSubTab === 'coupons') ? 'coupons-management' :
-          activeTab === 'settings-tab' || (activeTab === 'settings-roles' && settingsRolesSubTab === 'brand') ? 'settings-tab' :
-          activeTab === 'settings-roles' && settingsRolesSubTab === 'channels' ? 'omnichannel' :
-          // Node id trực tiếp do registry block render (Task 4) — ERP hub phải
-          // render null (key '' → default) để tránh double-render; alias gia
-          // đình (recon, accountant-kpi-payroll, settings-tab...) giữ nguyên.
-          activeTab === 'products-database' || activeTab === 'finance-payroll' || activeTab === 'finance-recon' || activeTab === 'settings' ? '' :
-          activeTab
-        }
+        activeTab={resolveErpTab(activeTab, {
+          sales: salesOrdersSubTab,
+          products: productsInventorySubTab,
+          finance: financeProfitSubTab,
+          promotions: promotionsSubTab,
+          settings: settingsRolesSubTab,
+        })}
         currentUser={currentUser}
         usersList={usersList}
         productsList={productsList}

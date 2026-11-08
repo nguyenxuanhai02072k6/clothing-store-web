@@ -409,6 +409,7 @@ export const NAV_ALIAS: Record<string, string> = {
   'returns-exchange': 'returns-exchange',
   'customers-list': 'customers-list',
   'reviews': 'reviews',
+  'cskh-reviews': 'reviews',
   'ai-copilot': 'ai-copilot',
   'stocker-inventory': 'stocker-inventory',
   'stocker-transfer': 'stocker-transfer',
@@ -505,9 +506,12 @@ const ERP_TARGET: Record<string, string> = {
   'cskh-hub': 'customers-list',
   'cskh-customers': 'customers-list',
   'customers-vip': 'cskh-customers-vip',
-  'cskh-live-chat': 'customers-list',
+  // 'cskh-live-chat' KHÔNG nằm trong danh sách legacy (if-chain cũ chỉ có
+  // customers-list/cskh-hub/customers/cskh-customers) → legacy passthrough
+  // 'cskh-live-chat' → hub không có case → null. Giữ passthrough để trung
+  // thành if-chain cũ (trước đây map sang 'customers-list' → sai).
+  'cskh-live-chat': 'cskh-live-chat',
   'ai-copilot': 'ai-copilot',
-  'settings-tab': 'settings-tab',
   // Node id trực tiếp do registry block render → ERP hub render null.
   'products-database': '',
   'finance-payroll': '',
@@ -516,6 +520,13 @@ const ERP_TARGET: Record<string, string> = {
   // Alias của node do registry block render → '' (registry render, chống double).
   'recon': '',
   'accountant-kpi-payroll': '',
+  // Alias của node do registry block render → '' (registry render, chống
+  // double). 'settings-tab' là alias của node 'settings' (NAV_ALIAS): khi
+  // renderer canonicalize (Task 5 Step 2), 'settings-tab' → node settings →
+  // registry block render SettingsSubsystem. Hub phải trả '' để không double-render.
+  // (Legacy if-chain truyền 'settings-tab' thẳng xuống hub — nhưng 'settings-tab'
+  // là id DEAD, không có producer, nên không ảnh hưởng UI live.)
+  'settings-tab': '',
 };
 
 export interface ErpSubTabState {

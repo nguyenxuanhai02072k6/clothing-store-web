@@ -212,8 +212,12 @@ expect(resolveErpTab('settings-roles', { settings: 'brand' }) === 'settings-tab'
 expect(resolveErpTab('settings-roles', { settings: 'channels' }) === 'omnichannel', 'ERP: settings-roles+channels → omnichannel');
 expect(resolveErpTab('settings-roles', { settings: 'announcements' }) === 'settings-roles', 'ERP: settings-roles+announcements → giữ nguyên');
 // Alias cũ canonicalize về đích tương ứng
-expect(resolveErpTab('cskh-live-chat') === 'customers-list', 'ERP: alias cskh-live-chat → customers-list');
+// Alias DEAD (không có producer) — phải giữ đúng hành vi legacy (passthrough).
+expect(resolveErpTab('cskh-live-chat') === 'cskh-live-chat', 'ERP: alias cskh-live-chat → passthrough (legacy: hub null)');
 expect(resolveErpTab('recon') === '', 'ERP: alias recon → finance-recon → null (registry render, chống double)');
+// 'settings-tab' là alias của node 'settings' → registry block render SettingsSubsystem.
+// Hub PHẢI trả '' để không double-render (registry + hub cùng SettingsSubsystem).
+expect(resolveErpTab('settings-tab') === '', 'ERP: settings-tab → null (registry render, chống double)');
 
 // 15b. Task 5 — TƯƠNG ĐƯƠNG TUYỆT ĐỐI với if-chain ERP cũ.
 // Đây là pin quan trọng nhất của Task 5: bảng ERP_TARGET mới PHẢI cho ra
@@ -260,30 +264,72 @@ const SUB_VALUES = ['pos', 'list', 'returns', 'chat', 'matrix', 'transfer', 'dam
 // mapping mới không lệch if-chain cũ ở ca độc lập.
 const SUB_DEFAULTS = { sales: 'pos', products: 'list', finance: 'p-l', promotions: 'coupons', settings: 'brand' };
 const SUB_DIMS = Object.keys(SUB_DEFAULTS) as Array<keyof typeof SUB_DEFAULTS>;
-let erpMismatch = 0;
+// --- Tiêu chí pin 15b (đã ruling) ---
+// (A) MỌI id (và mọi chiều sub-tab): chuỗi resolveErpTab phải GIỐNG HỆT
+//     if-chain legacy — chuỗi này đi vào ERPSubsystems.activeTab và nuôi
+//     switch bên trong (CSKHCRMSubsystem) → đổi chuỗi = đổi UI.
+// (B) 3 alias DEAD (recon, accountant-kpi-payroll, settings-tab): không có
+// producer → UI live không chạm. Cho phép chuỗi khác, nhưng TẬP COMPONENT
+// render NET (hub + registry block) phải tương đương (panel di chuyển
+// hub→registry, không được biến mất / double).
+// cskh-live-chat đã sửa về passthrough (khớp legacy) → không cần exempt.
+const STRING_EXEMPT_DEAD = new Set(['recon', 'accountant-kpi-payroll', 'settings-tab']);
+
+// (A) — toàn bộ ERP_IDS × mọi chiều sub-tab, trừ 3 alias DEAD ở (B).
+let stringMismatch = 0;
 for (const id of ERP_IDS) {
-  // Ca defaults
-  let expected = legacyErpTarget(id, SUB_DEFAULTS.sales, SUB_DEFAULTS.products, SUB_DEFAULTS.finance, SUB_DEFAULTS.promotions, SUB_DEFAULTS.settings);
-  let actual = resolveErpTab(id, { ...SUB_DEFAULTS });
+  if (STRING_EXEMPT_DEAD.has(id)) continue;
+  const expected = legacyErpTarget(id, SUB_DEFAULTS.sales, SUB_DEFAULTS.products, SUB_DEFAULTS.finance, SUB_DEFAULTS.promotions, SUB_DEFAULTS.settings);
+  const actual = resolveErpTab(id, { ...SUB_DEFAULTS });
   if (expected !== actual) {
-    erpMismatch++;
-    console.error(`   ❌ ERP mismatch id=${id} (defaults): cũ=${expected} mới=${actual}`);
+    stringMismatch++;
+    console.error(`   ❌ ERP mismatch (string) id=${id} (defaults): cũ=${expected} mới=${actual}`);
   }
-  // Mỗi chiều × mỗi giá trị (các chiều khác giữ default)
   for (const dim of SUB_DIMS) {
     for (const v of SUB_VALUES) {
       const s = { ...SUB_DEFAULTS, [dim]: v };
-      expected = legacyErpTarget(id, s.sales, s.products, s.finance, s.promotions, s.settings);
-      actual = resolveErpTab(id, s);
-      if (expected !== actual) {
-        erpMismatch++;
-        console.error(`   ❌ ERP mismatch id=${id} ${dim}=${v}: cũ=${expected} mới=${actual}`);
+      const e2 = legacyErpTarget(id, s.sales, s.products, s.finance, s.promotions, s.settings);
+      const a2 = resolveErpTab(id, s);
+      if (e2 !== a2) {
+        stringMismatch++;
+        console.error(`   ❌ ERP mismatch (string) id=${id} ${dim}=${v}: cũ=${e2} mới=${a2}`);
       }
     }
   }
 }
-const erpCases = ERP_IDS.length * (1 + SUB_DIMS.length * SUB_VALUES.length);
-expect(erpMismatch === 0, `ERP mapping tương đương if-chain cũ (${erpCases} ca: ${ERP_IDS.length} ids × chiều sub-tab)`);
+expect(stringMismatch === 0, `ERP string giống hệt if-chain cũ (46/49 ids × ${1 + SUB_DIMS.length * SUB_VALUES.length} ca, trừ 3 DEAD)`);
+
+// (B) — 3 alias DEAD: tập component render net phải tương đương.
+// Hub: chuỗi → component (transcription từ switch ERPSubsystems.tsx).
+const HUB_COMPONENT: Record<string, string> = {
+  'accountant-kpi-payroll': 'AccountantPayrollSubsystem',
+  'recon': 'FinanceReconSubsystem',
+  'settings-tab': 'SettingsSubsystem',
+};
+
+// Registry block (switch node.component trong InternalTabRenderer) → component.
+const REGISTRY_COMPONENT: Record<string, string> = {
+  'finance-recon': 'FinanceReconSubsystem',
+  'finance-payroll': 'AccountantPayrollSubsystem',
+  'settings': 'SettingsSubsystem',
+};
+
+let deadMismatch = 0;
+for (const id of STRING_EXEMPT_DEAD) {
+  const oldHub = HUB_COMPONENT[legacyErpTarget(id, SUB_DEFAULTS.sales, SUB_DEFAULTS.products, SUB_DEFAULTS.finance, SUB_DEFAULTS.promotions, SUB_DEFAULTS.settings)] ?? null;
+  const newHub = HUB_COMPONENT[resolveErpTab(id, { ...SUB_DEFAULTS })] ?? null;
+  // Cũ: registry switch dùng getActiveNode (raw, không resolve alias).
+  // Mới: dùng resolveNode (alias-aware) — panel di chuyển sang registry block.
+  const oldReg = REGISTRY_COMPONENT[getActiveNode(id)?.component ?? ''] ?? null;
+  const newReg = REGISTRY_COMPONENT[resolveNode(id)?.component ?? ''] ?? null;
+  const oldSet = [oldHub, oldReg].filter(Boolean).sort().join('+');
+  const newSet = [newHub, newReg].filter(Boolean).sort().join('+');
+  if (oldSet !== newSet) {
+    deadMismatch++;
+    console.error(`   ❌ ERP component-set mismatch (dead) id=${id}: cũ=[${oldSet}] mới=[${newSet}]`);
+  }
+}
+expect(deadMismatch === 0, 'ERP tập component render net tương đương trên 2 alias DEAD (recon, accountant-kpi-payroll)');
 
 // 14. Slice 2 Task 4 — sidebar các vùng POS/CSKH/KHO single-sourced từ NAV_NODES:
 //     pin behavior (giữ nguyên output cũ) + pin cấu trúc (không còn
