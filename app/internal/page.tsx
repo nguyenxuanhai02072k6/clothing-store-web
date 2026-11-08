@@ -16,6 +16,7 @@ import { InternalTabRenderer } from '../../components/internal/tabs/InternalTabR
 
 // Custom Domain Hooks
 import { useInternalNavigationState } from '../../components/internal/hooks/useInternalNavigationState';
+import { isAuditLogsTab } from '../../components/internal/nav/nav-registry';
 import { useInternalSubsystemsState } from '../../components/internal/hooks/useInternalSubsystemsState';
 import { useInternalFinanceCalculations } from '../../components/internal/hooks/useInternalFinanceCalculations';
 
@@ -149,11 +150,9 @@ export default function InternalDashboardPage() {
   };
 
   useEffect(() => {
-    if (
-      (nav.activeTab === 'audit-logs' ||
-        (nav.activeTab === 'settings-roles' && nav.settingsRolesSubTab === 'audit-logs')) &&
-      currentUser?.role === 'director'
-    ) {
+    // Task 6: điều kiện canonical hoá qua registry (giữ đúng nhánh legacy:
+    // id trực tiếp 'audit-logs' + nhánh gia đình settings-roles).
+    if (isAuditLogsTab(nav.activeTab, nav.settingsRolesSubTab) && currentUser?.role === 'director') {
       fetchAuditLogs();
     }
   }, [nav.activeTab, nav.settingsRolesSubTab, currentUser?.role]);

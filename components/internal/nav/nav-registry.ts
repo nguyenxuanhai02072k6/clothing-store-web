@@ -480,6 +480,54 @@ export function resolveNav(activeTab: string): { node?: NavNode; subTab?: string
   return { node, subTab: node?.defaultSubTab };
 }
 
+/**
+ * Task 6: tên tiêu đề trang cho activeTab (id lá, alias, hoặc family-parent).
+ * Canonical hóa alias qua NAV_ALIAS rồi trả `node.name`; family-parent
+ * (settings-roles, finance-profit...) + id lạ → undefined → UI fallback
+ * sang sidebar lookup / title mặc định (giữ đúng nhánh pill chạy).
+ */
+export function canonicalTitle(activeTab: string): string | undefined {
+  // Dùng NAV_ALIAS trực tiếp, KHÔNG qua resolveNode: family-parent
+  // (costs/staff/finance-profit) nằm trong NON_CANONICAL_IDS nên resolveNode
+  // trả undefined — nhưng legacy AppHeader VẪN gán title cho chúng (theo node
+  // mà alias trỏ tới). Title chỉ là nhãn, không cần giữ phân biệt sub-tab
+  // như renderer → canonical hóa alias đầy đủ.
+  const node = getActiveNode(NAV_ALIAS[activeTab] ?? activeTab);
+  return node?.name;
+}
+
+/**
+ * Task 6: workspace (tab header) cho activeTab. Id lá + alias → node.group;
+ * family-parent + id lạ → 'management' (workspace mặc định, như return cuối
+ * của getActiveWorkspace cũ). KHÔNG dùng NON_CANONICAL check: AppHeader cần
+ * workspace đúng cho gia đình (finance-profit → finance).
+ */
+export function canonicalWorkspace(activeTab: string): string {
+  const node = getActiveNode(NAV_ALIAS[activeTab] ?? activeTab);
+  return node?.group ?? 'management';
+}
+
+/**
+ * Task 6: activeTab có trỏ tới node 'audit-logs' hay không — dùng cho điều
+ * kiện fetch audit log.
+ *
+ * KHÔNG dùng `resolveNav(...).node?.id` cho việc này: 'settings-roles' là
+ * family-parent, KHÔNG có trong NAV_ALIAS → resolveNav trả undefined → nhánh
+ * fetch dưới pill 'audit-logs' của settings-roles sẽ chết âm thầm.
+ * Ở đây canonical hóa alias đầy đủ (kể cả family-parent) → 'settings-roles'
+ * trỏ về node 'settings', và sub-tab quyết định có phải audit hay không.
+ */
+export function isAuditLogsTab(activeTab: string, settingsSubTab?: string): boolean {
+  const canonical = NAV_ALIAS[activeTab] ?? activeTab;
+  if (canonical === 'audit-logs') return true;
+  // Nhánh gia đình: 'settings-roles' là family-parent REACHABLE (hook set khi
+  // accountant bấm pill 'channels'), KHÔNG phải alias trong NAV_ALIAS → phải
+  // giữ điều kiện thô activeTab === 'settings-roles' (đúng legacy page.tsx),
+  // sub-tab quyết định có phải nhật ký hay không.
+  if (activeTab === 'settings-roles' && settingsSubTab === 'audit-logs') return true;
+  return false;
+}
+
 // Component do registry block render trực tiếp (renderer switch). ERP hub
 // phải trả '' cho các id này để tránh double-render.
 // CHỈ 4 component — đúng bằng 4 id mà if-chain cũ suppress ('').

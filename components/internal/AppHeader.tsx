@@ -21,7 +21,7 @@ import {
   Layers,
   LayoutGrid
 } from 'lucide-react';
-import { buildSidebarGroups } from './nav/nav-registry';
+import { buildSidebarGroups, canonicalTitle, canonicalWorkspace } from './nav/nav-registry';
 import CommandPalette from './CommandPalette';
 
 interface AppHeaderProps {
@@ -89,13 +89,7 @@ export default function AppHeader({
     { id: 'finance', label: 'Kế Toán', icon: DollarSign, defaultTab: 'finance-costs' },
   ];
 
-  const getActiveWorkspace = (tab: string) => {
-    if (['pos-sales', 'pos', 'sales-orders-list'].includes(tab)) return 'pos';
-    if (['cskh-hub', 'cskh-live-chat', 'returns-exchange', 'customers-list', 'customers', 'reviews', 'ai-copilot'].includes(tab)) return 'cskh';
-    if (['stocker-inventory', 'stocker-transfer', 'damaged-goods', 'restock'].includes(tab)) return 'warehouse';
-    if (['finance-costs', 'costs', 'finance-payroll', 'finance-recon', 'recon', 'finance-p-l', 'finance-profit'].includes(tab)) return 'finance';
-    return 'management';
-  };
+  const getActiveWorkspace = (tab: string) => canonicalWorkspace(tab);
 
   const currentWorkspace = getActiveWorkspace(activeTab);
 
@@ -104,15 +98,12 @@ export default function AppHeader({
   const sidebarGroups = currentUser ? buildSidebarGroups(currentUser.role) : [];
 
   // Find page title from sidebar registry
+  // Task 6: nhãn lấy từ NavRegistry (canonicalTitle) thay chuỗi alias hardcode.
+  // canonicalTitle đã trả đúng tên node cho MỌI alias legacy (verify parity:
+  // cskh-live-chat/cskh-orders/costs/staff/recon/finance-profit/shifts...).
   const getPageTitle = () => {
-    if (activeTab === 'cskh-hub' || activeTab === 'cskh-live-chat') return 'CSKH Console (Live Chat)';
-    if (activeTab === 'sales-orders-list' || activeTab === 'cskh-orders') return 'Danh sách đơn hàng';
-    if (activeTab === 'finance-costs' || activeTab === 'costs') return 'Sổ quỹ Thu - Chi';
-    if (activeTab === 'finance-payroll' || activeTab === 'staff') return 'Bảng lương & Hoa hồng';
-    if (activeTab === 'finance-recon' || activeTab === 'recon') return 'Chốt ca & Đối soát két';
-    if (activeTab === 'finance-p-l' || activeTab === 'finance-profit') return 'Báo cáo Lợi nhuận P&L';
-    if (activeTab === 'staff-schedule' || activeTab === 'shifts') return 'Lịch ca & Nhân sự';
-    if (activeTab === 'damaged-goods') return 'Biên bản hàng lỗi';
+    const registryTitle = canonicalTitle(activeTab);
+    if (registryTitle) return registryTitle;
 
     let title = 'Hệ thống vận hành';
     sidebarGroups.forEach((g) => {

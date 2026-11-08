@@ -11,6 +11,9 @@ import {
   resolveNav,
   resolveNode,
   resolveErpTab,
+  canonicalTitle,
+  canonicalWorkspace,
+  isAuditLogsTab,
 } from '../components/internal/nav/nav-registry';
 import type { UserRole } from '../types';
 
@@ -352,6 +355,34 @@ expect(registrySource.includes('LegacyItem') === false, 'registry không còn Le
 const posGroup = buildSidebarGroups('employee').find(g => g.title === 'BÁN HÀNG & POS');
 expect(posGroup?.items.some(i => i.id === 'sales-orders-list') === true, 'employee sees sales-orders-list (item level = node.allowedRoles)');
 expect(buildSidebarGroups('cashier').find(g => g.title === 'CSKH & CRM') === undefined, 'cashier không thấy nhóm CSKH (group gate)');
+
+// 16. Task 6 — canonicalTitle / canonicalWorkspace (alias canonical hóa qua
+//     NAV_ALIAS; title = tên node; workspace = group node). Family-parent
+//     (settings-roles, finance-profit...) và id lạ → undefined (UI fallback
+//     sang sidebar/default), KHÔNG canonical hóa (giữ nhánh pill chạy).
+expect(canonicalTitle('recon') === 'Chốt ca & Đối soát két', 'title: alias recon → node finance-recon');
+expect(canonicalTitle('settings-tab') === 'Cài đặt thương hiệu', 'title: alias settings-tab → node settings');
+expect(canonicalTitle('staff') === 'Bảng lương & Hoa hồng', 'title: alias staff → node finance-payroll');
+expect(canonicalTitle('damaged-goods') === 'Biên bản hàng lỗi', 'title: node trực tiếp');
+expect(canonicalTitle('settings-roles') === undefined, 'title: family-parent settings-roles → undefined');
+expect(canonicalTitle('unknown-xyz') === undefined, 'title: id lạ → undefined');
+expect(canonicalWorkspace('recon') === 'finance', 'workspace: alias recon → finance');
+expect(canonicalWorkspace('pos') === 'pos', 'workspace: alias pos → pos');
+expect(canonicalWorkspace('cskh-live-chat') === 'cskh', 'workspace: alias cskh-live-chat → cskh');
+expect(canonicalWorkspace('overview') === 'management', 'workspace: overview → management');
+expect(canonicalWorkspace('settings-tab') === 'management', 'workspace: settings-tab → management');
+expect(canonicalWorkspace('unknown-xyz') === 'management', 'workspace: id lạ → default management');
+
+// 17. Task 6 — isAuditLogsTab (điều kiện fetch audit log trong page.tsx):
+//     phải khớp đúng legacy: activeTab==='audit-logs' ||
+//     (activeTab==='settings-roles' && settingsRolesSubTab==='audit-logs').
+expect(isAuditLogsTab('audit-logs') === true, 'audit: id trực tiếp');
+expect(isAuditLogsTab('settings-roles', 'audit-logs') === true, 'audit: settings-roles + sub audit-logs');
+expect(isAuditLogsTab('settings-roles', 'brand') === false, 'audit: settings-roles + sub brand → false');
+expect(isAuditLogsTab('settings', 'audit-logs') === false, 'audit: node settings + sub audit-logs → false (không phải legacy branch)');
+expect(isAuditLogsTab('settings-tab', 'audit-logs') === false, 'audit: alias settings-tab → false (legacy cũng false)');
+expect(isAuditLogsTab('overview') === false, 'audit: id khác → false');
+expect(isAuditLogsTab('unknown-xyz') === false, 'audit: id lạ → false');
 
 if (failed > 0) {
   console.error(`\n❌ NAV REGISTRY TEST: ${failed} assertions THẤT BẠI`);
