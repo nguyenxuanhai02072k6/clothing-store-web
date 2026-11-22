@@ -6,9 +6,9 @@ export interface PaymentGatewayConfig {
   gatewayUrl: string;
 }
 
-const DEFAULT_SECRET = process.env.PAYMENT_HASH_SECRET || 'novyn-fashion-payment-secure-hash-secret-2026';
-const GATEWAY_URL = process.env.PAYMENT_GATEWAY_URL || 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
-const MERCHANT_ID = process.env.PAYMENT_MERCHANT_ID || 'NOVYN001';
+const DEFAULT_SECRET = process.env.PAYMENT_HASH_SECRET || process.env.VNP_HASH_SECRET || 'novyn-fashion-payment-secure-hash-secret-2026';
+const GATEWAY_URL = process.env.PAYMENT_GATEWAY_URL || process.env.VNP_URL || 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
+const MERCHANT_ID = process.env.PAYMENT_MERCHANT_ID || process.env.VNP_TMN_CODE || 'NOVYN001';
 
 /**
  * Computes an HMAC-SHA512 hash over sorted query parameters (Standard for VNPAY/MoMo/Banking gateways)

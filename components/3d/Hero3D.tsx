@@ -128,13 +128,14 @@ export default function Hero3D() {
     animate();
 
     // 7. Cleanup
+    const container = containerRef.current;
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('resize', handleResize);
       
-      if (containerRef.current && renderer.domElement) {
-        containerRef.current.removeChild(renderer.domElement);
+      if (container && renderer.domElement && container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
       }
       
       geometry.dispose();

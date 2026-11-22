@@ -74,6 +74,7 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/database ./database
 COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/next.config.ts ./next.config.ts
 
 # Ensure runtime directories are writable by nextjs user
 RUN mkdir -p /app/database /tmp && \

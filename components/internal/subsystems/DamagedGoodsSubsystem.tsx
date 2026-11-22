@@ -58,7 +58,6 @@ export const DamagedGoodsSubsystem: React.FC<DamagedGoodsSubsystemProps> = ({
 
       const updated = [res.data, ...damagedGoods.filter((d) => d.id !== res.data.id)];
       setDamagedGoods(updated);
-      localStorage.setItem('novyn_damaged_goods', JSON.stringify(updated));
 
       if (refreshInventoryStocks) {
         await refreshInventoryStocks();

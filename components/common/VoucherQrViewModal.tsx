@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { QrCode, X, Copy, Check, Download, Sparkles, Tag, ShieldCheck } from 'lucide-react';
 import { getVoucherQrCodeUrl } from '@/lib/voucherQr';
 import { formatPrice } from '@/lib/utils';
@@ -81,9 +82,12 @@ export const VoucherQrViewModal: React.FC<VoucherQrViewModalProps> = ({
 
           {/* QR Code Image Card */}
           <div className="p-3.5 bg-white rounded-2xl border-2 border-neutral-900/10 shadow-lg mb-4 relative group">
-            <img
+            <Image
               src={qrImageUrl}
               alt={`QR Code ${voucher.code}`}
+              width={192}
+              height={192}
+              unoptimized
               className="w-48 h-48 object-contain rounded-lg"
             />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

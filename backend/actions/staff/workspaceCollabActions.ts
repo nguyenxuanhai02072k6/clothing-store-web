@@ -262,8 +262,8 @@ export async function reactToPostAction(postId: string, reaction: 'like' | 'hear
     const post = await prisma.workspacePost.findUnique({ where: { id: postId } });
     if (!post) return false;
 
-    let likedBy: string[] = JSON.parse(post.likedBy);
-    let heartedBy: string[] = JSON.parse(post.heartedBy);
+    const likedBy: string[] = JSON.parse(post.likedBy);
+    const heartedBy: string[] = JSON.parse(post.heartedBy);
 
     if (reaction === 'like') {
       const idx = likedBy.indexOf(targetUserId);

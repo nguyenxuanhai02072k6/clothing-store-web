@@ -161,9 +161,9 @@ export default function CampaignCopilot({ currentUser, usersList }: CampaignCopi
           clearInterval(interval);
           
           // Generate final metrics
-          let ctr = 30 + Math.random() * 30; // 30% - 60%
-          let conv = 5 + Math.random() * 15;  // 5% - 20%
-          let rev = sendCount * conv * 0.01 * (350000 + Math.random() * 500000);
+          const ctr = 30 + Math.random() * 30; // 30% - 60%
+          const conv = 5 + Math.random() * 15;  // 5% - 20%
+          const rev = sendCount * conv * 0.01 * (350000 + Math.random() * 500000);
 
           const newCampaign: Campaign = {
             id: `camp-${Date.now()}`,

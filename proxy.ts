@@ -5,7 +5,7 @@ import { globalIpLimiter } from './backend/security/rateLimiter';
 
 const STAFF_ROLES = ['director', 'manager', 'accountant', 'cskh', 'employee', 'cashier', 'stocker'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 1. Skip Rate Limiter for Next.js internal prefetch requests & RSC payloads

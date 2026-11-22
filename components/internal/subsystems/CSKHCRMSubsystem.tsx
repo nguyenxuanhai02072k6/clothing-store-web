@@ -70,7 +70,6 @@ export const CSKHCRMSubsystem: React.FC<CSKHCRMSubsystemProps> = ({
 
     const updated = [newTk, ...cskhTickets];
     setCskhTickets(updated);
-    localStorage.setItem('novyn_cskh_tickets', JSON.stringify(updated));
 
     createCSKHTicketAction({
       customerName: newTicketCustomerName,
@@ -81,7 +80,6 @@ export const CSKHCRMSubsystem: React.FC<CSKHCRMSubsystemProps> = ({
         if (res.success && res.data) {
           const synced = updated.map((t) => (t.id === newTk.id ? { ...t, id: res.data!.id } : t));
           setCskhTickets(synced);
-          localStorage.setItem('novyn_cskh_tickets', JSON.stringify(synced));
         }
       })
       .catch((err) => console.error('Error persisting CSKH ticket:', err));
@@ -106,7 +104,6 @@ export const CSKHCRMSubsystem: React.FC<CSKHCRMSubsystemProps> = ({
   const handleResolveTicket = (id: string) => {
     const updated = cskhTickets.map((t) => (t.id === id ? { ...t, status: 'resolved' as const } : t));
     setCskhTickets(updated);
-    localStorage.setItem('novyn_cskh_tickets', JSON.stringify(updated));
 
     updateCSKHTicketStatusAction(id, 'resolved').catch((err) => {
       console.error('Error updating ticket in DB:', err);

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import {
   Search,
   ShoppingBag,
@@ -272,7 +273,13 @@ export default function CommandPalette({
                     className="flex items-center gap-2.5 p-2 rounded-xl border border-neutral-200/80 hover:border-neutral-900 hover:bg-neutral-50/80 transition-all text-left"
                   >
                     <div className="w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 shrink-0 relative border border-neutral-200">
-                      <img src={prod.images?.[0] || ''} alt={prod.name} className="w-full h-full object-cover" />
+                      {prod.images?.[0] ? (
+                        <Image src={prod.images[0]} alt={prod.name} width={40} height={40} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-neutral-200 flex items-center justify-center text-[10px] text-neutral-400 font-bold">
+                          SP
+                        </div>
+                      )}
                     </div>
                     <div className="min-w-0 flex-grow">
                       <span className="font-bold text-neutral-900 text-xs block truncate">{prod.name}</span>

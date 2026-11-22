@@ -7,14 +7,12 @@ interface AccountAuthFormProps {
   login: (email: string, pass: string) => Promise<boolean>;
   register: (name: string, email: string, pass: string, role: any, branch?: string, phone?: string) => Promise<boolean>;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
-  onSuccessRedirect: (email: string) => void;
 }
 
 export default function AccountAuthForm({
   login,
   register,
-  showToast,
-  onSuccessRedirect
+  showToast
 }: AccountAuthFormProps) {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -26,9 +24,7 @@ export default function AccountAuthForm({
     e.preventDefault();
     if (email && password) {
       const success = await login(email, password);
-      if (success) {
-        onSuccessRedirect(email);
-      }
+      if (success) setPassword('');
     }
   };
 
@@ -88,7 +84,7 @@ export default function AccountAuthForm({
               <input
                 type="email"
                 required
-                placeholder="customer@novynwear.com"
+                placeholder="ban@vidu.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:border-brand-accent text-xs font-medium text-brand-text bg-white"
@@ -141,7 +137,7 @@ export default function AccountAuthForm({
               <input
                 type="email"
                 required
-                placeholder="customer@novynwear.com"
+                placeholder="ban@vidu.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:border-brand-accent text-xs font-medium text-brand-text bg-white"

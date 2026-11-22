@@ -165,16 +165,21 @@ export default function InternalDashboardPage() {
     }
   }, [currentUser, isAuthLoaded, router]);
 
-  // KPI calculations for Overview Tab
+  // Dynamic KPI calculations for Overview Tab
   const completedOrders = allOrders.filter((o: any) => o.status === 'completed');
   const totalRevenue = completedOrders.reduce((sum: number, o: any) => sum + o.total, 0);
   const completedOrdersCount = completedOrders.length;
-  const conversionRate = '3.4%';
+  const totalOrdersCount = allOrders.length;
+  const conversionRate = totalOrdersCount > 0 ? `${((completedOrdersCount / totalOrdersCount) * 100).toFixed(1)}%` : '0.0%';
+
   const totalExpenses = expensesList.reduce((sum: number, e: any) => sum + e.amount, 0);
   const totalSalaries = payrollRecords.filter((p: any) => p.status === 'paid').reduce((sum: number, p: any) => sum + p.salary, 0);
-  const totalCOGS = totalRevenue * 0.4;
-  const totalImportCost = restockRecords.filter((r: any) => r.status === 'approved').reduce((sum: number, r: any) => sum + (r.cost || 0), 0);
-  const netProfit = totalRevenue - totalCOGS - totalExpenses - totalImportCost - totalSalaries;
+
+  // Dynamic Cost of Goods Sold (COGS) derived from actual approved restock costs
+  const approvedRestocks = restockRecords.filter((r: any) => r.status === 'approved');
+  const totalImportCost = approvedRestocks.reduce((sum: number, r: any) => sum + (r.cost || 0), 0);
+  const totalCOGS = totalImportCost > 0 ? totalImportCost : Math.round(totalRevenue * 0.35);
+  const netProfit = totalRevenue - totalCOGS - totalExpenses - totalSalaries;
 
   const productSales: Record<string, number> = {};
   completedOrders.forEach((o: any) => {
@@ -183,7 +188,7 @@ export default function InternalDashboardPage() {
       productSales[name] = (productSales[name] || 0) + item.quantity;
     });
   });
-  let bestSellerName = 'Áo Thun Premium';
+  let bestSellerName = 'Chưa có giao dịch';
   let maxSalesQty = 0;
   Object.entries(productSales).forEach(([name, qty]) => {
     if (qty > maxSalesQty) {
@@ -192,13 +197,15 @@ export default function InternalDashboardPage() {
     }
   });
 
+  const returnedOrdersCount = allOrders.filter((o: any) => o.status === 'cancelled' || o.status === 'refunded').length;
+  const returnRate = totalOrdersCount > 0 ? `${((returnedOrdersCount / totalOrdersCount) * 100).toFixed(1)}%` : '0.0%';
+
   const lowStockCount = productsList.filter((p: any) => p.stock < 5).length;
   const pendingOrdersCount = allOrders.filter((o: any) => o.status === 'pending').length;
   const pendingHrCount =
     (leaveRequests || []).filter((r: any) => r.status === 'pending').length +
     (shiftRequests || []).filter((r: any) => r.status === 'pending').length;
   const announcementsCount = (announcements || []).length;
-  const returnRate = '1.2%';
 
   if (!isAuthLoaded || !currentUser || currentUser.role === 'customer') {
     return (

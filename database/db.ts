@@ -22,8 +22,7 @@ function resolveDatabaseUrl(): string {
   const isServerless = Boolean(
     process.env.VERCEL ||
     process.env.AWS_LAMBDA_FUNCTION_NAME ||
-    process.env.NETLIFY ||
-    process.env.NODE_ENV === 'production'
+    process.env.NETLIFY
   );
 
   if (isServerless && (!envUrl || envUrl.includes('dev.db') || envUrl.includes('prod.db') || envUrl.startsWith('file:'))) {

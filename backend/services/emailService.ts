@@ -64,7 +64,7 @@ export interface PaymentSuccessEmailParams {
   transactionNo: string;
 }
 
-const DEFAULT_SENDER = process.env.EMAIL_FROM || 'NOVYN WEAR <orders@novynwear.com>';
+const DEFAULT_SENDER = process.env.EMAIL_FROM || process.env.SYSTEM_FROM_EMAIL || 'NOVYN WEAR <orders@novynwear.com>';
 
 /**
  * Low-level universal email sender

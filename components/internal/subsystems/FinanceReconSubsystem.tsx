@@ -62,9 +62,9 @@ export default function FinanceReconSubsystem({
       }
     });
 
-    let salaries = usersList.reduce((sum, u) => sum + (u.salary || 0), 0);
-    let expenses = expensesList.reduce((sum, e) => sum + (e.amount || 0), 0);
-    let restock = restockRecords.reduce((sum, r) => sum + (r.cost || 0), 0);
+    const salaries = usersList.reduce((sum, u) => sum + (u.salary || 0), 0);
+    const expenses = expensesList.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const restock = restockRecords.reduce((sum, r) => sum + (r.cost || 0), 0);
     const ebt = totalRev - totalCogs - salaries - expenses - restock;
     const tax = ebt > 0 ? ebt * 0.2 : 0;
     const net = ebt - tax;

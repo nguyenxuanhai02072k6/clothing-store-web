@@ -300,7 +300,7 @@ export default function MultiCartPOS({
   };
 
   // Checkout Handler
-  const handleCheckout = () => {
+  const handleCheckout = useCallback(() => {
     if (activeTab.items.length === 0) {
       showToast('Giỏ hàng POS đang trống!', 'error');
       return;
@@ -387,7 +387,23 @@ export default function MultiCartPOS({
         cashTendered: 0
       });
     }
-  };
+  }, [
+    activeTab,
+    activeTabId,
+    cartTabs,
+    cashTendered,
+    changeDue,
+    currentUser,
+    finalTotal,
+    posHistory,
+    promoDiscountAmt,
+    setCrmClients,
+    setPosHistory,
+    showToast,
+    subtotal,
+    updateActiveTab,
+    vipDiscountAmt
+  ]);
 
   // Hotkeys Listener (F1 - F10, Ctrl+1..5)
   useEffect(() => {
@@ -434,7 +450,7 @@ export default function MultiCartPOS({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, cartTabs, posHistory, finalTotal]);
+  }, [activeTab, cartTabs, posHistory, finalTotal, handleCheckout, showToast]);
 
   return (
     <div className="space-y-4">

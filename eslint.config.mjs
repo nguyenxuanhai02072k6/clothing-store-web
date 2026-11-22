@@ -9,10 +9,10 @@ const eslintConfig = defineConfig([
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "react-hooks/set-state-in-effect": "off",
-      "prefer-const": "off",
+      "prefer-const": "warn",
       "@typescript-eslint/no-unused-vars": "off",
-      "react-hooks/rules-of-hooks": "off",
-      "react-hooks/exhaustive-deps": "off",
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
       "react-hooks/purity": "off",
       "react/no-unescaped-entities": "off",
     }

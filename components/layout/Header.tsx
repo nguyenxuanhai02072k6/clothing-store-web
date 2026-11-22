@@ -70,9 +70,7 @@ export const Header: React.FC = () => {
 
   // Close mobile menu on route change
   useEffect(() => {
-    if (isOpen) {
-      setIsOpen(false);
-    }
+    setIsOpen(false);
   }, [pathname]);
 
   // Lock body scroll when any menu/drawer is open

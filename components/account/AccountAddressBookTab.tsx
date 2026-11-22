@@ -95,7 +95,7 @@ export default function AccountAddressBookTab({
 
   const handleDeleteAddress = (id: string) => {
     const target = addresses.find(a => a.id === id);
-    let updated = addresses.filter(a => a.id !== id);
+    const updated = addresses.filter(a => a.id !== id);
     if (target?.isDefault && updated.length > 0) {
       updated[0].isDefault = true;
     }

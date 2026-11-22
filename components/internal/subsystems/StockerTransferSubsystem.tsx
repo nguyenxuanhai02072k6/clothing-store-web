@@ -77,7 +77,6 @@ export const StockerTransferSubsystem: React.FC<StockerTransferSubsystemProps> =
 
       const updated = [res.data, ...transfers.filter((t) => t.id !== res.data.id)];
       setTransfers(updated);
-      localStorage.setItem('novyn_stock_transfers', JSON.stringify(updated));
 
       // Immediately deduct source stock
       restockBranchProduct(newTransferProductId, -newTransferQty, newTransferSize, newTransferFrom);
@@ -105,7 +104,6 @@ export const StockerTransferSubsystem: React.FC<StockerTransferSubsystemProps> =
 
       const updated = transfers.map((item) => (item.id === transferId ? res.data : item));
       setTransfers(updated);
-      localStorage.setItem('novyn_stock_transfers', JSON.stringify(updated));
 
       // Add to destination branch stock
       restockBranchProduct(t.productId, t.quantity, t.size, t.toBranch);
@@ -132,7 +130,6 @@ export const StockerTransferSubsystem: React.FC<StockerTransferSubsystemProps> =
 
       const updated = transfers.map((item) => (item.id === transferId ? res.data : item));
       setTransfers(updated);
-      localStorage.setItem('novyn_stock_transfers', JSON.stringify(updated));
 
       // Rollback stock to source branch
       restockBranchProduct(t.productId, t.quantity, t.size, t.fromBranch);

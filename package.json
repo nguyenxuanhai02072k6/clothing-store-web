@@ -10,6 +10,7 @@
     "db:push": "npx prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "npx prisma studio",
+    "test": "npx tsx scripts/run_all_tests.ts && npx tsx scripts/test_nav_registry.ts",
     "lint": "eslint"
   },
   "dependencies": {

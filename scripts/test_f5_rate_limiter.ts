@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { middleware } from '../middleware';
+import { proxy } from '../proxy';
 import { globalIpLimiter } from '../backend/security/rateLimiter';
 import { loginAction } from '../backend/actions/authActions';
 
@@ -29,7 +29,7 @@ async function runF5RateLimiterTests() {
       }
     });
 
-    const res = await middleware(req);
+    const res = await proxy(req);
     if (res.status === 429) {
       blockedCount++;
       if (!sampleBlockedResponse) sampleBlockedResponse = res;
@@ -67,7 +67,7 @@ async function runF5RateLimiterTests() {
       'accept': 'application/json'
     }
   });
-  const jsonRes = await middleware(jsonReq);
+  const jsonRes = await proxy(jsonReq);
   const jsonData = await jsonRes.json();
   if (jsonRes.status === 429 && jsonData.error === 'Too Many Requests') {
     console.log(`   ✅ Yêu cầu API nhận được JSON 429 chuẩn: "${jsonData.message}".`);
@@ -83,7 +83,7 @@ async function runF5RateLimiterTests() {
       'accept': 'text/html'
     }
   });
-  const innocentRes = await middleware(innocentReq);
+  const innocentRes = await proxy(innocentReq);
   if (innocentRes.status !== 429) {
     console.log('   ✅ Người dùng bình thường truy cập mượt mà, không hề bị chặn lây.');
   } else {
@@ -94,7 +94,7 @@ async function runF5RateLimiterTests() {
   console.log('\n5. Kiểm thử hàm băm mật khẩu bất đồng bộ (Argon2id Non-blocking Threadpool)...');
   const startArgon2 = Date.now();
   try {
-    await loginAction('admin@novynwear.com', 'NovynAdmin@2026!');
+    await loginAction('rate-limiter-test@invalid.example', 'not-a-real-password');
   } catch {}
   const duration = Date.now() - startArgon2;
   console.log(`   ✅ Async Argon2id password verification thực thi hoàn toàn bất đồng bộ (${duration}ms) không gây giật lag máy chủ.`);

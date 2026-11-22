@@ -12,16 +12,17 @@ export default function ProductViewer3D({ modelType = 'dress', colorHex = '#D7C4
   const containerRef = useRef<HTMLDivElement>(null);
   const colorRef = useRef(colorHex);
 
-  // Sync colorHex ref
+  // Sync colorHex ref for smooth real-time lerp transitions in animation loop
   useEffect(() => {
     colorRef.current = colorHex;
   }, [colorHex]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    const width = containerRef.current.clientWidth;
-    const height = containerRef.current.clientHeight;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
 
     // 1. Setup Scene, Camera, Renderer
     const scene = new THREE.Scene();
@@ -31,7 +32,7 @@ export default function ProductViewer3D({ modelType = 'dress', colorHex = '#D7C4
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    containerRef.current.appendChild(renderer.domElement);
+    container.appendChild(renderer.domElement);
 
     // 2. Create Model Group
     const modelGroup = new THREE.Group();
@@ -39,7 +40,7 @@ export default function ProductViewer3D({ modelType = 'dress', colorHex = '#D7C4
 
     // Main material that updates color
     const customMaterial = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(colorHex),
+      color: new THREE.Color(colorRef.current),
       roughness: 0.2,
       metalness: 0.1,
       clearcoat: 0.8,
@@ -232,8 +233,8 @@ export default function ProductViewer3D({ modelType = 'dress', colorHex = '#D7C4
       canvas.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
 
-      if (containerRef.current && renderer.domElement) {
-        containerRef.current.removeChild(renderer.domElement);
+      if (container && renderer.domElement && container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
       }
 
       scene.traverse((object) => {
@@ -248,7 +249,7 @@ export default function ProductViewer3D({ modelType = 'dress', colorHex = '#D7C4
       });
       renderer.dispose();
     };
-  }, []);
+  }, [modelType]);
 
   return (
     <div 
